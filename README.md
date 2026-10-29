@@ -18,6 +18,14 @@
 Kiumi 的渲染器是**纯函数**：`(文档树, 模板骨架) → HTML 字符串`，无 DOM、无网络、无随机。
 于是同一份输入在 CLI、MCP、服务端、前端产出的字节完全一致，可以用 golden-file 快照锁住每次改动。
 
+## 界面
+
+![模板库与画布](docs/images/workbench-card.png)
+
+![布局模板](docs/images/workbench-layout.png)
+
+![素材库](docs/images/assets-panel.png)
+
 ## 快速开始
 
 ```bash
