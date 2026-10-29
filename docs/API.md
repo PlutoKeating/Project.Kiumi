@@ -38,11 +38,23 @@ Base: `/api`。响应统一信封：
 
 `/api/render` 与 `/api/validate` **无状态、无副作用**，可安全重试。
 
+### 账号
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/me` | 当前会话 `{ user, loginEnabled }`；未登录时 `user` 为 `null` |
+| GET | `/auth/login?next=/…` | 跳转到账号服务，走授权码 + PKCE |
+| GET | `/auth/callback` | 换取令牌，校验签名后写会话 cookie |
+| GET | `/auth/logout` | 清会话后回到首页 |
+
+会话存在 `HttpOnly` cookie 里，浏览器拿不到令牌。文稿按账号分开：未登录时文档接口返回
+`401 LOGIN_REQUIRED`，登录后只能看到自己的。
+
 ### 文档
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/documents` | 列表（轻量，不含 blocks） |
+| GET | `/api/documents` | 列表（轻量，不含 blocks），仅限当前账号 |
 | POST | `/api/documents` | 新建，body `{ title, blocks? }` |
 | GET | `/api/documents/:id` | 完整文档 |
 | PATCH | `/api/documents/:id` | 局部更新 `{ title?, blocks? }` |
