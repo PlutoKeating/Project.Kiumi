@@ -1,0 +1,19 @@
+{
+  "name": "@kiumi/catalog",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Crawler and normalizer for the template catalog",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@kiumi/core": "workspace:*"
+  }
+}
