@@ -38,6 +38,9 @@ export function skeletonUrl(cdn: string, tplId: string): string {
 export function assetUrl(raw: string, assetHost = DEFAULT_ASSET_HOST): string {
   if (raw.startsWith('//')) return `https:${raw}`;
   if (raw.startsWith('/')) return `${assetHost}${raw}`;
+  // Upgrade plain http so every asset costs one request instead of a redirect,
+  // and so http/https variants of the same file collapse into one entry.
+  if (raw.startsWith('http://')) return `https://${raw.slice('http://'.length)}`;
   return raw;
 }
 

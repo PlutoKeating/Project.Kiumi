@@ -151,6 +151,25 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     return envelope(await kiumi.search(q, limit ? Number(limit) : 20));
   });
 
+  app.get('/api/assets', async (request) => {
+    const { q, limit, offset } = request.query as {
+      q?: string;
+      limit?: string;
+      offset?: string;
+    };
+    const entries = Object.entries(await manifest())
+      .filter(([url]) => !q || url.toLowerCase().includes(q.toLowerCase()))
+      .sort(([a], [b]) => a.localeCompare(b));
+    const start = offset ? Number(offset) : 0;
+    const size = limit ? Number(limit) : 60;
+    const items = entries.slice(start, start + size).map(([url, entry]) => ({
+      url,
+      path: entry.path,
+      bytes: entry.bytes ?? 0,
+    }));
+    return { ok: true, data: items, meta: { total: entries.length } };
+  });
+
   app.get('/api/slots', async (request) => {
     const { id } = request.query as { id?: string };
     if (!id) throw new ApiError('INVALID_BODY', 'missing ?id=');

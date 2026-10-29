@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { copyRichHtml, renderDocument, uploadImage } from './api.ts';
+import { AssetsPanel } from './components/AssetsPanel.tsx';
 import { Canvas } from './components/Canvas.tsx';
 import { Inspector } from './components/Inspector.tsx';
 import { LeftRail } from './components/LeftRail.tsx';
@@ -145,13 +146,13 @@ export function App() {
         <LeftRail active={rail} onSelect={setRail} />
         {rail === 'templates' ? (
           <TemplateBrowser />
+        ) : rail === 'assets' ? (
+          <AssetsPanel />
         ) : (
           <section className="w-[360px] shrink-0 bg-ink-700 text-mist-200/60 flex flex-col items-center justify-center gap-2">
             <span className="text-3xl">◫</span>
             <p className="text-[12px]">
-              {rail === 'assets'
-                ? '图片素材库待接入（可先用「上传图片」）'
-                : rail === 'favorites'
+              {rail === 'favorites'
                   ? '收藏功能待接入'
                   : rail === 'clipboard'
                     ? '剪贴板待接入'

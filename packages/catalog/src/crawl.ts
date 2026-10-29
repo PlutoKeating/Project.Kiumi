@@ -12,6 +12,7 @@ import {
   type RawTemplateItem,
 } from './normalize.ts';
 import {
+  assetUrl,
   DEFAULT_CDN,
   DEFAULT_ORIGIN,
   PUBLIC_SOURCES,
@@ -235,7 +236,10 @@ export async function crawlAssets(options: CrawlAssetsOptions): Promise<{
   }
 
   const urls = collectUrls(records).slice(0, options.limit && options.limit > 0 ? options.limit : undefined);
-  const existing = (await readJson<AssetManifest>(paths.assetsManifest)) ?? {};
+  const rawExisting = (await readJson<AssetManifest>(paths.assetsManifest)) ?? {};
+  // Collapse http/https variants (and their redirect cost) into one key.
+  const existing: AssetManifest = {};
+  for (const [url, entry] of Object.entries(rawExisting)) existing[assetUrl(url)] = entry;
   let flushChain: Promise<unknown> = Promise.resolve();
   const result = await mirrorAssets(urls, {
     assetsDir: paths.assets,
