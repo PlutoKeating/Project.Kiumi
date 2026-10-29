@@ -46,3 +46,21 @@ export function rewriteHtmlAssets(html:string, resolve:(url:string)=>string|null
   }
   return root.toString();
 }
+
+/** Each inserted instance owns its animation IDs, including click triggers. */
+export function scopeSvgIds(html:string, blockId:string):string {
+  if(!html.includes('<svg'))return html;
+  const root=parse(html),prefix=`k${blockId.replace(/[^a-zA-Z0-9_-]/g,'')}_`;
+  const ids=new Map<string,string>();
+  for(const el of root.querySelectorAll('[id]')) {const id=el.getAttribute('id')!;ids.set(id,prefix+id);el.setAttribute('id',prefix+id);}
+  for(const el of root.querySelectorAll('*'))for(const attr of ['href','xlink:href','begin','end','style','fill','filter','mask','clip-path']) {
+    let value=el.getAttribute(attr);if(!value)continue;
+    for(const [old,next] of ids) {
+      if(value===`#${old}`)value=`#${next}`;
+      value=value.split(`url(#${old})`).join(`url(#${next})`);
+      value=value.split(';').map(part=>part.trim().startsWith(old+'.')?part.replace(old+'.',next+'.'):part).join(';');
+    }
+    el.setAttribute(attr,value);
+  }
+  return root.toString();
+}

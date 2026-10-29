@@ -3,7 +3,7 @@
 ## 前置
 
 - Node.js ≥ 22.6（本项目直接运行 `.ts`，依赖 Node 的 type stripping）
-- pnpm ≥ 9
+- pnpm 12.11.2（与 packageManager 一致）
 
 ```bash
 node -v && pnpm -v
@@ -120,7 +120,7 @@ node apps/server/src/index.ts
 pnpm --filter @kiumi/web dev
 ```
 
-浏览器打开 http://127.0.0.1:5180 。
+浏览器打开 http://127.0.0.1:5180 。本地 Fastify 用于模板和排版开发；完整登录、团队与云端文稿链路由生产 Worker/D1 提供，部署见 DEPLOY_CLOUDFLARE.md。
 
 ## Markdown 转稿
 
@@ -140,7 +140,7 @@ node --test packages/mcp/test/smoke.test.ts
 
 ```
 data/
-├── catalog/            归一化结果（提交入库）
+├── catalog/            归一化结果（gitignore）
 │   ├── index.json      轻量索引
 │   ├── rooms.json      分类
 │   ├── pack.json       tplId -> 骨架 HTML
@@ -151,7 +151,7 @@ data/
 └── uploads/            上传图片
 ```
 
-`data/assets` 与 `data/raw` 用命令复现，不入库。catalog 入库以便离线开发与 diff。
+`data/assets` 与 `data/raw` 用命令复现，不入库。整个 data 目录不入库，开发时使用本机数据或重新抓取。
 
 ## 常见问题
 

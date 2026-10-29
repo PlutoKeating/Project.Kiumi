@@ -181,18 +181,18 @@ export default {
       const workspace = await workspaceRoutes(request, env);
       if (workspace) return workspace;
       if (path.startsWith('/uploads/')) return await privateUpload(request, env);
-      if (path === '/api/rooms') return rooms(env);
-      if (path === '/api/templates') return templates(env, url);
-      if (path === '/api/template') return template(env, url);
-      if (path === '/api/template/preview') return preview(env, url);
-      if (path === '/api/slots') return slots(env, url);
-      if (path === '/api/search') return search(env, url);
-      if (path === '/api/render' && request.method === 'POST') return render(env, request);
-      if (path === '/api/validate' && request.method === 'POST') return validate(request);
-      if (path === '/api/fill' && request.method === 'POST') return fill(env, request);
-      if (path === '/api/assets') return assetsList(env, url);
-      if (path === '/api/assets/coverage') return coverage(env);
-      if (path.startsWith('/assets/')) return serveR2(env, `assets/${path.slice('/assets/'.length)}`);
+      if (path === '/api/rooms') return await rooms(env);
+      if (path === '/api/templates') return await templates(env, url);
+      if (path === '/api/template') return await template(env, url);
+      if (path === '/api/template/preview') return await preview(env, url);
+      if (path === '/api/slots') return await slots(env, url);
+      if (path === '/api/search') return await search(env, url);
+      if (path === '/api/render' && request.method === 'POST') return await render(env, request);
+      if (path === '/api/validate' && request.method === 'POST') return await validate(request);
+      if (path === '/api/fill' && request.method === 'POST') return await fill(env, request);
+      if (path === '/api/assets') return await assetsList(env, url);
+      if (path === '/api/assets/coverage') return await coverage(env);
+      if (path.startsWith('/assets/')) return await serveR2(env, `assets/${path.slice('/assets/'.length)}`);
       if (path === '/assets/__missing.svg') return missingPlaceholder();
 
       if (path.startsWith('/api/')) return fail('NOT_FOUND', '接口不存在', 404);
@@ -250,27 +250,11 @@ async function rooms(env: Env): Promise<Response> {
 }
 
 async function templates(env: Env, url: URL): Promise<Response> {
-  const room = url.searchParams.get('room') ?? undefined;
-  const q = url.searchParams.get('q')?.toLowerCase();
-  const hasSvg = url.searchParams.get('hasSvg');
-  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 50) || 50));
-  const offset = Math.max(0, Number(url.searchParams.get('offset') ?? 0) || 0);
-
-  const pool = room?.startsWith('modern:') ? await loadModern(env) : await loadIndex(env);
-  const filtered = pool.filter((entry) => {
-    if (room && entry.room !== room) return false;
-    if (hasSvg === 'true' && !entry.hasSvg) return false;
-    if (q && !`${entry.displayName} ${entry.atomTplId}`.toLowerCase().includes(q)) return false;
-    return true;
-  });
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      data: filtered.slice(offset, offset + limit),
-      meta: { total: filtered.length, count: Math.min(limit, filtered.length) },
-    }),
-    { headers: { 'content-type': 'application/json; charset=utf-8' } },
-  );
+  const params=new URLSearchParams();
+  for(const name of ['room','q','hasSvg','limit','offset']){const value=url.searchParams.get(name);if(value)params.set(name,value);}
+  const response=await readObject(env,`catalog/query?${params}`);
+  if(!response)return fail('CATALOG_UNAVAILABLE','模板服务暂时不可用',503);
+  return new Response(response.body,{headers:{'content-type':'application/json','cache-control':'public, max-age=60'}});
 }
 
 async function template(env: Env, url: URL): Promise<Response> {

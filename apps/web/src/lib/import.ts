@@ -22,14 +22,15 @@ export async function importHtml(source:string,baseUrl?:string):Promise<Block[]>
   try {
     await Promise.race([loaded,new Promise<void>(resolve=>setTimeout(resolve,3000))]);
     const root=frame.contentDocument!.body, win=frame.contentWindow!;
-    const props=['color','background-color','background-image','font-size','font-family','font-weight','font-style','text-align','text-decoration','line-height','letter-spacing','padding','margin','border','border-radius','width','max-width','height','display','vertical-align','white-space','list-style-type','overflow','position','top','left','right','bottom','transform'];
+    const props=['color','background-color','background-image','font-size','font-family','font-weight','font-style','text-align','text-decoration','line-height','letter-spacing','padding','margin','border','border-radius','display','vertical-align','white-space','list-style-type','overflow','position','top','left','right','bottom','transform'];
     const changes:[Element,string][]=[];
     for(const el of root.querySelectorAll('*')) {
       if(el.closest('svg'))continue;
       const computed=win.getComputedStyle(el);
-      changes.push([el,props.map(p=>`${p}:${computed.getPropertyValue(p)}`).join(';')]);
+      changes.push([el,(el.getAttribute('style')||'')+';'+props.map(p=>`${p}:${computed.getPropertyValue(p)}`).join(';')+';max-width:100%']);
     }
     for(const [el,style] of changes)el.setAttribute('style',style);
+    for(const svg of root.querySelectorAll('svg'))svg.style.maxWidth='100%';
     return [{kind:'library',id:crypto.randomUUID(),tplId:'imported:html',matrix:[],html:cleanHtml(root.innerHTML)}];
   } finally {frame.remove();}
 }

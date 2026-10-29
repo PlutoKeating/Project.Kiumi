@@ -5,6 +5,8 @@ import { useStore } from '../store.ts';
 
 export function Inspector() {
   const doc = useStore((state) => state.doc);
+  const selectedIds = useStore(state=>state.selectedIds);
+  const batch = useStore(state=>state.batch);
   const selected = useStore((state) => state.selected);
   const issues = useStore((state) => state.issues);
   const select = useStore((state) => state.select);
@@ -34,6 +36,7 @@ export function Inspector() {
         </p>
       </div>
 
+      {selectedIds.length>1&&<div className="flex gap-2 px-3 py-2 text-xs border-b border-mist-200"><span>{selectedIds.length} 块</span><button onClick={()=>batch('copy')}>复制</button><button onClick={()=>batch('duplicate')}>复制一份</button><button onClick={()=>batch('delete')}>删除</button></div>}
       <div className="max-h-[240px] overflow-y-auto border-b border-mist-200">
         {doc.blocks.map((item, index) => (
           <div
@@ -59,11 +62,11 @@ export function Inspector() {
               setDragOver(null);
             }}
             className={`flex items-center gap-2 px-3 py-2 text-[12px] cursor-grab border-l-2 ${
-              selected === index
+              (selected === index || selectedIds.includes(item.id))
                 ? 'bg-accent-500/10 border-accent-500'
                 : 'border-transparent hover:bg-mist-50'
             } ${dragOver === index ? 'outline outline-1 outline-accent-400/60' : ''}`}
-            onClick={() => select(index)}
+            onClick={event => select(index,event.ctrlKey||event.metaKey||event.shiftKey)}
           >
             <span className="text-ink-600/40 w-4 text-right">{index + 1}</span>
             <span className="flex-1 truncate text-ink-800">

@@ -1,8 +1,7 @@
-// kiumi-data: read-only HTTP server for the Kiumi catalog and asset mirror.
-// No dependencies: runs on node:alpine, binds 0.0.0.0 inside the container and
-// is published only to 127.0.0.1 on the host.
+// kiumi-data: read-only catalog, controlled uploads and WeChat image processing.
+// Runs on Node with sharp, reachable through the private data-service boundary.
 import { createReadStream } from 'node:fs';
-import { stat, mkdir, writeFile, rename, unlink } from 'node:fs/promises';
+import { stat, mkdir, writeFile, rename, unlink, readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import path from 'node:path';
@@ -11,6 +10,14 @@ import { wechatAction, fetchPublicImage } from './wechat.mjs';
 const ROOT = path.resolve(process.env.KIUMI_DATA_DIR ?? '/data');
 const KEY = process.env.KIUMI_DATA_KEY ?? '';
 const PORT = Number(process.env.KIUMI_DATA_PORT ?? 8080);
+let catalogCache;
+async function catalogEntries() {
+  if(catalogCache && catalogCache.until>Date.now())return catalogCache.entries;
+  const legacy=JSON.parse(await readFile(path.join(ROOT,'catalog/index.json'),'utf8'));
+  const modern=JSON.parse(await readFile(path.join(ROOT,'catalog/modern-index.json'),'utf8')).map(item=>({...item,room:`modern:${item.room}`}));
+  catalogCache={entries:[...legacy,...modern],until:Date.now()+300_000};
+  return catalogCache.entries;
+}
 
 const MIME = {
   '.json': 'application/json; charset=utf-8',
@@ -41,6 +48,19 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/health') return send(res, 200, { ok: true, files: undefined });
 
   if (!authorized(req)) return send(res, 401, { ok: false, error: 'unauthorized' });
+
+  if(url.pathname==='/catalog/query' && req.method==='GET') {
+    try {
+      const room=url.searchParams.get('room'),query=(url.searchParams.get('q')||'').toLowerCase();
+      const limit=Math.min(100,Math.max(1,Number(url.searchParams.get('limit'))||50)),offset=Math.max(0,Number(url.searchParams.get('offset'))||0);
+      const entries=await catalogEntries(),seen=new Set();
+      const filtered=entries.filter(item=>{
+        if(item.room.startsWith('booklet-pg:') || (room&&item.room!==room) || (url.searchParams.get('hasSvg')==='true'&&!item.hasSvg) || (query&&!`${item.displayName} ${item.atomTplId}`.toLowerCase().includes(query)))return false;
+        if(seen.has(item.atomTplId))return false;seen.add(item.atomTplId);return true;
+      });
+      return send(res,200,{ok:true,data:filtered.slice(offset,offset+limit),meta:{total:filtered.length,count:Math.min(limit,Math.max(0,filtered.length-offset))}},{'cache-control':'public, max-age=300'});
+    } catch {return send(res,503,{ok:false,error:'catalog unavailable'});}
+  }
 
   if(['/wechat','/import'].includes(url.pathname) && req.method==='POST') {
     try {

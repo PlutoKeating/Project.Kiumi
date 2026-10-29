@@ -32,7 +32,7 @@ export function WechatPanel() {
         <div className="text-sm mb-2">封面图片</div><div className="grid grid-cols-6 gap-2 mb-3 max-h-[200px] overflow-y-auto">{images.map(i=><button key={i.id} className={`rounded border-2 overflow-hidden ${cover===i.url?'border-accent-500':'border-transparent'}`} onClick={()=>{setCover(i.url);setResult(null);setRequestId(crypto.randomUUID());}}><img src={i.url} alt={i.name} className="w-full h-20 object-cover"/></button>)}</div>
         <label className={button+' inline-block cursor-pointer mb-5'}>上传封面<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden" disabled={busy} onChange={e=>{const f=e.target.files?.[0];if(f)void run(async()=>{const uploaded=await api.uploadImage(f);setCover(uploaded.url);await reload();});}}/></label>
         <div className="flex gap-2 mb-5"><button disabled={busy||!account||!cover||Boolean(result)} className={button+' bg-accent-500 text-white hover:bg-accent-400'} onClick={()=>void run(async()=>{
-          const saved=useStore.getState();await saved.save();const doc=useStore.getState().doc;
+          const saved=useStore.getState();if(!await saved.save())throw new Error('文稿保存失败，请重试后再同步');const doc=useStore.getState().doc;
           if(doc.id.startsWith('local-'))throw new Error('请先保存稿件到当前团队');
           const value=await api.request<NonNullable<typeof result>>('/api/wechat/draft',{method:'POST',body:JSON.stringify({documentId:doc.id,accountId:account,cover,requestId})});
           setResult(value);

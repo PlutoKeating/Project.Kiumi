@@ -3,7 +3,7 @@ import { renderComps, type SkeletonMap } from './hydrate.ts';
 import { utf8Bytes } from './style.ts';
 import { normalizeMatrix } from './model.ts';
 import type { KiumiDocument, RenderResult, Warning } from './types.ts';
-import { sanitizeHtml } from './html.ts';
+import { sanitizeHtml, scopeSvgIds } from './html.ts';
 
 const EMPTY_SKELETONS: SkeletonMap = {};
 
@@ -44,7 +44,7 @@ export function renderDocument(
   for (const block of document.blocks) {
     if (block.kind === 'library') {
       if (typeof block.html === 'string') {
-        parts.push(sanitizeHtml(block.html));
+        parts.push(scopeSvgIds(block.html,block.id));
         continue;
       }
       const result = renderMatrix(block.matrix, skeletons, options);
@@ -60,7 +60,7 @@ export function renderDocument(
             : `served recorded HTML for ${block.tplId} (SVG is synthesised upstream)`,
         });
       }
-      if (html) parts.push(html);
+      if (html) parts.push(scopeSvgIds(html,block.id));
       warnings.push(...result.warnings);
     } else {
       const html = renderNative(block.node);

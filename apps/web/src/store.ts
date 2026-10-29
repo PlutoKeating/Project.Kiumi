@@ -1,4 +1,4 @@
-import { patchRecordedHtml, sanitizeHtml } from '@kiumi/core';
+import { patchRecordedHtml, sanitizeHtml, renderDocument as renderCore } from '@kiumi/core';
 import { create } from 'zustand';
 import * as api from './api.ts';
 import { patchSlot } from './lib/slots.ts';
@@ -104,6 +104,7 @@ interface State {
   past: api.Document[];
   future: api.Document[];
   selected: number | null;
+  selectedIds: string[];
   previews: Record<string, string>;
   issues: api.Issue[];
   message: string;
@@ -124,7 +125,10 @@ interface State {
   reloadTemplates: () => Promise<void>;
   insertTemplate: (atomTplId: string) => Promise<void>;
   addNative: (kind: api.NativeNode['kind'], index?: number) => void;
-  select: (index: number | null) => void;
+  select: (index: number | null, additive?: boolean) => void;
+  selectAll: () => void;
+  batch: (action: 'copy'|'duplicate'|'delete') => void;
+  moveInto: (from:number,to:number,path:number[]) => void;
   setTitle: (title: string) => void;
   setDigest: (digest: string) => void;
   updateSlot: (index: number, path: string, value: string, compIndex?: number) => void;
@@ -133,7 +137,7 @@ interface State {
   removeBlock: (index: number) => void;
   moveBlock: (from: number, to: number) => void;
   refresh: () => Promise<void>;
-  save: () => Promise<void>;
+  save: () => Promise<boolean>;
   newDoc: () => void;
   loadDoc: (doc: api.Document) => void;
   restoreScope: () => void;
@@ -148,7 +152,8 @@ interface State {
   clearClipboard: () => void;
 }
 
-let saving: Promise<void> | null = null;
+const blockPreviewCache=new Map<string,{html:string;issues:api.Issue[]}>();
+let saving: Promise<boolean> | null = null;
 
 export const useStore = create<State>((set, get) => ({
   ready: false,
@@ -168,6 +173,7 @@ export const useStore = create<State>((set, get) => ({
   past: [],
   future: [],
   selected: null,
+  selectedIds: [],
   previews: {},
   issues: [],
   message: '',
@@ -239,39 +245,25 @@ export const useStore = create<State>((set, get) => ({
   },
 
   takeFormat(index) {
-    const block = get().doc.blocks[index];
-    if (!block || block.kind !== 'library') {
-      set({ message: '格式刷只支持模板块' });
-      return;
-    }
-    const first = Array.isArray(block.matrix) ? block.matrix[0] : block.matrix;
-    const style = (first as { _comp?: { style?: Record<string, unknown> } } | undefined)?._comp?.style;
-    if (!style) {
-      set({ message: '该块没有可复制的格式' });
-      return;
-    }
-    set({ formatBrush: structuredClone(style) as Record<string, unknown>, message: '已取格式' });
+    const block=get().doc.blocks[index];if(!block)return;
+    if(block.kind==='native'){set({formatBrush:{...block.node.style},message:'已取格式'});return;}
+    if(block.html){const template=document.createElement('template');template.innerHTML=block.html;const node=template.content.querySelector<HTMLElement>('p,span,h1,h2,h3')??template.content.firstElementChild as HTMLElement|null;
+      if(node){const style:Record<string,string>={};for(const name of ['font-size','font-family','font-weight','font-style','color','text-align','line-height','letter-spacing','text-decoration']){const value=node.style.getPropertyValue(name);if(value)style[name]=value;}set({formatBrush:style,message:'已取格式'});return;}}
+    const first=Array.isArray(block.matrix)?block.matrix[0]:block.matrix;
+    set({formatBrush:structuredClone((first as any)?._comp?.style??{}),message:'已取格式'});
   },
-
   brushFormat(index) {
-    const brush = get().formatBrush;
-    const block = get().doc.blocks[index];
-    if (!brush || !block || block.kind !== 'library') {
-      set({ message: '先取格式，再刷到模板块上' });
-      return;
-    }
-    const doc = get().doc;
-    const matrix = structuredClone(block.matrix) as unknown;
-    const first = (Array.isArray(matrix) ? matrix[0] : matrix) as
-      | { _comp?: { style?: Record<string, unknown> } }
-      | undefined;
-    if (!first?._comp) return;
-    first._comp.style = { ...(first._comp.style ?? {}), ...brush };
-    const blocks = [...doc.blocks];
-    blocks[index] = { ...block, matrix, html: block.html ? patchRecordedHtml(block.html, block.matrix, matrix) : undefined };
-    get().commit({ ...doc, blocks });
-    set({ message: '已刷格式' });
-    void get().refresh();
+    const brush=get().formatBrush,doc=get().doc,block=doc.blocks[index];
+    if(!brush||!block)return;
+    const blocks=[...doc.blocks];
+    if(block.kind==='native')blocks[index]={...block,node:{...block.node,style:{...block.node.style,...brush} as Record<string,string>}};
+    else if(block.html){const template=document.createElement('template');template.innerHTML=block.html;
+      const nodes=[...template.content.querySelectorAll<HTMLElement>('p,span,h1,h2,h3,li,td')];
+      if(!nodes.length&&template.content.firstElementChild)nodes.push(template.content.firstElementChild as HTMLElement);
+      for(const node of nodes)for(const [name,value] of Object.entries(brush))node.style.setProperty(name.replace(/[A-Z]/g,c=>'-'+c.toLowerCase()),String(value));
+      blocks[index]={...block,html:template.innerHTML};
+    } else {const matrix=structuredClone(block.matrix) as any;const first=Array.isArray(matrix)?matrix[0]:matrix;if(first?._comp)first._comp.style={...first._comp.style,...brush};blocks[index]={...block,matrix};}
+    get().commit({...doc,blocks});set({message:'已刷格式'});void get().refresh();
   },
 
   clearFormat() {
@@ -374,8 +366,30 @@ export const useStore = create<State>((set, get) => ({
     void get().refresh();
   },
 
-  select(index) {
-    set({ selected: index });
+  select(index, additive=false) {
+    if(index===null){set({selected:null,selectedIds:[]});return;}
+    const block=get().doc.blocks[index];if(!block)return;
+    const ids=additive ? (get().selectedIds.includes(block.id)?get().selectedIds.filter(id=>id!==block.id):[...get().selectedIds,block.id]) : [block.id];
+    set({ selected:index,selectedIds:ids });
+  },
+  selectAll() {set({selectedIds:get().doc.blocks.map(b=>b.id),selected:get().doc.blocks.length?0:null});},
+  batch(action) {
+    const {doc,selectedIds,selected}=get();const ids=selectedIds.length?selectedIds:selected===null?[]:[doc.blocks[selected]!.id];
+    if(action==='copy'){const clipboard=doc.blocks.filter(b=>ids.includes(b.id)).map(b=>structuredClone(b));writeLocal(CLIPBOARD_KEY,clipboard);set({clipboard,message:`已复制 ${clipboard.length} 块`});return;}
+    const blocks=action==='delete'?doc.blocks.filter(b=>!ids.includes(b.id)):doc.blocks.flatMap(b=>ids.includes(b.id)?[b,{...structuredClone(b),id:crypto.randomUUID()}]:[b]);
+    get().commit({...doc,blocks});set({selected:null,selectedIds:[]});void get().refresh();
+  },
+  moveInto(from,to,path) {
+    const doc=get().doc,source=doc.blocks[from],target=doc.blocks[to];
+    if(!source||!target||from===to||target.kind!=='library'||!target.html)return;
+    const root=document.createElement('template');root.innerHTML=sanitizeHtml(target.html);
+    let node:Node=root.content;
+    for(const part of path){const child=node.childNodes[part];if(!child)return;node=child;}
+    if(!(node instanceof HTMLElement)||!['DIV','SECTION','TD','LI','BLOCKQUOTE'].includes(node.tagName))return;
+    const html=source.kind==='library'&&source.html?source.html:renderCore({...doc,blocks:[source]}).html;
+    node.insertAdjacentHTML('beforeend',sanitizeHtml(html));
+    const blocks=doc.blocks.map((b,i)=>i===to?{...target,html:root.innerHTML}:b).filter((_,i)=>i!==from);
+    get().commit({...doc,blocks});set({selected:from<to?to-1:to,selectedIds:[]});void get().refresh();
   },
 
   setTitle(title) {
@@ -421,6 +435,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   removeBlock(index) {
+    if(get().selectedIds.length>1 && get().selectedIds.includes(get().doc.blocks[index]?.id??'')){get().batch('delete');return;}
     const doc = get().doc;
     const blocks = doc.blocks.filter((_, position) => position !== index);
     get().commit({ ...doc, blocks });
@@ -469,7 +484,9 @@ export const useStore = create<State>((set, get) => ({
     const issues: api.Issue[] = [];
     for (const block of doc.blocks) {
       try {
-        const result = await api.renderBlock(block, doc);
+        const key=JSON.stringify(block);
+        let result=blockPreviewCache.get(key);
+        if(!result){result=await api.renderBlock(block,doc);if(blockPreviewCache.size>200)blockPreviewCache.clear();blockPreviewCache.set(key,result);}
         previews[block.id] = result.html;
         issues.push(...result.issues.map((issue) => ({ ...issue, selector: block.id })));
       } catch (error) {
@@ -480,9 +497,9 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async save() {
-    if (saving) return saving;
+    if (saving) {await saving;return get().save();}
     const doc = structuredClone(get().doc), scope = api.workspaceKey();
-    if (!api.teamId()) { set({message:'已保存在本机；登录并选择团队后可保存到云端'}); return; }
+    if (!api.teamId()) { set({message:'已保存在本机；登录并选择团队后可保存到云端'}); return false; }
     saving = (async () => {
       try {
         const saved = doc.id.startsWith('local-')
@@ -491,14 +508,15 @@ export const useStore = create<State>((set, get) => ({
         if (scope === api.workspaceKey() && get().doc.id === doc.id) {
           set({doc:{...get().doc,id:saved.id,meta:{...get().doc.meta,createdAt:saved.meta.createdAt}},message:'已保存到团队'});
         }
-      } catch (error) { if(scope === api.workspaceKey()) set({message:`保存失败：${(error as Error).message}`}); }
+        return true;
+      } catch (error) { if(scope === api.workspaceKey()) set({message:`保存失败：${(error as Error).message}`}); return false; }
       finally { saving = null; }
     })();
     return saving;
   },
 
   loadDoc(doc) {
-    set({doc,selected:null,past:[],future:[],previews:{},message:'已打开文稿'});
+    set({doc,selected:null,selectedIds:[],past:[],future:[],previews:{},message:'已打开文稿'});
     void get().refresh();
   },
   restoreScope() {
@@ -575,6 +593,7 @@ export const useStore = create<State>((set, get) => ({
       future: [],
       doc: emptyDoc(),
       selected: null,
+      selectedIds: [],
       previews: {},
       issues: [],
       message: '已新建',

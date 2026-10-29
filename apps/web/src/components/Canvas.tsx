@@ -7,6 +7,8 @@ import { useStore } from '../store.ts';
 export function Canvas() {
   const doc = useStore((state) => state.doc);
   const previews = useStore((state) => state.previews);
+  const selectedIds = useStore(state=>state.selectedIds);
+  const moveInto = useStore(state=>state.moveInto);
   const selected = useStore((state) => state.selected);
   const select = useStore((state) => state.select);
   const zoom = useStore((state) => state.zoom);
@@ -60,6 +62,12 @@ export function Canvas() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [selected, doc.blocks.length, select, removeBlock]);
+
+  useEffect(()=>{
+    const root=previewRef.current?.closest('main');if(!root)return;
+    const wheel=(event:WheelEvent)=>{if(event.ctrlKey||event.metaKey){event.preventDefault();setZoom(useStore.getState().zoom+(event.deltaY<0?5:-5));}};
+    root.addEventListener('wheel',wheel,{passive:false});return()=>root.removeEventListener('wheel',wheel);
+  },[setZoom]);
 
   // Upstream drops some template assets; show a neutral box instead of a
   // broken-image glyph. Export and copy keep the original markup.
@@ -166,7 +174,7 @@ export function Canvas() {
                 onClick={(event) => {
                   event.stopPropagation();
                   if (editing && editing.block !== index) setEditing(null);
-                  select(index);
+                  select(index,event.metaKey||event.ctrlKey||event.shiftKey);
                 }}
                 onDoubleClick={(event) => {
                   event.stopPropagation();
@@ -199,14 +207,20 @@ export function Canvas() {
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
+                  event.stopPropagation();
                   if (!drag) return;
-                  moveBlock(drag.from, index);
-                  select(index);
+                  const content=event.currentTarget.querySelector('[data-block-content]');
+                  const target=(event.target as HTMLElement).closest('section,td,li,div');
+                  if(event.altKey && content && target && content.contains(target) && target!==content){
+                    const path:number[]=[];let node:Node=target;
+                    while(node!==content&&node.parentNode){path.unshift(Array.from(node.parentNode.childNodes).indexOf(node as ChildNode));node=node.parentNode;}
+                    moveInto(drag.from,index,path);
+                  } else {moveBlock(drag.from, index);select(index);}
                   setDrag(null);
                 }}
                 onDragEnd={() => setDrag(null)}
                 className={`group relative cursor-pointer transition rounded ${
-                  selected === index ? 'block-selected' : 'hover:outline hover:outline-1 hover:outline-accent-400/40'
+                  (selected === index || selectedIds.includes(block.id)) ? 'block-selected' : 'hover:outline hover:outline-1 hover:outline-accent-400/40'
                 } ${drag?.over === index ? 'outline outline-2 outline-accent-500' : ''} ${
                   drag?.from === index ? 'opacity-40' : ''
                 }`}

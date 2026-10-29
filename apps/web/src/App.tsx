@@ -79,6 +79,10 @@ export function App() {
       }
 
       if (editable(event.target)) return;
+      if(meta && event.key.toLowerCase()==='a'){event.preventDefault();useStore.getState().selectAll();return;}
+      if(meta && ['0','=','+','-'].includes(event.key)){event.preventDefault();const state=useStore.getState();state.setZoom(event.key==='0'?100:state.zoom+(event.key==='-'?-10:10));return;}
+      if(meta && !event.altKey && event.key.toLowerCase()==='c' && useStore.getState().selectedIds.length){event.preventDefault();useStore.getState().batch('copy');return;}
+      if(meta && !event.altKey && event.key.toLowerCase()==='v' && useStore.getState().clipboard.length){event.preventDefault();const state=useStore.getState();for(let i=0;i<state.clipboard.length;i++)useStore.getState().insertClipboard(i);return;}
 
       if (meta && event.key.toLowerCase() === 'z') {
         event.preventDefault();
@@ -109,7 +113,7 @@ export function App() {
       }
       if (meta && event.key.toLowerCase() === 'd' && selected !== null) {
         event.preventDefault();
-        duplicateBlock(selected);
+        useStore.getState().batch('duplicate');
         return;
       }
       if (meta && event.altKey && event.key.toLowerCase() === 'p') {
@@ -119,7 +123,7 @@ export function App() {
       }
       if (!meta && (event.key === 'Delete' || event.key === 'Backspace') && selected !== null) {
         event.preventDefault();
-        removeBlock(selected);
+        useStore.getState().batch('delete');
         return;
       }
       if (event.key === 'Escape') {
@@ -164,7 +168,7 @@ export function App() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="h-14 shrink-0 bg-white border-b border-mist-200 flex items-center gap-4 px-4">
+      <header className="min-h-14 shrink-0 bg-white border-b border-mist-200 flex flex-wrap items-center gap-2 px-4 py-2">
         <div className="flex items-center gap-2">
           <span className="w-7 h-7 rounded-md bg-accent-500 text-white grid place-items-center text-[13px] font-semibold">
             K
