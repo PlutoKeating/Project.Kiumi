@@ -84,3 +84,5 @@ curl https://<你的域名>/api/assets/coverage  # 素材本地化比例
   把报错里的包名加进去。
 - **`/auth/*` 返回首页**：`apps/edge/wrangler.jsonc` 的 `assets.run_worker_first` 需要包含 `/auth/*`。
 - **接口 500 且提示数据服务不可达**：检查隧道是否在线、VPC 服务的地址与端口是否对得上。
+
+本地优先版本没有新增依赖、密钥或数据库迁移。Vite 将 `apps/web/public/catalog-assets-sw.js` 复制到静态产物根目录，部署时需随网页一起发布；上线检查该地址返回 JavaScript、目录 ETag/304 生效。公共缓存版本与私有团队数据隔离，构建产物继续由现有流水线发布。

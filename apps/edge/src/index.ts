@@ -36,6 +36,18 @@ const json = (data: unknown, init: ResponseInit = {}): Response =>
     headers: { 'content-type': 'application/json; charset=utf-8', ...(init.headers ?? {}) },
   });
 
+async function catalogResponse(request: Request, response: Response): Promise<Response> {
+  if (!response.ok) return response;
+  const body = await response.text();
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body)));
+  const etag = '"' + Array.from(hash, b => b.toString(16).padStart(2,'0')).join('') + '"';
+  const headers = new Headers(response.headers);
+  headers.set('etag', etag);
+  headers.set('cache-control', 'public, no-cache');
+  if (request.headers.get('if-none-match') === etag) return new Response(null, {status:304,headers});
+  return new Response(body, {headers});
+}
+
 const fail = (code: string, message: string, status = 400): Response =>
   new Response(JSON.stringify({ ok: false, error: { code, message } }), {
     status,
@@ -181,9 +193,10 @@ export default {
       const workspace = await workspaceRoutes(request, env);
       if (workspace) return workspace;
       if (path.startsWith('/uploads/')) return await privateUpload(request, env);
-      if (path === '/api/rooms') return await rooms(env);
-      if (path === '/api/templates') return await templates(env, url);
-      if (path === '/api/template') return await template(env, url);
+      if (path === '/api/catalog/index') return await catalogResponse(request, json([...(await loadIndex(env)), ...(await loadModern(env))].filter(item => !item.room.startsWith('booklet-pg:'))));
+      if (path === '/api/rooms') return await catalogResponse(request, await rooms(env));
+      if (path === '/api/templates') return await catalogResponse(request, await templates(env, url));
+      if (path === '/api/template') return await catalogResponse(request, await template(env, url));
       if (path === '/api/template/preview') return await preview(env, url);
       if (path === '/api/slots') return await slots(env, url);
       if (path === '/api/search') return await search(env, url);
@@ -262,7 +275,7 @@ async function template(env: Env, url: URL): Promise<Response> {
   if (!id) return fail('INVALID_BODY', 'missing ?id=');
   const record = await getRecord(env, id);
   if (!record) return fail('TEMPLATE_NOT_FOUND', `no template ${id}`, 404);
-  return json(record);
+  return json(url.searchParams.get('localAssets') === 'true' ? {...record, html: localizeAssets(sanitizeHtml(record.html), await manifest(env))} : record);
 }
 
 // Template markup relies on the upstream stylesheet; reproduce the parts that
@@ -313,6 +326,7 @@ async function search(env: Env, url: URL): Promise<Response> {
 
 function localizeAssets(html: string, map: Record<string, { path: string }>, origin='', forWechat=false): string {
   return rewriteHtmlAssets(html,raw=>{
+    if (/^\/assets\//.test(raw) && origin) return `${origin}${raw}`;
     const normalized=raw.startsWith('//')?`https:${raw}`:raw.replace(/^http:\/\//,'https://');
     const entry=map[normalized];
     if(entry)return forWechat?normalized:`${origin}/assets/${entry.path}`;
@@ -385,7 +399,7 @@ async function render(env: Env, request: Request): Promise<Response> {
 
   html = localizeAssets(html, map, body.localAssets ? '' : new URL(request.url).origin, body.forWechat);
   if (!body.localAssets && !body.forWechat) html = await exportImages(html, request, env);
-  return json({ html, bytes: html.length, warnings, issues: validateHtml(html) });
+  return json({ html, bytes: html.length, warnings, issues: validateHtml(body.localAssets ? rewriteHtmlAssets(html, raw => /^\/(?:uploads|assets)\//.test(raw) ? new URL(raw, request.url).href : raw) : html) });
 }
 
 async function validate(request: Request): Promise<Response> {

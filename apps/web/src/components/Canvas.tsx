@@ -1,3 +1,4 @@
+import { isPlaceholder } from '../lib/template-style.ts';
 import { useEffect, useRef, useState } from 'react';
 import { uploadImage } from '../api.ts';
 import { cleanHtml } from '../lib/import.ts';
@@ -96,6 +97,7 @@ export function Canvas() {
     const path:number[]=[];let node:Node=target;
     while(node!==container&&node.parentNode){path.unshift(Array.from(node.parentNode.childNodes).indexOf(node as ChildNode));node=node.parentNode;}
     inlineTarget.current={element:target,path};
+    if (!target.textContent?.trim() || isPlaceholder(target.textContent || '')) target.replaceChildren();
     target.contentEditable='true';target.focus();
     setEditing({block:index,slot:''});
   };
@@ -180,6 +182,14 @@ export function Canvas() {
                   event.stopPropagation();
                   startInlineEdit(index, event.target as HTMLElement);
                 }}
+                onPaste={event => {
+                  const target = inlineTarget.current?.element;
+                  if (!target?.isContentEditable) return;
+                  event.preventDefault(); event.stopPropagation();
+                  // Plain text inherits the card's typography, never clipboard colors/backgrounds.
+                  const text = event.clipboardData.getData('text/plain');
+                  document.execCommand('insertText', false, text);
+                }}
                 onContextMenu={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -226,7 +236,7 @@ export function Canvas() {
                 }`}
               >
                 <div
-                  className={`absolute -top-3 right-0 z-10 hidden group-hover:flex items-center gap-0.5 bg-white border border-mist-200 rounded shadow-sm px-1 py-0.5 ${
+                  className={`absolute -top-3 right-0 z-10 hidden group-hover:flex items-center gap-1 bg-white border border-mist-200 rounded shadow-sm px-1.5 py-1 ${
                     editing ? '!hidden' : ''
                   }`}
                 >
@@ -239,7 +249,7 @@ export function Canvas() {
                         select(index - 1);
                       }
                     }}
-                    className="px-1 text-[11px] text-ink-600 hover:text-ink-900"
+                    className="block-tool text-ink-600 hover:text-ink-900"
                   >
                     ↑
                   </button>
@@ -252,7 +262,7 @@ export function Canvas() {
                         select(index + 1);
                       }
                     }}
-                    className="px-1 text-[11px] text-ink-600 hover:text-ink-900"
+                    className="block-tool text-ink-600 hover:text-ink-900"
                   >
                     ↓
                   </button>
@@ -262,7 +272,7 @@ export function Canvas() {
                       event.stopPropagation();
                       duplicateBlock(index);
                     }}
-                    className="px-1 text-[11px] text-ink-600 hover:text-ink-900"
+                    className="block-tool text-ink-600 hover:text-ink-900"
                   >
                     ⧉
                   </button>
@@ -272,7 +282,7 @@ export function Canvas() {
                       event.stopPropagation();
                       removeBlock(index);
                     }}
-                    className="px-1 text-[11px] text-ink-600 hover:text-red-600"
+                    className="block-tool block-tool-delete text-ink-600 hover:text-red-600"
                   >
                     ✕
                   </button>

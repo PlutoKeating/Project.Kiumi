@@ -10,7 +10,7 @@ test('Worker teams isolate drafts and uploads; invitations allow sharing', async
   const key='local-test-key-never-used-in-production';
   let deliveries=0;
   let deliveredHtml='';
-  const mf=new Miniflare({modules:true,script:bundled.outputFiles[0]!.text,compatibilityDate:'2026-01-01',compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],bindings:{KIUMI_DATA_KEY:key},serviceBindings:{KIUMI_DATA:async(req)=>{if(new URL(req.url).pathname==='/wechat'){const payload=await req.json() as any;if(payload.action==='draft'){deliveries++;deliveredHtml=payload.html;}return Response.json({ok:true,data:payload.action==='check'?{connected:true}:{mediaId:'test-draft',verified:true}});}if(new URL(req.url).pathname.endsWith('.json'))return Response.json({});return new Response(req.method==='PUT'?'stored':'image');},ASSETS:async()=>new Response('app')}});
+  const mf=new Miniflare({modules:true,script:bundled.outputFiles[0]!.text,compatibilityDate:'2026-01-01',compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],bindings:{KIUMI_DATA_KEY:key},serviceBindings:{KIUMI_DATA:async(req)=>{if(new URL(req.url).pathname==='/wechat'){const payload=await req.json() as any;if(payload.action==='draft'){deliveries++;deliveredHtml=payload.html;}return Response.json({ok:true,data:payload.action==='check'?{connected:true}:{mediaId:'test-draft',verified:true}});}if(new URL(req.url).pathname.includes('/catalog/templates/'))return Response.json({atomTplId:'test',html:'<h2>模板</h2>',matrix:[]});if(new URL(req.url).pathname.endsWith('.json'))return Response.json({});return new Response(req.method==='PUT'?'stored':'image');},ASSETS:async()=>new Response('app')}});
   try {
     const db=await mf.getD1Database('DB');
     const migration=await readFile(new URL('../migrations/0001_teams.sql',import.meta.url),'utf8');
@@ -23,6 +23,11 @@ test('Worker teams isolate drafts and uploads; invitations allow sharing', async
       const response=await mf.dispatchFetch('https://test.invalid'+path,{method,headers:{cookie:cookie(user),'content-type':'application/json',...(team?{'x-team-id':team}:{})},body:payload===undefined?undefined:JSON.stringify(payload)});
       return {status:response.status,...await response.json() as any};
     };
+    const template=await mf.dispatchFetch('https://test.invalid/api/template?id=test&localAssets=true');
+    assert.equal(template.status,200);
+    assert.ok(template.headers.get('etag'));
+    const unchanged=await mf.dispatchFetch('https://test.invalid/api/template?id=test&localAssets=true',{headers:{'if-none-match':template.headers.get('etag')!}});
+    assert.equal(unchanged.status,304);
     const team=(await call('alice','/api/teams','POST',{name:'编辑组'})).data.id;
     const document=(await call('alice','/api/documents','POST',{title:'草稿',blocks:[]},team)).data;
     assert.equal((await call('bob','/api/documents/'+document.id,'GET',undefined,team)).status,403);
@@ -43,9 +48,17 @@ test('Worker teams isolate drafts and uploads; invitations allow sharing', async
     const encoded=new Request('https://test.invalid',{method:'POST',body:form});
     const uploaded=await mf.dispatchFetch('https://test.invalid/api/assets/upload',{method:'POST',headers:{cookie:cookie('alice'),'x-team-id':team,'content-type':encoded.headers.get('content-type')!},body:await encoded.arrayBuffer()});
     const upload=(await uploaded.json() as any).data;
+    const repeatForm=new FormData();repeatForm.set('file',new File([Uint8Array.from([137,80,78,71,13,10,26,10])],'same.png',{type:'image/png'}));
+    const repeatEncoded=new Request('https://test.invalid',{method:'POST',body:repeatForm});
+    const repeatUpload=await mf.dispatchFetch('https://test.invalid/api/assets/upload',{method:'POST',headers:{cookie:cookie('alice'),'x-team-id':team,'content-type':repeatEncoded.headers.get('content-type')!},body:await repeatEncoded.arrayBuffer()});
+    assert.equal((await repeatUpload.json() as any).data.url,upload.url,'retry must reuse the stored image');
+    assert.equal((await call('alice','/api/uploads','GET',undefined,team)).data.length,1);
+
     assert.equal(uploaded.status,201);
     assert.equal((await mf.dispatchFetch('https://test.invalid'+upload.url)).status,403);
     const exportDoc={version:1,id:'test-export',title:'导出',meta:{},blocks:[{kind:'library',id:'image',tplId:'imported:html',matrix:[],html:`<img src="${upload.url}">`}]};
+    const editor=await call('alice','/api/render','POST',{document:exportDoc,localAssets:true},team);
+    assert.equal(editor.data.issues.filter((i:any)=>i.rule==='relative-image').length,0);
     const exported=await call('alice','/api/render','POST',{document:exportDoc},team);
     assert.equal(exported.status,200);
     const signed=exported.data.html.match(/src="([^"]+)"/)[1];

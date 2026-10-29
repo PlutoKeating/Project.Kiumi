@@ -1,4 +1,5 @@
-import { patchRecordedHtml, sanitizeHtml, renderDocument as renderCore } from '@kiumi/core';
+import { prepareTemplate, transplantStyle } from './lib/template-style.ts';
+import { patchRecordedHtml, sanitizeHtml, validateHtml, rewriteHtmlAssets, renderDocument as renderCore } from '@kiumi/core';
 import { create } from 'zustand';
 import * as api from './api.ts';
 import { patchSlot } from './lib/slots.ts';
@@ -124,6 +125,7 @@ interface State {
   clearFormat: () => void;
   reloadTemplates: () => Promise<void>;
   insertTemplate: (atomTplId: string) => Promise<void>;
+  applyTemplateStyle: (atomTplId: string) => Promise<void>;
   addNative: (kind: api.NativeNode['kind'], index?: number) => void;
   select: (index: number | null, additive?: boolean) => void;
   selectAll: () => void;
@@ -302,6 +304,7 @@ export const useStore = create<State>((set, get) => ({
         limit: 60,
         offset,
       });
+      if (get().activeRoom !== activeRoom || get().query !== query || get().offset !== offset || get().view !== view) return;
       // A shuffle past the end wraps to the first page.
       if (!templates.length && offset > 0) {
         set({ offset: 0 });
@@ -324,7 +327,7 @@ export const useStore = create<State>((set, get) => ({
         id: `blk-${Date.now().toString(36)}`,
         tplId: record.atomTplId,
         matrix: record.matrix,
-        html: record.html,
+        html: prepareTemplate(record.html),
       };
       const current = get().selected;
       const index = current === null ? doc.blocks.length : current + 1;
@@ -341,6 +344,23 @@ export const useStore = create<State>((set, get) => ({
     } catch (error) {
       set({ message: `插入失败：${(error as Error).message}` });
     }
+  },
+
+  async applyTemplateStyle(atomTplId) {
+    const {doc,selected} = get();
+    if (selected === null) { set({message:'请先选中需要换样式的内容块'}); return; }
+    const source = doc.blocks[selected];
+    try {
+      const record = await api.fetchTemplate(atomTplId);
+      if (get().doc !== doc) throw new Error('文稿已发生变化，请重新选择后应用样式');
+      const sourceHtml = source.kind === 'library' && source.html ? source.html : renderCore({...doc,blocks:[source]}).html;
+      const html = transplantStyle(sourceHtml,record.html);
+      const blocks = [...doc.blocks];
+      blocks[selected] = {kind:'library',id:source.id,tplId:record.atomTplId,matrix:[],html};
+      get().commit({...doc,blocks});
+      set({message:'已应用模板样式，内容保留，可撤销'});
+      void get().refresh();
+    } catch (error) { set({message:`应用样式失败：${(error as Error).message}`}); }
   },
 
   addNative(kind, index) {
@@ -486,7 +506,14 @@ export const useStore = create<State>((set, get) => ({
       try {
         const key=JSON.stringify(block);
         let result=blockPreviewCache.get(key);
-        if(!result){result=await api.renderBlock(block,doc);if(blockPreviewCache.size>200)blockPreviewCache.clear();blockPreviewCache.set(key,result);}
+        if(!result){
+          const rendered = renderCore({...doc,blocks:[block]});
+          // Internal URLs are valid in the authenticated editor. Export validation stays strict.
+          const validationHtml = rewriteHtmlAssets(rendered.html, raw => /^\/(?:uploads|assets)\//.test(raw) ? new URL(raw, location.origin).href : raw);
+          result = {...rendered, issues: validateHtml(validationHtml)};
+          if(blockPreviewCache.size>200)blockPreviewCache.clear();
+          blockPreviewCache.set(key,result);
+        }
         previews[block.id] = result.html;
         issues.push(...result.issues.map((issue) => ({ ...issue, selector: block.id })));
       } catch (error) {
@@ -523,9 +550,9 @@ export const useStore = create<State>((set, get) => ({
     get().loadDoc(readLocal<api.Document>(api.workspaceKey(), emptyDoc()));
   },
   updateHtml(index, html) {
-    html=sanitizeHtml(html);
     const doc=get().doc, block=doc.blocks[index];
     if(!block) return;
+    html=block.kind === 'library' && !block.tplId.startsWith('imported:') ? prepareTemplate(html) : sanitizeHtml(html);
     const blocks=[...doc.blocks];
     blocks[index]=block.kind==='library' ? {...block,html} : {...block,node:{...block.node,html}};
     get().commit({...doc,blocks}); void get().refresh();

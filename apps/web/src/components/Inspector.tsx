@@ -73,7 +73,7 @@ export function Inspector() {
               {item.kind === 'library' ? item.tplId : `原生 · ${item.node.kind}`}
             </span>
             <button
-              className="text-ink-600/40 hover:text-ink-800 px-1"
+              className="structure-tool text-ink-600/60 hover:text-ink-800"
               onClick={(event) => {
                 event.stopPropagation();
                 moveBlock(index, index - 1);
@@ -83,7 +83,7 @@ export function Inspector() {
               ↑
             </button>
             <button
-              className="text-ink-600/40 hover:text-ink-800 px-1"
+              className="structure-tool text-ink-600/60 hover:text-ink-800"
               onClick={(event) => {
                 event.stopPropagation();
                 moveBlock(index, index + 1);
@@ -93,7 +93,7 @@ export function Inspector() {
               ↓
             </button>
             <button
-              className="text-ink-600/40 hover:text-ink-800 px-1"
+              className="structure-tool text-ink-600/60 hover:text-ink-800"
               onClick={(event) => {
                 event.stopPropagation();
                 copyBlock(index);
@@ -103,7 +103,7 @@ export function Inspector() {
               ⧉
             </button>
             <button
-              className="text-ink-600/40 hover:text-red-500 px-1"
+              className="structure-tool block-tool-delete text-ink-600/60 hover:text-red-600"
               onClick={(event) => {
                 event.stopPropagation();
                 removeBlock(index);

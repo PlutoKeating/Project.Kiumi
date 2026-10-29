@@ -1,3 +1,5 @@
+import { readCatalogIndex } from './lib/catalog-index.ts';
+import { cachedCatalog } from './lib/catalog-cache.ts';
 export interface Room {
   tag: string;
   name: string;
@@ -83,6 +85,10 @@ interface Envelope<T> {
   error?: { code: string; message: string };
 }
 
+export class ApiError extends Error {
+  constructor(message: string, public status: number) { super(message); }
+}
+
 let activeTeam = '';
 let activeUser = 'guest';
 export const workspaceKey = () => `kiumi.draft.${activeUser}.${activeTeam || 'local'}`;
@@ -97,9 +103,11 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init?.headers,
     },
   });
-  const payload = (await response.json()) as Envelope<T>;
+  const payload = await response.json().catch(() => {
+    throw new ApiError(`服务响应异常 (${response.status})`, response.status);
+  }) as Envelope<T>;
   if (!response.ok || payload.ok === false) {
-    throw new Error((typeof payload.error === 'string' ? payload.error : payload.error?.message) ?? `request failed: ${response.status}`);
+    throw new ApiError((typeof payload.error === 'string' ? payload.error : payload.error?.message) ?? `request failed: ${response.status}`, response.status);
   }
   return payload.data;
 }
@@ -135,27 +143,40 @@ export function logoutUrl(): string {
 }
 
 export function fetchRooms(): Promise<Room[]> {
-  return request<Room[]>('/api/rooms');
+  return cachedCatalog<Room[]>('/api/rooms');
 }
 
-export function fetchTemplates(params: {
+export interface TemplateQuery {
   room?: string;
   q?: string;
   limit?: number;
   offset?: number;
   hasSvg?: boolean;
-}): Promise<TemplateIndexEntry[]> {
+}
+export async function fetchTemplates(params: TemplateQuery): Promise<TemplateIndexEntry[]> {
+  const index = await readCatalogIndex();
+  if (!index) return fetchTemplatePage(params);
+  const q = (params.q || '').toLowerCase();
+  const seen = new Set<string>();
+  const filtered = index.filter(item => {
+    if ((params.room && item.room !== params.room) || (params.hasSvg && !item.hasSvg) || (q && !`${item.displayName} ${item.atomTplId}`.toLowerCase().includes(q)) || seen.has(item.atomTplId)) return false;
+    seen.add(item.atomTplId); return true;
+  });
+  const offset = params.offset || 0;
+  return filtered.slice(offset, offset + (params.limit || 50));
+}
+export function fetchTemplatePage(params: TemplateQuery, revalidate = false): Promise<TemplateIndexEntry[]> {
   const search = new URLSearchParams();
   if (params.room) search.set('room', params.room);
   if (params.q) search.set('q', params.q);
   if (params.limit) search.set('limit', String(params.limit));
   if (params.offset) search.set('offset', String(params.offset));
   if (params.hasSvg) search.set('hasSvg', 'true');
-  return request<TemplateIndexEntry[]>(`/api/templates?${search.toString()}`);
+  return cachedCatalog<TemplateIndexEntry[]>(`/api/templates?${search.toString()}`, revalidate);
 }
 
 export function fetchTemplate(id: string): Promise<TemplateRecord> {
-  return request<TemplateRecord>(`/api/template?id=${encodeURIComponent(id)}`);
+  return cachedCatalog<TemplateRecord>(`/api/template?id=${encodeURIComponent(id)}&localAssets=true`);
 }
 
 export function previewUrl(id: string): string {

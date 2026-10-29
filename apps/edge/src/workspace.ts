@@ -131,11 +131,20 @@ export async function workspaceRoutes(request: Request, env: Env): Promise<Respo
     const bytes=new Uint8Array(await file.arrayBuffer());
     const mime=bytes[0]===137 && bytes[1]===80 ? 'image/png' : bytes[0]===255 && bytes[1]===216 ? 'image/jpeg' : new TextDecoder().decode(bytes.slice(0,3))==='GIF' ? 'image/gif' : new TextDecoder().decode(bytes.slice(8,12))==='WEBP' ? 'image/webp' : '';
     if (!mime) throw new ApiError(400,'UPLOAD_TYPE','请使用 PNG、JPEG、GIF 或 WebP 图片');
-    const uploadId=id('img'), key=`uploads/${teamId}/${uploadId}.${mime.split('/')[1]}`;
-    const upstream=await dataFetch(env,key,{method:'PUT',body:bytes,headers:{'content-type':mime}});
-    if (!upstream.ok) throw new ApiError(502,'UPLOAD_FAILED','图片保存失败，请重试');
-    await env.DB.prepare('INSERT INTO uploads VALUES (?,?,?,?,?,?,?)').bind(uploadId,teamId,file.name.slice(0,200),key,mime,bytes.length,now()).run();
-    return reply({id:uploadId,sha256:uploadId,bytes:bytes.length,url:`/uploads/${uploadId}`},201);
+    const hash = async (value: Uint8Array<ArrayBuffer>) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', value))).map(b=>b.toString(16).padStart(2,'0')).join('');
+    const sha256 = await hash(bytes);
+    const uploadId = `img_${await hash(new TextEncoder().encode(`${teamId}:${sha256}`))}`;
+    const key = `uploads/${teamId}/${uploadId}.${mime.split('/')[1]}`;
+    const existing = await env.DB.prepare('SELECT id FROM uploads WHERE id=? AND team_id=?').bind(uploadId,teamId).first();
+    if (!existing) {
+      let upstream: Response;
+      try { upstream = await dataFetch(env,key,{method:'PUT',body:bytes,headers:{'content-type':mime}}); }
+      catch { throw new ApiError(503,'UPLOAD_UNAVAILABLE','图片存储连接暂时不可用，请重试'); }
+      if (!upstream.ok) throw new ApiError(502,'UPLOAD_FAILED','图片保存失败，请重试');
+      try { await env.DB.prepare('INSERT INTO uploads VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING').bind(uploadId,teamId,file.name.slice(0,200),key,mime,bytes.length,now()).run(); }
+      catch { throw new ApiError(503,'UPLOAD_INDEX_UNAVAILABLE','图片已保存，图库登记暂未完成，请重试'); }
+    }
+    return reply({id:uploadId,sha256,bytes:bytes.length,url:`/uploads/${uploadId}`},201);
   }
   throw new ApiError(405,'METHOD_NOT_ALLOWED','不支持的操作');
 }

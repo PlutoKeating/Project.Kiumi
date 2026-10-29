@@ -56,3 +56,22 @@ body {
   outline: 2px solid var(--color-accent-500);
   outline-offset: 2px;
 }
+
+/* Editor-only prompts: empty slots remain empty when exported. */
+[data-block-content] [data-kiumi-placeholder]:empty::before {
+  content: attr(data-kiumi-placeholder);
+  opacity: .55;
+}
+[data-block-content] [data-kiumi-placeholder]:empty { min-height: 1.5em; min-width: 4em; }
+[data-block-content] [contenteditable="true"]:focus { outline: 1px dashed var(--color-accent-400); }
+.block-tool, .structure-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  font-size: 16px;
+  border-radius: 5px;
+}
+.block-tool:hover, .structure-tool:hover { background: var(--color-mist-100); }
+.block-tool-delete { margin-left: 6px; }

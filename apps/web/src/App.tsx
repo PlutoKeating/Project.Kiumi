@@ -1,3 +1,4 @@
+import { renderDocument as renderLocal } from '@kiumi/core';
 import { useEffect, useRef, useState } from 'react';
 import { copyRichHtml, fetchSession, renderDocument, uploadImage, type SessionState } from './api.ts';
 import { AssetsPanel } from './components/AssetsPanel.tsx';
@@ -165,11 +166,12 @@ export function App() {
     URL.revokeObjectURL(url);
   };
 
-  const onPreview = async () => setPreview(await renderFull());
+  const onPreview = async () => setPreview(renderLocal(useStore.getState().doc).html);
 
   return (
     <div className="h-full flex flex-col">
-      <header className="min-h-14 shrink-0 bg-white border-b border-mist-200 flex flex-wrap items-center gap-2 px-4 py-2">
+      <header className="workbench-header shrink-0 bg-white border-b border-mist-200">
+        <div className="flex items-center gap-2 px-4 py-2 min-w-0">
         <div className="flex items-center gap-2">
           <span className="w-7 h-7 rounded-md bg-accent-500 text-white grid place-items-center text-[13px] font-semibold">
             K
@@ -183,6 +185,33 @@ export function App() {
           className="w-[160px] min-w-[90px] shrink text-[13px] px-2 py-1.5 rounded border border-transparent hover:border-mist-200 focus:border-accent-400 focus:outline-none"
         />
 
+          <span role="status" title={message} className="min-w-0 flex-1 truncate text-[11px] text-ink-600/60">{message}</span>
+        {session && !session.unavailable && session.loginEnabled && (
+          <div className="ml-auto flex shrink-0 items-center gap-2 pl-3 border-l border-mist-200 whitespace-nowrap">
+            {session.user ? (
+              <>
+                <span className="w-6 h-6 rounded-full bg-ink-900 text-white grid place-items-center text-[11px]">
+                  {userLabel(session.user).slice(0, 1).toUpperCase()}
+                </span>
+                <span className="text-[12px] text-ink-600 max-w-[92px] truncate">
+                  {userLabel(session.user)}
+                </span>
+                <a href="/auth/logout" className="text-[12px] text-ink-600/60 hover:text-ink-900">
+                  退出
+                </a>
+              </>
+            ) : (
+              <a
+                href={`/auth/login?next=${encodeURIComponent(window.location.pathname)}`}
+                className="text-[12px] px-3 py-1.5 rounded border border-accent-500 text-accent-500 hover:bg-accent-500/10"
+              >
+                登录
+              </a>
+            )}
+          </div>
+        )}
+        </div>
+        <div className="workbench-tools flex items-center gap-2 px-4 py-2 border-t border-mist-200 overflow-x-auto">
         <div className="flex shrink-0 items-center gap-1.5 pl-2 border-l border-mist-200 text-[12px] text-ink-600 whitespace-nowrap">
           <span>主题色</span>
           {THEME_SWATCHES.map((color) => (
@@ -242,7 +271,7 @@ export function App() {
               格式刷已就绪
             </span>
           )}
-          <span className="text-[11px] text-ink-600/50 max-w-[220px] truncate">{message}</span>
+
           <button
             onClick={undo}
             disabled={!canUndo}
@@ -287,31 +316,7 @@ export function App() {
             导出 HTML
           </button>
         </div>
-
-        {session && !session.unavailable && session.loginEnabled && (
-          <div className="ml-auto flex shrink-0 items-center gap-2 pl-3 border-l border-mist-200 whitespace-nowrap">
-            {session.user ? (
-              <>
-                <span className="w-6 h-6 rounded-full bg-ink-900 text-white grid place-items-center text-[11px]">
-                  {userLabel(session.user).slice(0, 1).toUpperCase()}
-                </span>
-                <span className="text-[12px] text-ink-600 max-w-[92px] truncate">
-                  {userLabel(session.user)}
-                </span>
-                <a href="/auth/logout" className="text-[12px] text-ink-600/60 hover:text-ink-900">
-                  退出
-                </a>
-              </>
-            ) : (
-              <a
-                href={`/auth/login?next=${encodeURIComponent(window.location.pathname)}`}
-                className="text-[12px] px-3 py-1.5 rounded border border-accent-500 text-accent-500 hover:bg-accent-500/10"
-              >
-                登录
-              </a>
-            )}
-          </div>
-        )}
+        </div>
       </header>
 
       <div className="flex-1 flex min-h-0">

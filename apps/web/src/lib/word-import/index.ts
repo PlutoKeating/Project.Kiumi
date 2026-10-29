@@ -271,8 +271,22 @@ export async function uploadPreview(preview: ImportPreview, scope: string, progr
   check(); if (preview.assets.length) requireImageTeam();
   for (let i = 0; i < preview.assets.length; i++) {
     check(); const asset = preview.assets[i]; progress(`上传图片 ${i + 1}/${preview.assets.length}`);
-    try { if (!asset.uploadedUrl) asset.uploadedUrl = (await api.uploadImage(asset.file, signal)).url; }
-    catch (error) { check(); throw error; }
+    for (let attempt = 0; !asset.uploadedUrl; attempt++) {
+      check();
+      try { asset.uploadedUrl = (await api.uploadImage(asset.file, signal)).url; }
+      catch (error) {
+        check();
+        const transient = error instanceof TypeError || (error instanceof api.ApiError && [500,502,503,504].includes(error.status));
+        if (!transient || attempt >= 2) throw new Error(`第 ${i + 1} 张图片（${asset.file.name}）上传失败：${(error as Error).message}`);
+        progress(`图片 ${i + 1}/${preview.assets.length} 暂未上传成功，正在重试（${attempt + 1}/2）…`);
+        check();
+        await new Promise<void>(resolve => {
+          const done = () => { clearTimeout(timer); signal?.removeEventListener('abort', done); resolve(); };
+          const timer = setTimeout(done, [500,1500][attempt]);
+          signal?.addEventListener('abort', done, {once:true});
+        });
+      }
+    }
     check();
   }
   return preview.items.map(item => {

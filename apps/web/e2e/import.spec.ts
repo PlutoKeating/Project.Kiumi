@@ -147,7 +147,7 @@ test('numbered headings, list restart, footnotes and complex content have explic
   for (const text of ['修订', '公式', '图表', 'SmartArt', '目录', '页眉', '批注']) expect(JSON.stringify(result.issues)).toContain(text);
 });
 
-async function app(page: import('@playwright/test').Page, failUpload = false) {
+async function app(page: import('@playwright/test').Page, failUpload: boolean | number = false) {
   const saved = new Map<string, any>();
   let uploads = 0;
   await page.route('**/api/**', async route => {
@@ -158,7 +158,7 @@ async function app(page: import('@playwright/test').Page, failUpload = false) {
     if (path === '/api/render') { const result = renderDocument(request.postDataJSON().document); data = { ...result, issues: validateHtml(result.html) }; }
     if (path === '/api/assets/upload') {
       uploads++;
-      if (failUpload) { await route.fulfill({ status: 500, json: { ok: false, error: { message: '模拟上传失败' } } }); return; }
+      if (failUpload === true || (typeof failUpload === 'number' && uploads <= failUpload)) { await route.fulfill({ status: 500, json: { ok: false, error: { message: '模拟上传失败' } } }); return; }
       data = { url: '/uploads/test-image', sha256: 'test-image', bytes: 68 };
     }
     if (path === '/api/documents' && request.method() === 'POST') { data = { ...request.postDataJSON(), version: 1, id: 'saved-doc' }; saved.set(data.id, data); }
@@ -220,7 +220,7 @@ test('UI preview does not mutate canvas; confirmed import uploads, edits, saves,
 });
 
 test('failed upload leaves document unchanged and retry remains available', async ({ page }) => {
-  await app(page, true);
+  const backend = await app(page, true);
   await page.getByRole('button', { name: '导入内容', exact: true }).click();
   await page.getByLabel('选择导入文件').setInputFiles({ name: '推文.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await wordFile() });
   await expect(page.locator('[data-import-block]')).toHaveCount(5);
@@ -229,6 +229,7 @@ test('failed upload leaves document unchanged and retry remains available', asyn
   await expect(page.getByRole('dialog')).toContainText('模拟上传失败');
   expect(await page.evaluate(async () => (await import('/src/store.ts')).useStore.getState().doc.blocks.length)).toBe(0);
   await expect(page.getByRole('button', { name: '确认导入画布', exact: true })).toBeEnabled();
+  expect(backend.uploads()).toBe(3);
 });
 
 test('upload cancellation and team changes cannot commit cross-team image references', async ({ page }) => {
@@ -326,5 +327,191 @@ test('provided Word sample preserves every nonempty source paragraph', async ({ 
     const overflow = await page.locator('[data-import-block] > div:last-child').evaluateAll(nodes => nodes.some(n => n.scrollWidth > n.clientWidth + 1));
     expect(overflow).toBe(false);
     await page.screenshot({ path: process.env.KIUMI_WORD_SCREENSHOT, fullPage: true });
+  }
+});
+
+
+test('transient upload failure recovers without a second confirmation', async ({ page }) => {
+  const backend = await app(page, 1);
+  await page.getByRole('button', { name: '导入内容', exact: true }).click();
+  await page.getByLabel('选择导入文件').setInputFiles({ name: '推文.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await wordFile() });
+  await expect(page.locator('[data-import-block]')).toHaveCount(5);
+  if (await page.getByRole('checkbox').count()) await page.getByRole('checkbox').check();
+  await page.getByRole('button', { name: '确认导入画布', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(backend.uploads()).toBe(2);
+});
+
+test('canvas renders synchronously without API and accepts internal image addresses only in editor', async ({ page }) => {
+  await harness(page);
+  await page.route('**/api/**', route => route.abort());
+  const result = await page.evaluate(async () => {
+    const { useStore } = await import('/src/store.ts');
+    const s = useStore.getState();
+    s.loadDoc({ ...s.doc, blocks: [
+      { kind: 'library', id: 'local', tplId: 'imported:段落', matrix: [], html: '<p>立即显示</p><img src="/uploads/img_abc"><img src="relative.png">' },
+    ] });
+    return { html: useStore.getState().previews.local, issues: useStore.getState().issues };
+  });
+  expect(result.html).toContain('立即显示');
+  expect(result.issues.filter(i => i.rule === 'relative-image')).toHaveLength(1);
+  expect(result.issues.find(i => i.rule === 'relative-image')?.message).toContain('relative.png');
+});
+
+test('catalog persists across reloads, serves offline and refreshes in background', async ({ page }) => {
+  await harness(page);
+  let revision = '旧标题';
+  let offline = false;
+  let failed = 0;
+  await page.route('**/api/template?**', async route => {
+    if (offline) { failed++; await route.abort(); return; }
+    if (revision === '新标题') await new Promise(resolve => setTimeout(resolve, 250));
+    await route.fulfill({ json: {ok:true,data:{atomTplId:'cache-test',displayName:revision,html:`<h2>${revision}</h2>`,matrix:[]}} });
+  });
+  const fetchTitle = () => page.evaluate(async () => (await (await import('/src/api.ts')).fetchTemplate('cache-test')).displayName);
+  expect(await fetchTitle()).toBe('旧标题');
+  await expect.poll(() => page.evaluate(async () => (await (await caches.open('kiumi-catalog-v1')).keys()).length)).toBe(1);
+  offline = true;
+  await page.reload();
+  expect(await fetchTitle()).toBe('旧标题');
+  await expect.poll(() => failed).toBe(1);
+  offline = false; revision = '新标题';
+  await page.reload();
+  expect(await fetchTitle()).toBe('旧标题');
+  await expect.poll(fetchTitle).toBe('新标题');
+});
+
+test('template preview warms insertion; cached insertion and editing do not call render API', async ({ page }) => {
+  const backend = await app(page);
+  let renders = 0;
+  await page.route('**/api/render', route => { renders++; return route.abort(); });
+  await page.route('**/api/template?**', route => route.fulfill({json:{ok:true,data:{atomTplId:'local-template',displayName:'缓存标题',matrix:[],html:'<h2>模板本地内容</h2>'}}}));
+  await page.evaluate(async () => { (await import('/src/store.ts')).useStore.setState({templates:[{atomTplId:'local-template',displayName:'缓存标题',room:'demo:header',accessibility:'Public',hasSvg:false,hasAnimation:false,byteSize:1}]}); });
+  await expect(page.locator('iframe').first()).toHaveAttribute('srcdoc', /模板本地内容/);
+  await page.route('**/api/template?**', route => route.abort());
+  await page.getByRole('button', {name:'缓存标题'}).click();
+  await expect(page.locator('[data-block-content] h2')).toHaveText('模板本地内容');
+  expect(renders).toBe(0);
+  void backend;
+});
+
+test('toolbar keeps account and actions on intentional rows at desktop widths', async ({ page }) => {
+  await app(page);
+  for (const width of [1280,1440,1920]) {
+    await page.setViewportSize({width,height:900});
+    const layout = await page.evaluate(() => {
+      const header = document.querySelector('header')!;
+      const rows = [...header.children].map(node => node.getBoundingClientRect());
+      return {height:header.getBoundingClientRect().height, rows:rows.map(r=>({top:r.top,bottom:r.bottom})), overflow:document.documentElement.scrollWidth > innerWidth};
+    });
+    expect(layout.rows).toHaveLength(2);
+    expect(layout.rows[1].top).toBeGreaterThanOrEqual(layout.rows[0].bottom);
+    expect(layout.height).toBeLessThan(130);
+    expect(layout.overflow).toBe(false);
+  }
+});
+
+test('upload validation errors do not retry, and cancellation interrupts retry backoff', async ({ page }) => {
+  await harness(page);
+  let status = 413, requests = 0;
+  await page.route('**/api/assets/upload', route => { requests++; return route.fulfill({status,json:{ok:false,error:{message:'请求失败'}}}); });
+  const run = (cancel: boolean) => page.evaluate(async cancel => {
+    const api = await import('/src/api.ts'), mod = await import('/src/lib/word-import/index.ts');
+    api.setWorkspace('user','team');
+    const preview = await mod.prepareText('<p>正文</p>','html');
+    preview.assets.push({file:new File(['test'],'test.png'),url:'blob:fake'});
+    const controller = new AbortController();
+    try { await mod.uploadPreview(preview,api.workspaceKey(),text => { if(cancel && text.includes('重试')) controller.abort(); },controller.signal); }
+    catch(error) { return (error as Error).message; }
+  },cancel);
+  expect(await run(false)).toContain('请求失败'); expect(requests).toBe(1);
+  status = 503;
+  expect(await run(true)).toContain('取消'); expect(requests).toBe(2);
+});
+
+test('background catalog synchronization stores templates that were never opened', async ({ page }) => {
+  await harness(page);
+  await page.route('**/api/catalog/index', route => route.fulfill({json:{ok:true,data:[{atomTplId:'unseen-a',room:'demo:header',displayName:'离线标题'},{atomTplId:'unseen-b',room:'demo:body',displayName:'离线正文'},{atomTplId:'unseen-a',room:'demo:other',displayName:'离线标题'}]}}));
+  await page.route('**/api/template?**', route => route.fulfill({json:{ok:true,data:{atomTplId:new URL(route.request().url()).searchParams.get('id'),html:'<p>后台缓存</p>',matrix:[]}}}));
+  await page.evaluate(async () => { await (await import('/src/lib/catalog-sync.ts')).syncCatalog(); });
+  const paths = await page.evaluate(async () => (await (await caches.open('kiumi-catalog-v1')).keys()).map(r=>r.url));
+  expect(paths.some(p=>p.includes('id=unseen-a'))).toBe(true);
+  expect(paths.some(p=>p.includes('id=unseen-b'))).toBe(true);
+  await page.route('**/api/**', route => route.abort());
+  await page.reload();
+  const matches = await page.evaluate(async () => (await import('/src/api.ts')).fetchTemplates({room:'demo:header',q:'离线'}));
+  expect(matches.map(m=>m.atomTplId)).toEqual(['unseen-a']);
+  const other = await page.evaluate(async () => (await import('/src/api.ts')).fetchTemplates({room:'demo:other'}));
+  expect(other.map(m=>m.atomTplId)).toEqual(['unseen-a']);
+});
+
+test('catalog uses conditional revalidation and retains data on 304', async ({ page }) => {
+  await harness(page);
+  let conditional = false;
+  await page.route('**/api/template?**', async route => {
+    if (route.request().headers()['if-none-match'] === '"revision-1"') {
+      conditional = true; await route.fulfill({status:304}); return;
+    }
+    await route.fulfill({headers:{etag:'"revision-1"'},json:{ok:true,data:{displayName:'持久模板'}}});
+  });
+  const get = () => page.evaluate(async () => (await (await import('/src/api.ts')).fetchTemplate('etag-test')).displayName);
+  expect(await get()).toBe('持久模板');
+  await page.reload();
+  expect(await get()).toBe('持久模板');
+  await expect.poll(() => conditional).toBe(true);
+  expect(await get()).toBe('持久模板');
+});
+
+test('applying a card style preserves paragraphs, images, tables and block identity and can undo', async ({ page }) => {
+  await app(page);
+  await page.route('**/api/template?**', route => route.fulfill({json:{ok:true,data:{atomTplId:'card-style',displayName:'新卡片',matrix:[],html:'<section style="background:tomato;padding:20px"><p style="color:white;font-size:20px">输入文字输入文字</p><p>输入文字</p></section>'}}}));
+  const result = await page.evaluate(async () => {
+    const {useStore} = await import('/src/store.ts');
+    const original = '<section style="background:blue"><p style="color:black">第一段</p><p>第二段</p><img src="/uploads/img_a"><table><tr><td colspan="2">表格</td></tr></table></section>';
+    useStore.getState().loadDoc({...useStore.getState().doc,blocks:[{kind:'library',id:'keep-id',tplId:'old-card',matrix:[],html:original}]});
+    useStore.getState().select(0);
+    await useStore.getState().applyTemplateStyle('card-style');
+    const after = useStore.getState().doc.blocks[0];
+    const root = document.createElement('div'); root.innerHTML = after.kind === 'library' ? after.html! : '';
+    const content = root.textContent;
+    useStore.getState().undo();
+    const restored = useStore.getState().doc.blocks[0];
+    return {after,content,restored,original};
+  });
+  expect(result.after.id).toBe('keep-id');
+  expect(result.after.html).toContain('background:tomato');
+  expect(result.after.html).not.toContain('background:blue');
+  expect(result.after.html).toContain('/uploads/img_a');
+  expect(result.after.html).toContain('colspan="2"');
+  expect(result.content).toContain('第一段第二段');
+  expect(result.content).not.toContain('输入文字');
+  expect(result.restored.html).toBe(result.original);
+});
+
+test('placeholder text is not article content and pasted text inherits card typography', async ({ page }) => {
+  await app(page);
+  await page.route('**/api/template?**', route => route.fulfill({json:{ok:true,data:{atomTplId:'placeholder-card',displayName:'空白卡片',matrix:[],html:'<section style="background:tomato"><p style="color:white;font-size:20px">输入文字输入文字</p></section>'}}}));
+  await page.evaluate(async () => (await import('/src/store.ts')).useStore.getState().insertTemplate('placeholder-card'));
+  const paragraph = page.locator('[data-block-content] p');
+  await expect(paragraph).toHaveText('');
+  await paragraph.dblclick();
+  await paragraph.evaluate(el => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData('text/plain','粘贴正文');
+    clipboardData.setData('text/html','<span style="color:black;background:white;font-size:40px">粘贴正文</span>');
+    el.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData}));
+  });
+  await expect(paragraph).toHaveText('粘贴正文');
+  await expect(paragraph).toHaveCSS('color','rgb(255, 255, 255)');
+  await expect(paragraph).toHaveCSS('font-size','20px');
+  await page.getByRole('button',{name:'保存',exact:true}).click();
+  await paragraph.dblclick();
+  await expect(paragraph).toHaveText('粘贴正文');
+  const html = await page.evaluate(async () => (await import('/src/store.ts')).useStore.getState().doc.blocks[0]);
+  expect(html.html).not.toContain('输入文字');
+  expect(html.html).not.toContain('40px');
+  for (const selector of ['.block-tool','.structure-tool']) {
+    const sizes = await page.locator(selector).evaluateAll(nodes=>nodes.map(n=>({w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height})).filter(n=>n.w>0));
+    expect(sizes.every(s=>s.w>=32 && s.h>=32)).toBe(true);
   }
 });

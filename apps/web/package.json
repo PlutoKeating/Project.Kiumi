@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "deploy": "npm run build && wrangler deploy",
     "deploy:dry": "npm run build && wrangler deploy --dry-run --outdir .wrangler-dry",
-    "test:import": "playwright test"
+    "test:import": "playwright test import.spec.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@kiumi/core": "workspace:*",

@@ -10,3 +10,7 @@ createRoot(root).render(
     <App />
   </React.StrictMode>,
 );
+
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  void navigator.serviceWorker.register('/catalog-assets-sw.js').catch(() => {});
+}

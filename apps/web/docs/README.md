@@ -19,3 +19,11 @@ React + Zustand。顶栏「团队与文稿」提供创建/加入/切换团队、
 「公众号草稿」可管理多个团队公众号，选择图库封面并保存、同步、回读草稿。创建者配置凭证，成员可使用团队公众号。
 
 多选使用 Ctrl/Command 或 Shift 点击；批量操作在右侧面板。Ctrl/Command+A 全选，C/V 复制粘贴，D 克隆，Delete 删除；Ctrl/Command +/-/0 与滚轮调节画布缩放。Alt 拖动可将块放入目标模板容器。模板图片支持上传或选择团队图库，链接也可直接编辑。
+
+## 本地优先与模板换样式
+
+`store.refresh` 使用 core 同步渲染和编辑态校验；`catalog-cache.ts` 负责公开模板的内存去重、Cache Storage、后台更新与 ETag；`catalog-index.ts` 持久化完整分类目录；`catalog-sync.ts` 后台单路下载全库记录并支持暂停。`public/catalog-assets-sw.js` 只缓存同源 `/assets/` 图片，不处理团队 API 或上传图片。首次未缓存的内容仍需联网。
+
+模板卡片的缩略图通过本地记录生成 srcDoc，点击插入复用记录。选中内容块后点击「应用样式」，`template-style.ts` 保留语义内容并替换卡片外观，可撤销；无文字区域的模板明确提示不能应用。占位文字转换为空编辑槽，只在编辑器用 CSS 显示提示；画布粘贴插入纯文字，继承模板样式。顶栏分为信息与操作两行，窄桌面操作栏横向滚动；块操作按钮至少 32×32。
+
+运行 `pnpm --filter @kiumi/web test:e2e` 检查 Word、缓存离线读取/更新、无网络渲染、布局、样式移植、占位与粘贴。没有新增依赖；原有 `test:import` 命令继续可用。详细边界见 [本地优先说明](../../../docs/LOCAL_FIRST.md)。

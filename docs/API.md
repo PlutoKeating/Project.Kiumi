@@ -206,3 +206,11 @@ pnpm dev            # 同时起 API 与 Vite（5180）
 ## Word 导入与现有 API 的关系
 
 DOCX/图片 ZIP 在浏览器解析，不新增 Word 转换 API，也不上传原始文档。图片确认后复用 `POST /api/assets/upload`（单张 10 MiB），浏览器另外限制图片总量 80 MiB。文稿沿用 `library` 块的 `html`、`tplId` 和 `matrix: []`，图片使用上传返回地址；保存、签名导出和公众号草稿沿用已有接口。详见 [Word 导入](WORD_IMPORT.md)。
+
+## 模板本地缓存协议
+
+- `GET /api/catalog/index`：完整公开模板目录，保留跨分类重复记录；客户端先按分类过滤，再按 atomTplId 去重。后台同步用此快照，避免逐页请求全库。
+- `/api/catalog/index`、`/api/rooms`、`/api/templates`、`/api/template` 返回内容 ETag；`If-None-Match` 一致返回 304。底层数据服务读取仍受边缘缓存期限约束，更新不是实时推送。
+- `GET /api/template?id=...&localAssets=true` 返回镜像素材地址的 HTML；不传参数保留原契约。缩略图和插入共用此记录。
+- 编辑模式 `/api/render` 的 `localAssets:true` 接受内部 `/assets/`、`/uploads/` 地址；普通相对图片地址仍报错。复制/导出依旧生成绝对和签名链接。
+- 图片上传按「团队 + 图片 SHA-256」生成稳定 ID，同一团队重复提交相同字节复用记录（保留第一次文件名）；不同团队不会共享资源权限，旧 UUID 图片继续可读。存储连接失败返回 503 `UPLOAD_UNAVAILABLE`，图库登记失败返回 503 `UPLOAD_INDEX_UNAVAILABLE`，上游拒绝写入返回 502 `UPLOAD_FAILED`。不需要数据库迁移。
