@@ -24,6 +24,8 @@ Kiumi 的渲染器是**纯函数**：`(文档树, 模板骨架) → HTML 字符�
 
 ![布局模板](docs/images/workbench-layout.png)
 
+![SVG 动效库](docs/images/workbench-svg.png)
+
 ![素材库](docs/images/assets-panel.png)
 
 ## 快速开始
