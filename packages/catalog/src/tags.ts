@@ -226,6 +226,8 @@ export async function crawlTagCorpus(options: TagCrawlOptions): Promise<TagCrawl
   }
   index.sort((a, b) => String(a.atomTplId).localeCompare(String(b.atomTplId)));
   await writeJson(path.join(modernDir, 'index.json'), index);
+  // Committed copy: the payloads themselves stay out of git.
+  await writeJson(path.join(paths.catalog, 'modern-index.json'), index, false);
 
   // Fill skeletons the base pack does not cover.
   const packPath = paths.pack;
@@ -263,5 +265,9 @@ export async function crawlTagCorpus(options: TagCrawlOptions): Promise<TagCrawl
 /** Load the modern tag corpus index (metadata only). */
 export async function loadModernIndex(dataDir: string): Promise<Record<string, unknown>[]> {
   const paths = catalogPaths(dataDir);
-  return (await readJson<Record<string, unknown>[]>(path.join(paths.catalog, 'modern', 'index.json'))) ?? [];
+  return (
+    (await readJson<Record<string, unknown>[]>(path.join(paths.catalog, 'modern-index.json'))) ??
+    (await readJson<Record<string, unknown>[]>(path.join(paths.catalog, 'modern', 'index.json'))) ??
+    []
+  );
 }

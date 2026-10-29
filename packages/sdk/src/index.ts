@@ -258,11 +258,15 @@ export class KiumiClient {
 
   async get(atomTplId: string): Promise<TemplateRecord | null> {
     const catalog = await this.loaded();
-    const legacyFile = path.join(catalog.paths.templates, `${slugOf(atomTplId)}.json`);
-    const modernFile = path.join(catalog.paths.catalog, 'modern', `${slugOf(atomTplId)}.json`);
-    for (const file of [legacyFile, modernFile]) {
+    const file = `${slugOf(atomTplId)}.json`;
+    const candidates = [
+      path.join(catalog.paths.templates, file),
+      path.join(catalog.paths.catalog, 'svg-anim', file),
+      path.join(catalog.paths.catalog, 'modern', file),
+    ];
+    for (const candidate of candidates) {
       try {
-        return JSON.parse(await readFile(file, 'utf8')) as TemplateRecord;
+        return JSON.parse(await readFile(candidate, 'utf8')) as TemplateRecord;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }

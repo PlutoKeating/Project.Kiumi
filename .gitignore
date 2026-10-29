@@ -11,6 +11,8 @@ data/assets/
 data/uploads/
 # derived from the (ignored) asset mirror
 data/catalog/assets-manifest.json
+# 21k modern payloads stay on disk; the committed index describes them
+data/catalog/modern/
 data/documents/
 data/kiumi.db
 data/kiumi.db-*
