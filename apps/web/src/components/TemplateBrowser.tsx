@@ -1,0 +1,140 @@
+import { useState } from 'react';
+import { previewUrl, type Room, type TemplateIndexEntry } from '../api.ts';
+import { ROOM_GROUPS, useStore } from '../store.ts';
+
+function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () => void }) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onPick}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') onPick();
+      }}
+      className="group flex flex-col h-[164px] text-left rounded-lg border border-mist-200 bg-white overflow-hidden hover:border-accent-400 hover:shadow-sm transition cursor-pointer"
+      title={item.atomTplId}
+    >
+      <div className="h-[132px] shrink-0 overflow-hidden bg-white">
+        <iframe
+          className="preview-frame"
+          src={previewUrl(item.atomTplId)}
+          loading="lazy"
+          sandbox=""
+          referrerPolicy="no-referrer"
+          tabIndex={-1}
+        />
+      </div>
+      <div className="h-[32px] px-2 text-[11px] text-ink-600 flex items-center justify-between gap-2">
+        <span className="truncate">{item.displayName}</span>
+        <span className="shrink-0 text-[10px] text-ink-600/50">
+          {item.hasSvg ? 'SVG' : item.byteSize > 4000 ? '长' : ''}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function TemplateBrowser() {
+  const rooms = useStore((state) => state.rooms);
+  const activeGroup = useStore((state) => state.activeGroup);
+  const activeRoom = useStore((state) => state.activeRoom);
+  const query = useStore((state) => state.query);
+  const templates = useStore((state) => state.templates);
+  const loading = useStore((state) => state.loading);
+  const setGroup = useStore((state) => state.setGroup);
+  const setRoom = useStore((state) => state.setRoom);
+  const setQuery = useStore((state) => state.setQuery);
+  const insertTemplate = useStore((state) => state.insertTemplate);
+
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+
+  const group = ROOM_GROUPS.find((item) => item.key === activeGroup);
+  const groupRooms: Room[] = rooms.filter((room) => group?.rooms.includes(room.tag));
+
+  return (
+    <section className="w-[360px] shrink-0 bg-ink-700 text-mist-100 flex flex-col min-h-0">
+      <div className="flex items-stretch border-b border-white/10 relative">
+        {ROOM_GROUPS.map((item) => {
+          const available = item.rooms.some((tag) => rooms.some((room) => room.tag === tag));
+          return (
+            <button
+              key={item.key}
+              disabled={!available}
+              onMouseEnter={() => setOpenGroup(item.key)}
+              onMouseLeave={() => setOpenGroup((current) => (current === item.key ? null : current))}
+              onClick={() => setGroup(item.key)}
+              className={`flex-1 py-2.5 text-[13px] transition ${
+                activeGroup === item.key
+                  ? 'text-white border-b-2 border-accent-400'
+                  : available
+                    ? 'text-mist-200/70 hover:text-white'
+                    : 'text-mist-200/25 cursor-not-allowed'
+              }`}
+            >
+              {item.label}
+            </button>
+          );
+        })}
+
+        {openGroup && (
+          <div
+            className="absolute left-0 right-0 top-full z-20 bg-ink-600 border-t border-white/10 shadow-xl"
+            onMouseEnter={() => setOpenGroup(openGroup)}
+            onMouseLeave={() => setOpenGroup(null)}
+          >
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 p-3">
+              {(ROOM_GROUPS.find((item) => item.key === openGroup)?.rooms ?? []).map((tag) => {
+                const room = rooms.find((entry) => entry.tag === tag);
+                if (!room) return null;
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => {
+                      setGroup(openGroup);
+                      setRoom(tag);
+                      setOpenGroup(null);
+                    }}
+                    className={`text-left text-[12px] px-2 py-1 rounded hover:bg-white/10 ${
+                      activeRoom === tag ? 'text-accent-400' : 'text-mist-100'
+                    }`}
+                  >
+                    {room.name}
+                    <span className="ml-1 text-[10px] text-mist-200/40">{room.count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10">
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="搜索模板名称"
+          className="flex-1 bg-ink-800 border border-white/10 rounded px-2 py-1.5 text-[12px] text-mist-100 placeholder:text-mist-200/30 focus:outline-none focus:border-accent-400"
+        />
+      </div>
+
+      <div className="px-3 py-1.5 text-[11px] text-mist-200/50 flex items-center justify-between">
+        <span>{roomLabel(groupRooms, activeRoom)}</span>
+        <span>{loading ? '加载中…' : `${templates.length} 个`}</span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-3 pb-4 grid grid-cols-2 gap-2 content-start">
+        {templates.map((item) => (
+          <TemplateCard key={item.atomTplId} item={item} onPick={() => void insertTemplate(item.atomTplId)} />
+        ))}
+        {!loading && templates.length === 0 && (
+          <p className="col-span-2 text-[12px] text-mist-200/40 py-6 text-center">没有匹配的模板</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function roomLabel(rooms: Room[], activeRoom: string | null): string {
+  const room = rooms.find((entry) => entry.tag === activeRoom);
+  return room ? room.name : '全部';
+}
