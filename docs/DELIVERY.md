@@ -59,7 +59,20 @@ docker compose up -d --build
 docker compose down
 ```
 
-`pnpm kiumi audit` 的基线（实测）：
+现代库规模（`pnpm kiumi crawl tags` 实测）：
+
+| 分类 | 唯一模板 |
+|---|---|
+| 标题 | 4,824 |
+| 卡片 | 5,445 |
+| 图片 | 5,310 |
+| 布局 | 1,883 |
+| 组件 | 3,863 |
+| SVG 动效 | 442 |
+| 热门 | 50 |
+| **合计** | **21,817** |
+
+`pnpm kiumi audit` 的基线（旧版 rooms 库，实测）：
 
 ```
 house          total  errors  warnings  bytes/upstream
