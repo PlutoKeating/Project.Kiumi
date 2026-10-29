@@ -12,7 +12,8 @@
     "deploy:dry": "npm run build && wrangler deploy --dry-run --outdir .wrangler-dry",
     "test:import": "playwright test import.spec.ts",
     "test:e2e": "playwright test",
-    "test:editor": "playwright test editor.spec.ts"
+    "test:editor": "playwright test editor.spec.ts",
+    "verify:ui": "pnpm typecheck && pnpm test:editor && pnpm build"
   },
   "dependencies": {
     "@kiumi/core": "workspace:*",

@@ -33,3 +33,5 @@ React + Zustand。顶栏「团队与文稿」提供创建/加入/切换团队、
 `BlockToolbar.tsx` 使用 portal 跟随选中内容，支持固定、两排操作和按可用高度滚动的下拉面板。`lib/block-edit.ts` 从源 HTML 执行文本/样式/图片操作，通过 store commit 保留撤销；原生块 DOM 编辑后转为保留 ID 的 HTML 块。`ArticleSettings.tsx` 管理封面、摘要、作者、标签；公众号草稿默认采用头部封面。
 
 `Modal.tsx` 统一导入、团队、公众号和预览的 portal、焦点循环、Escape 与焦点恢复；具体业务保留 busy 关闭约束。界面 tokens 在 `styles.css`，正文不继承界面主题。规范见 [DESIGN.md](../DESIGN.md)，功能和平台限制见 [编辑工作台](../../../docs/EDITOR_DESIGN.md)。运行 `pnpm --filter @kiumi/web test:editor` 验证新增交互；全量仍用 `test:e2e`。没有新增运行时依赖或构建环境变量。
+
+界面大面积表面统一为米白/素白，画布无彩色渐变。磨砂共享 `--surface-glass`、`--glass-filter`、`--glass-highlight`，彩色只作局部交互点缀；浮层白色透明度 72%、模糊 28px，低饱和滤镜避免底层内容染色。无新增依赖或部署变量；`pnpm --filter @kiumi/web verify:ui` 串联类型检查、编辑回归和生产构建。

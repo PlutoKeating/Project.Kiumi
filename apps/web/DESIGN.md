@@ -4,15 +4,15 @@ description: 明亮、低饱和马卡龙与磨砂玻璃构成的桌面图文工�
 colors:
   primary: "#426c5f"
   focus: "#64867b"
-  background: "#edf2ed"
-  ink: "#293b38"
-  muted: "#536760"
-  border: "#dce5df"
-  mist: "#eef3ef"
+  background: "#f5f4f1"
+  ink: "#30302e"
+  muted: "#66665f"
+  border: "#e5e4df"
+  mist: "#f4f3f0"
   lavender: "#eee9f3"
   peach: "#f5e8df"
   sage: "#e1ece5"
-  glass: "rgba(251, 253, 250, .9)"
+  glass: "rgba(255, 255, 255, .72)"
   white: "#ffffff"
 typography:
   title:
@@ -49,18 +49,18 @@ components:
     rounded: "{rounded.control}"
     height: "34px"
   toolbar:
-    backgroundColor: "rgba(250, 252, 248, .94)"
+    backgroundColor: "rgba(255, 255, 255, .72)"
     textColor: "#354c40"
     rounded: "{rounded.toolbar}"
     padding: "6px"
   field:
-    backgroundColor: "#f8f9f5"
+    backgroundColor: "#fafaf8"
     textColor: "#35433a"
     rounded: "{rounded.control}"
     typography: "{typography.field}"
     padding: "8px 10px"
   dialog:
-    backgroundColor: "#fbfcf8f5"
+    backgroundColor: "var(--surface-glass)"
     rounded: "{rounded.dialog}"
     padding: "{spacing.dialog}"
 ---
@@ -71,7 +71,7 @@ components:
 
 **Creative North Star: "明亮的磨砂编辑台"**
 
-以用户确认的优雅、清爽、对齐、整洁为准：浅色工作区承载低饱和马卡龙分区，磨砂浮层提供操作层次。保持桌面编辑器的紧凑信息密度，用柔和底色、留白与清楚的状态降低视觉压力。
+以用户确认的优雅、清爽、对齐、整洁为准：米白工作区搭配素白面板，马卡龙色仅作局部点缀，磨砂浮层提供操作层次。保持桌面编辑器的紧凑信息密度，用柔和底色、留白与清楚的状态降低视觉压力。
 
 本文记录现有实现。界面字体、配色和圆角服务于编辑器外壳；文章正文、模板与导出内容保留各自排版。以 `src/styles.css` 的主题 tokens、工作台规则及组件源码为准。
 
@@ -107,7 +107,7 @@ components:
 
 ## Elevation & Depth
 
-背景以柔和色阶区分工作区；工具栏与弹出菜单使用浮层阴影，模态框使用更深的模态阴影。工具栏磨砂模糊为 20px、饱和度 120%，菜单模糊为 22px，模态遮罩模糊为 8px。浏览器不支持磨砂时，浮层回退到实色浅背景。
+背景使用均匀米白与素白；工具栏与弹出菜单使用内侧白色高光和中性浮层阴影，模态框使用更深的中性阴影。玻璃表面模糊为 28px、饱和度 20%，模态遮罩模糊为 14px。浏览器不支持磨砂时回退到 #fdfdfb。
 
 sidecar 的 tonalRamp 为预览面板合成色阶，不是新增的生产颜色规范。阴影精确值记录在 sidecar 的 shadows；浮动工具栏层级为 35，模态遮罩为 60。控件颜色、边框和阴影采用 150ms ease 过渡；减少动态效果偏好关闭 CSS 动画和过渡。
 
@@ -124,7 +124,7 @@ sidecar 的 tonalRamp 为预览面板合成色阶，不是新增的生产颜色�
 标题与摘要使用浅底、细边框、可见标签。摘要可以纵向调整高度。封面上传中禁止重复选择，错误以状态文本显示；更多设置默认折叠，展开作者、标签及封面移除操作。
 
 ### Navigation
-窄侧栏以图标加文字呈现分类，按钮宽 64px、最小高 54px。当前项通过 aria-current 和暖白底区别于浅绿导航底。模板浏览区使用紧凑文字筛选按钮，选中状态为淡主色底与主色文字。
+窄侧栏以图标加文字呈现分类，按钮宽 64px、最小高 54px。当前项通过 aria-current、强调文字和轻阴影区别于素白导航底。模板浏览区使用紧凑文字筛选按钮，选中状态为淡主色底与主色文字。
 
 ### Cards / Containers
 模板卡片高 204px、预览区高 132px，两列展示；卡片点击插入，「应用样式」单独触发并要求先选择内容块。预览 iframe 不截获鼠标，保留模板本身视觉。
@@ -146,3 +146,9 @@ sidecar 的 tonalRamp 为预览面板合成色阶，不是新增的生产颜色�
 - **Don't** 将工作台主题写入文章正文或导出 HTML。
 - **Don't** 将旧蓝色主题重新引入当前工作台。
 - **Don't** 将桌面工作台擅自改为移动端编辑器。
+
+## 素白磨砂修订
+
+大面积底色以 `#f5f4f1` 米白画布与素白面板为主，禁止彩色径向渐变和绿灰晕染。主文字改为中性灰。鼠尾草、薰衣草只用于按钮、选中反馈和封面占位等小面积点缀。
+
+浮层统一 `rgba(255,255,255,.72)`，`blur(28px) saturate(20%)`，使用内侧白色高光和中性投影刻画玻璃边缘；遮罩为中性灰与 14px 模糊。侧栏与顶栏共享白色磨砂表面。未支持 backdrop-filter 时回退 `#fdfdfb`。文章、模板以及导出内容不受界面表面效果影响。

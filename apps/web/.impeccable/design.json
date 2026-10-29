@@ -190,12 +190,12 @@
     "shadows": [
       {
         "name": "float",
-        "value": "0 12px 36px -10px rgba(44, 65, 56, .23)",
+        "value": "inset 0 1px 0 rgba(255,255,255,.95), inset 0 0 0 1px rgba(255,255,255,.6), 0 16px 40px -12px rgba(40,38,32,.22)",
         "purpose": "工具栏与菜单"
       },
       {
         "name": "modal",
-        "value": "0 30px 100px -25px rgba(37, 60, 50, .28)",
+        "value": "inset 0 1px 0 rgba(255,255,255,.95), inset 0 0 0 1px rgba(255,255,255,.6), 0 32px 100px -24px rgba(40,38,32,.25)",
         "purpose": "模态窗口"
       }
     ],
@@ -238,7 +238,7 @@
       "kind": "input",
       "description": "图文设置中的带标签摘要输入。",
       "html": "<label class=\"ds-field\">分享摘要<textarea rows=\"2\" placeholder=\"用一句话介绍这篇文章…\"></textarea></label>",
-      "css": ".ds-field{display:grid;gap:5px;font:11px system-ui;color:#5c6a60}.ds-field textarea{background:#f8f9f5;border:1px solid #e2e7dc;border-radius:8px;padding:8px 10px;color:#35433a;font:13px/1.6 system-ui;resize:vertical}.ds-field textarea::placeholder{color:#738072}.ds-field textarea:hover{border-color:var(--color-accent-400,#64867b)}.ds-field textarea:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}",
+      "css": ".ds-field{display:grid;gap:5px;font:11px system-ui;color:#5c6a60}.ds-field textarea{background:#fafaf8;border:1px solid #e6e4df;border-radius:8px;padding:8px 10px;color:#35433a;font:13px/1.6 system-ui;resize:vertical}.ds-field textarea::placeholder{color:#738072}.ds-field textarea:hover{border-color:var(--color-accent-400,#64867b)}.ds-field textarea:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}",
       "refersTo": "field"
     },
     {
@@ -253,21 +253,21 @@
       "kind": "chip",
       "description": "紧凑文字筛选按钮。",
       "html": "<button class=\"ds-chip\" aria-pressed=\"true\">全部</button>",
-      "css": ".ds-chip{border:0;border-radius:4px;padding:2px 6px;font:11px system-ui;color:var(--color-ink-600,#536760);background:transparent;cursor:pointer}.ds-chip[aria-pressed=\"true\"]{background:rgb(66 108 95 / 10%);color:var(--color-accent-500,#426c5f)}.ds-chip:hover{color:var(--color-ink-900,#293b38)}.ds-chip:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}"
+      "css": ".ds-chip{border:0;border-radius:4px;padding:2px 6px;font:11px system-ui;color:var(--color-ink-600,#66665f);background:transparent;cursor:pointer}.ds-chip[aria-pressed=\"true\"]{background:rgb(66 108 95 / 10%);color:var(--color-accent-500,#426c5f)}.ds-chip:hover{color:var(--color-ink-900,#30302e)}.ds-chip:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}"
     },
     {
       "name": "模板卡片",
       "kind": "card",
       "description": "预览区为示意文字；实际模板使用独立 iframe。",
       "html": "<div class=\"ds-card\" role=\"button\" tabindex=\"0\"><div class=\"ds-preview\">模板预览</div><div class=\"ds-caption\">模板名称</div><button class=\"ds-apply\">应用样式</button></div>",
-      "css": ".ds-card{display:flex;flex-direction:column;height:204px;width:160px;background:#fff;border:1px solid #e0e8df;border-radius:12px;overflow:hidden;cursor:pointer}.ds-card:hover{border-color:var(--color-accent-400,#64867b);box-shadow:0 1px 3px #0000001a}.ds-card:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}.ds-preview{height:132px;flex-shrink:0;background:var(--color-mist-50,#f8faf8);display:grid;place-items:center;color:#536760;font:12px system-ui}.ds-caption{height:32px;padding:0 8px;font:11px/32px system-ui;color:#536760}.ds-apply{align-self:flex-end;min-height:32px;margin:0 8px 8px;padding:0 8px;border:1px solid #dce5df;border-radius:4px;background:#fff;color:var(--color-accent-500,#426c5f);font:11px system-ui}.ds-apply:hover{background:var(--color-mist-100,#eef3ef)}.ds-apply:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}"
+      "css": ".ds-card{display:flex;flex-direction:column;height:204px;width:160px;background:#fff;border:1px solid #e8e6e1;border-radius:12px;overflow:hidden;cursor:pointer}.ds-card:hover{border-color:var(--color-accent-400,#64867b);box-shadow:0 1px 3px #0000001a}.ds-card:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}.ds-preview{height:132px;flex-shrink:0;background:var(--color-mist-50,#fafaf8);display:grid;place-items:center;color:#66665f;font:12px system-ui}.ds-caption{height:32px;padding:0 8px;font:11px/32px system-ui;color:#66665f}.ds-apply{align-self:flex-end;min-height:32px;margin:0 8px 8px;padding:0 8px;border:1px solid #e5e4df;border-radius:4px;background:#fff;color:var(--color-accent-500,#426c5f);font:11px system-ui}.ds-apply:hover{background:var(--color-mist-100,#f4f3f0)}.ds-apply:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}"
     },
     {
       "name": "磨砂工具栏",
       "kind": "custom",
       "description": "展示材料和按钮状态；默认跟随、可固定。收藏完整块内容与样式后可从图文收藏复用；实际交互依赖 React 组件。",
       "html": "<div class=\"ds-toolbar\" role=\"toolbar\" aria-label=\"内容块工具栏\"><button>复制</button><button>插入空行</button><button aria-pressed=\"true\"><b>B</b></button></div>",
-      "css": ".ds-toolbar{display:flex;gap:2px;padding:6px;border-radius:14px;background:rgba(250,252,248,.94);backdrop-filter:blur(20px) saturate(120%);box-shadow:var(--shadow-float,0 12px 36px -10px rgba(44,65,56,.23));color:#354c40}.ds-toolbar button{border:0;border-radius:7px;min-width:32px;min-height:32px;padding:5px 8px;background:transparent;font:12px system-ui;color:inherit;cursor:pointer}.ds-toolbar button:hover{background:#e9eee6}.ds-toolbar button[aria-pressed=\"true\"]{background:#dce9dd;color:#2a513a}.ds-toolbar button:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}",
+      "css": ".ds-toolbar{display:flex;gap:2px;padding:6px;border-radius:14px;background:rgba(255,255,255,.72);backdrop-filter:blur(28px) saturate(20%);box-shadow:var(--shadow-float,inset 0 1px 0 rgba(255,255,255,.95), 0 16px 40px -12px rgba(40,38,32,.22));color:#354c40}.ds-toolbar button{border:0;border-radius:7px;min-width:32px;min-height:32px;padding:5px 8px;background:transparent;font:12px system-ui;color:inherit;cursor:pointer}.ds-toolbar button:hover{background:#e9eee6}.ds-toolbar button[aria-pressed=\"true\"]{background:#dce9dd;color:#2a513a}.ds-toolbar button:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}",
       "refersTo": "toolbar"
     }
   ],
