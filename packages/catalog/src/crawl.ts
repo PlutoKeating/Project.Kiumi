@@ -236,14 +236,22 @@ export async function crawlAssets(options: CrawlAssetsOptions): Promise<{
 
   const urls = collectUrls(records).slice(0, options.limit && options.limit > 0 ? options.limit : undefined);
   const existing = (await readJson<AssetManifest>(paths.assetsManifest)) ?? {};
+  let flushChain: Promise<unknown> = Promise.resolve();
   const result = await mirrorAssets(urls, {
     assetsDir: paths.assets,
     concurrency: options.concurrency ?? 4,
     rps: options.rps ?? 4,
     existing,
     cookie: options.cookie,
-    onProgress: (done, total) => {
+    onProgress: (done, total, _url, snapshot) => {
       if (done % 25 === 0 || done === total) options.log?.(`assets ${done}/${total}`);
+      // Flush periodically so an interrupted mirror still leaves a usable manifest.
+      if (done % 100 === 0) {
+        const payload = structuredClone(snapshot);
+        flushChain = flushChain
+          .then(() => writeJson(paths.assetsManifest, payload))
+          .catch(() => undefined);
+      }
     },
   });
   await writeJson(paths.assetsManifest, result.manifest);

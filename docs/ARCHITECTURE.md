@@ -140,7 +140,7 @@ data/catalog/rooms.json          分类
 data/catalog/index.json          轻量索引（列表与筛选）
 data/catalog/templates/<slug>.json   单条矩阵 + 成品 HTML
 data/catalog/pack.json           tplId -> 骨架 HTML
-data/catalog/assets-manifest.json 远端 URL -> 本地路径 + sha256
+data/catalog/assets-manifest.json 远端 URL -> 本地路径 + sha256（随镜像生成，已 ignore）
 data/documents/<id>.json         用户文档
 data/uploads/<sha256>.<ext>      上传图片
 ```

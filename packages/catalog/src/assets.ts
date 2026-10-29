@@ -24,7 +24,7 @@ export interface MirrorOptions extends FetchOptions {
   assetsDir: string;
   concurrency?: number;
   rps?: number;
-  onProgress?: (done: number, total: number, url: string) => void;
+  onProgress?: (done: number, total: number, url: string, manifest: AssetManifest) => void;
   existing?: AssetManifest;
 }
 
@@ -59,7 +59,7 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
           if (cached) {
             skipped++;
             done++;
-            options.onProgress?.(done, urls.length, url);
+            options.onProgress?.(done, urls.length, url, manifest);
             continue;
           }
         }
@@ -74,7 +74,7 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
           };
           skipped++;
           done++;
-          options.onProgress?.(done, urls.length, url);
+          options.onProgress?.(done, urls.length, url, manifest);
           continue;
         }
         const { text } = await fetchText(url, limiter, {
@@ -96,7 +96,7 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
         failed.push({ url, error: (error as Error).message });
       } finally {
         done++;
-        options.onProgress?.(done, urls.length, url);
+        options.onProgress?.(done, urls.length, url, manifest);
       }
     }
   };

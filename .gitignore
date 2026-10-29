@@ -9,6 +9,8 @@ dist/
 data/raw/
 data/assets/
 data/uploads/
+# derived from the (ignored) asset mirror
+data/catalog/assets-manifest.json
 data/documents/
 data/kiumi.db
 data/kiumi.db-*
