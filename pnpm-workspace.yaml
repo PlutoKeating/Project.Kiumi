@@ -3,6 +3,8 @@ packages:
   - 'apps/*'
 
 # pnpm >=12 reads settings from this file (not package.json).
-# esbuild's postinstall must run: vite bundles with it.
+# These postinstall scripts must run: vite bundles with esbuild, and wrangler's
+# build step unpacks workerd.
 allowBuilds:
   esbuild: true
+  workerd: true
