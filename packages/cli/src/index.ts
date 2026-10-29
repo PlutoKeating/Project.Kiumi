@@ -4,7 +4,7 @@ import path from 'node:path';
 import { Command } from 'commander';
 import { crawlAssets, crawlCatalog, loadCatalog, type HouseFloor } from '@kiumi/catalog';
 import { summarizeIssues, validateHtml, type Issue } from '@kiumi/core';
-import { DocumentBuilder, KiumiClient } from '@kiumi/sdk';
+import { DocumentBuilder, KiumiClient, markdownToNodes } from '@kiumi/sdk';
 
 const program = new Command();
 
@@ -348,6 +348,27 @@ program
     if (flags.out) {
       await writeFile(flags.out, `${json}\n`, 'utf8');
       console.error(`wrote ${flags.out}`);
+    } else {
+      process.stdout.write(`${json}\n`);
+    }
+  });
+
+program
+  .command('md <file>')
+  .description('convert a markdown file into a document json')
+  .option('--title <title>', 'override the document title')
+  .option('-o, --out <file>', 'write document json')
+  .action(async (file, flags) => {
+    const source = file === '-' ? await readStdin() : await readFile(file, 'utf8');
+    const parsed = markdownToNodes(source);
+    const title =
+      flags.title ?? parsed.title ?? path.basename(file).replace(/\.md$/i, '') ?? '未命名图文';
+    const builder = DocumentBuilder.create(title);
+    for (const node of parsed.nodes) builder.addNativeBlock(node);
+    const json = JSON.stringify(builder.toJSON(), null, 2);
+    if (flags.out) {
+      await writeFile(flags.out, `${json}\n`, 'utf8');
+      console.error(`wrote ${flags.out} (${parsed.nodes.length} blocks)`);
     } else {
       process.stdout.write(`${json}\n`);
     }

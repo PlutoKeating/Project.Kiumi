@@ -380,5 +380,6 @@ export function createKiumi(options: KiumiClientOptions = {}): KiumiClient {
   return new KiumiClient(options);
 }
 
+export { markdownToNodes, type MarkdownParseOptions } from './markdown.ts';
 export { DocumentBuilder as Document };
 export type { KiumiDocument, RenderResult, TemplateRecord, RoomInfo, TemplateIndexEntry, Issue };
