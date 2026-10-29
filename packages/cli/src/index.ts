@@ -2,7 +2,13 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { Command } from 'commander';
-import { crawlAssets, crawlCatalog, loadCatalog, type HouseFloor } from '@kiumi/catalog';
+import {
+  crawlAssets,
+  crawlCatalog,
+  loadCatalog,
+  probeMemberEndpoints,
+  type HouseFloor,
+} from '@kiumi/catalog';
 import { summarizeIssues, validateHtml, type Issue } from '@kiumi/core';
 import { DocumentBuilder, KiumiClient, markdownToNodes } from '@kiumi/sdk';
 
@@ -112,6 +118,27 @@ crawl
         2,
       ),
     );
+  });
+
+crawl
+  .command('probe')
+  .description('check which member endpoints a cookie can read')
+  .option('--cookie <cookie>', 'cookie header (or XIUMI_COOKIE)')
+  .option('--rps <n>', 'requests per second', '2')
+  .action(async (flags) => {
+    const cookie = flags.cookie ?? process.env.XIUMI_COOKIE;
+    if (!cookie) {
+      console.error('no cookie: pass --cookie or set XIUMI_COOKIE');
+      process.exitCode = 1;
+      return;
+    }
+    const results = await probeMemberEndpoints({ cookie, rps: Number(flags.rps) });
+    const ok = results.filter((item) => item.status === 200);
+    for (const item of results) {
+      const mark = item.status === 200 ? 'OK ' : `${item.status} `;
+      console.log(`${mark}${item.url}${item.rooms !== undefined ? `  rooms=${item.rooms}` : ''}`);
+    }
+    console.log(`\n${ok.length} of ${results.length} endpoints reachable`);
   });
 
 crawl

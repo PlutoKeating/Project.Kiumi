@@ -40,10 +40,17 @@ pnpm kiumi crawl assets                # 全量（约 300 MB）
 会员库（可选，需要你的登录 Cookie）：
 
 ```bash
+# 1) 先探测这把 Cookie 能读到哪些端点
+XIUMI_COOKIE='<cookie 头>' pnpm kiumi crawl probe
+
+# 2) 再按探测结果抓取
 XIUMI_COOKIE='<cookie 头>' pnpm kiumi crawl templates
 ```
 
-Cookie 只从环境变量读取，不写盘、不进日志。
+`probe` 会逐个打 49 个候选端点并打印状态码；公开的 4 个总是 200
+（`paper/comp`、`paper/page`、`booklet/comp`、`booklet/page`），会员端点需要有效 Cookie。
+
+Cookie 只从环境变量或 `--cookie` 读取，不写盘、不进日志。
 
 ## 浏览
 

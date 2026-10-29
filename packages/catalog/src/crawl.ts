@@ -14,6 +14,9 @@ import {
 import {
   assetUrl,
   DEFAULT_CDN,
+  FRAGMENT_ROOTS,
+  MEMBER_FLOORS,
+  MEMBER_HOUSES,
   DEFAULT_ORIGIN,
   PUBLIC_SOURCES,
   packUrl,
@@ -22,6 +25,7 @@ import {
   skeletonUrl,
   type HouseFloor,
 } from './source.ts';
+import { HttpError } from './http.ts';
 import { catalogPaths, ensureDirs, readJson, slugOf, writeJson } from './store.ts';
 
 export interface CrawlOptions {
@@ -215,6 +219,51 @@ export interface CrawlAssetsOptions {
   limit?: number;
   cookie?: string;
   log?: (line: string) => void;
+}
+
+export interface ProbeResult {
+  url: string;
+  status: number;
+  rooms?: number;
+  error?: string;
+}
+
+/**
+ * Report which member endpoints a cookie can actually read. Run this before a
+ * long member crawl so the scope is known instead of guessed.
+ */
+export async function probeMemberEndpoints(options: {
+  origin?: string;
+  cookie?: string;
+  rps?: number;
+}): Promise<ProbeResult[]> {
+  const origin = options.origin ?? DEFAULT_ORIGIN;
+  const limiter = new RateLimiter(options.rps ?? 2);
+  const targets: string[] = [];
+
+  for (const house of MEMBER_HOUSES) {
+    for (const floor of MEMBER_FLOORS) {
+      targets.push(`${origin}/api/templates/${house}/${floor}/rooms`);
+    }
+  }
+  for (const root of FRAGMENT_ROOTS) {
+    targets.push(`${origin}/api/fragments/v5/${root}/tags`);
+  }
+
+  const out: ProbeResult[] = [];
+  for (const url of targets) {
+    try {
+      const data = await fetchJson<{ rooms?: unknown[] }>(url, limiter, {
+        cookie: options.cookie,
+        retries: 0,
+      });
+      out.push({ url, status: 200, rooms: Array.isArray(data?.rooms) ? data.rooms.length : 0 });
+    } catch (error) {
+      const status = error instanceof HttpError ? error.status : 0;
+      out.push({ url, status, error: (error as Error).message.slice(0, 90) });
+    }
+  }
+  return out;
 }
 
 export async function crawlAssets(options: CrawlAssetsOptions): Promise<{

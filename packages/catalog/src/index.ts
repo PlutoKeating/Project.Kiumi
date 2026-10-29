@@ -4,6 +4,9 @@ export {
   DEFAULT_CDN,
   DEFAULT_ASSET_HOST,
   PUBLIC_SOURCES,
+  MEMBER_HOUSES,
+  MEMBER_FLOORS,
+  FRAGMENT_ROOTS,
   roomsUrl,
   roomUrl,
   packUrl,
@@ -34,6 +37,8 @@ export {
 } from './store.ts';
 export {
   crawlCatalog,
+  probeMemberEndpoints,
+  type ProbeResult,
   crawlAssets,
   type CrawlOptions,
   type CrawlReport,

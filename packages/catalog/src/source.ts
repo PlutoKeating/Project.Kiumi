@@ -56,3 +56,24 @@ export function extractAssetUrls(payload: unknown): Set<string> {
   }
   return out;
 }
+
+/** Houses worth probing once an authenticated cookie is available. */
+export const MEMBER_HOUSES = [
+  'paper',
+  'booklet',
+  'svg',
+  'tpl',
+  'pro',
+  'vip',
+  'atom',
+  'sticker',
+  'element',
+  'template',
+  'animation',
+];
+
+/** Floors used by the member content packs. */
+export const MEMBER_FLOORS = ['comp', 'page', 'v5', 'svg'];
+
+/** Fragment library roots seen in the editor bundle. */
+export const FRAGMENT_ROOTS = ['svg', 'paper', 'comp', 'tpl', 'fragment'];
