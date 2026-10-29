@@ -53,7 +53,7 @@ export function houseOf(tplId: string): string {
   return colon > 0 ? tplId.slice(0, colon) : 'paper-cp';
 }
 
-/** `demo:header/t-a-01` -> `paper-cp/header/t-a-01-01` */
+/** `demo:header/t-a-01` -> `demo/header/t-a-01` */
 export function tplIdToPath(tplId: string): string {
   return tplId.replace(':', '/');
 }

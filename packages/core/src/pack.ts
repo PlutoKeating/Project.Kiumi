@@ -103,7 +103,7 @@ export function unescapeJsString(input: string): string {
   return out;
 }
 
-/** `//sd.xiumius.cn/tpls/paper-cp/header/t-a-01-01.html?x=1` -> `demo:header/t-a-01` */
+/** `https://cdn.example/tpls/demo/header/t-a-01.html?x=1` -> `demo:header/t-a-01` */
 export function urlToTplId(url: string): string | null {
   const marker = '/tpls/';
   const index = url.indexOf(marker);
