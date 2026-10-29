@@ -1,7 +1,12 @@
 ARG NPM_REGISTRY=https://registry.npmjs.org
 FROM node:24-alpine AS base
+# Re-declare so the arg is usable inside the stage.
+ARG NPM_REGISTRY
 WORKDIR /app
-RUN corepack enable && npm config set registry $NPM_REGISTRY
+ENV COREPACK_NPM_REGISTRY=$NPM_REGISTRY
+RUN corepack enable \
+ && corepack prepare pnpm@12.11.2 --activate \
+ && pnpm config set registry "$NPM_REGISTRY" 
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/core/package.json packages/core/
