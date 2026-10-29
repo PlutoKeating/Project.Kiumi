@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fetchText, RateLimiter, type FetchOptions } from './http.ts';
+import { fetchBytes, RateLimiter, type FetchOptions } from './http.ts';
 import { assetUrl } from './source.ts';
 
 export interface AssetEntry {
@@ -77,12 +77,11 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
           options.onProgress?.(done, urls.length, url, manifest);
           continue;
         }
-        const { text } = await fetchText(url, limiter, {
+        const { bytes } = await fetchBytes(url, limiter, {
           cookie: options.cookie,
           retries: 2,
           timeoutMs: 45_000,
         });
-        const bytes = Buffer.from(text, 'utf8');
         await mkdir(path.dirname(target), { recursive: true });
         await writeFile(target, bytes);
         manifest[url] = {
