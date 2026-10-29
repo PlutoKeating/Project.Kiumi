@@ -114,7 +114,12 @@ async function verifyIdToken(token: string, env: AuthEnv, issuer: string, client
   if (typeof payload.exp === 'number' && payload.exp < now) throw new Error('id_token expired');
   const claimIssuer = String(payload.iss ?? '').replace(/\/$/, '');
   if (claimIssuer && claimIssuer !== issuer) throw new Error('issuer mismatch');
-  if (payload.aud && payload.aud !== clientId) throw new Error('audience mismatch');
+  // aud may be a single value or a list, depending on what the issuer grants.
+  const audience = payload.aud;
+  const audiences = Array.isArray(audience) ? audience.map(String) : audience ? [String(audience)] : [];
+  if (audiences.length && !audiences.includes(clientId)) {
+    throw new Error(`audience mismatch: ${audiences.join(',')} vs ${clientId}`);
+  }
 
   return {
     sub: String(payload.sub),
@@ -147,7 +152,7 @@ export async function handleAuth(request: Request, env: AuthEnv): Promise<Respon
     authorize.searchParams.set('response_type', 'code');
     authorize.searchParams.set('client_id', cfg.clientId);
     authorize.searchParams.set('redirect_uri', redirectUri);
-    authorize.searchParams.set('scope', 'openid offline_access');
+    authorize.searchParams.set('scope', 'openid profile email offline_access');
     authorize.searchParams.set('state', state);
     authorize.searchParams.set('code_challenge', challenge);
     authorize.searchParams.set('code_challenge_method', 'S256');
