@@ -28,6 +28,8 @@ test('Worker teams isolate drafts and uploads; invitations allow sharing', async
     assert.ok(template.headers.get('etag'));
     const unchanged=await mf.dispatchFetch('https://test.invalid/api/template?id=test&localAssets=true',{headers:{'if-none-match':template.headers.get('etag')!}});
     assert.equal(unchanged.status,304);
+    const compressed=await mf.dispatchFetch('https://test.invalid/api/template?id=test&localAssets=true',{headers:{'if-none-match':'W/'+template.headers.get('etag')}});
+    assert.equal(compressed.status,304,'Cloudflare compression weakens ETags; GET revalidation must still match');
     const team=(await call('alice','/api/teams','POST',{name:'编辑组'})).data.id;
     const document=(await call('alice','/api/documents','POST',{title:'草稿',blocks:[]},team)).data;
     assert.equal((await call('bob','/api/documents/'+document.id,'GET',undefined,team)).status,403);

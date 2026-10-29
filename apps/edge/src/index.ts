@@ -44,7 +44,8 @@ async function catalogResponse(request: Request, response: Response): Promise<Re
   const headers = new Headers(response.headers);
   headers.set('etag', etag);
   headers.set('cache-control', 'public, no-cache');
-  if (request.headers.get('if-none-match') === etag) return new Response(null, {status:304,headers});
+  const matches = request.headers.get('if-none-match')?.split(',').some(value => value.trim() === '*' || value.trim().replace(/^W\//, '') === etag);
+  if (matches) return new Response(null, {status:304,headers});
   return new Response(body, {headers});
 }
 
