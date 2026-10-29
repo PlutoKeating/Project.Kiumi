@@ -382,8 +382,8 @@ export class KiumiClient {
    * their markup inside xiumi's engine; the matrix alone cannot reproduce it,
    * so fall back to the recorded HTML rather than silently dropping the effect.
    */
-  async renderRecord(record: TemplateRecord): Promise<RenderResult> {
-    const result = await this.render(record.matrix);
+  async renderRecord(record: TemplateRecord, matrix: unknown = record.matrix): Promise<RenderResult> {
+    const result = await this.render(matrix);
     if (record.html.includes('<svg') && !result.html.includes('<svg')) {
       return {
         html: record.html,
@@ -405,7 +405,7 @@ export class KiumiClient {
     const record = await this.get(atomTplId);
     if (!record) throw new Error(`TEMPLATE_NOT_FOUND: ${atomTplId}`);
     const matrix = fillMatrix(record.matrix, set);
-    const result = await this.renderRecord(record);
+    const result = await this.renderRecord(record, matrix);
     if (Object.keys(set).length && result.warnings.some((w) => w.code === 'SVG_ENGINE_FALLBACK')) {
       result.warnings.push({
         code: 'SLOT_OVERRIDE_IGNORED',
