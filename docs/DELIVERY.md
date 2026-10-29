@@ -85,6 +85,8 @@ booklet-pg       553     553         0  53.236
 - `booklet-pg` 是 H5 整页（`tn-layer` 绝对分层），不参与文章渲染。
 - 文本保真：`paper-cp` 3,228 条中 **3,153 条（97.7%）的纯文本与上游逐字一致**。
 
+现代库审计（21,817 条）：**0 渲染失败**，仅 18 条表单组件因输出 `<input>` 报 `forbidden-tag`（微信正文会剥离表单，属预期）。
+
 手工验收路径：
 
 1. `pnpm kiumi render --tpl demo:header/t-a-01 --set 'txt1=<p>一日三餐</p>' -o out.html`

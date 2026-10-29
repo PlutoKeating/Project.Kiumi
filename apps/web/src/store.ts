@@ -115,7 +115,7 @@ interface State {
   setZoom: (zoom: number) => void;
   reloadTemplates: () => Promise<void>;
   insertTemplate: (atomTplId: string) => Promise<void>;
-  addNative: (kind: api.NativeNode['kind']) => void;
+  addNative: (kind: api.NativeNode['kind'], index?: number) => void;
   select: (index: number | null) => void;
   setTitle: (title: string) => void;
   setDigest: (digest: string) => void;
@@ -264,7 +264,7 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 
-  addNative(kind) {
+  addNative(kind, index) {
     const doc = get().doc;
     const node: api.NativeNode =
       kind === 'heading'
@@ -279,8 +279,11 @@ export const useStore = create<State>((set, get) => ({
       id: `blk-${Date.now().toString(36)}`,
       node,
     };
-    get().commit({ ...doc, blocks: [...doc.blocks, block] });
-    set({ selected: doc.blocks.length });
+    const blocks = [...doc.blocks];
+    const at = index === undefined ? blocks.length : index;
+    blocks.splice(at, 0, block);
+    get().commit({ ...doc, blocks });
+    set({ selected: at });
     void get().refresh();
   },
 

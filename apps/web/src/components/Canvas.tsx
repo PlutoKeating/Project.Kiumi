@@ -13,6 +13,11 @@ export function Canvas() {
   const setDigest = useStore((state) => state.setDigest);
   const updateSlot = useStore((state) => state.updateSlot);
   const [editing, setEditing] = useState<{ block: number; slot: string } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; block: number } | null>(null);
+  const addNative = useStore((state) => state.addNative);
+  const removeBlock = useStore((state) => state.removeBlock);
+  const copyBlock = useStore((state) => state.copyBlock);
+  const duplicateBlock = useStore((state) => state.duplicateBlock);
   const blockRefs = useRef(new Map<number, HTMLDivElement>());
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -65,8 +70,13 @@ export function Canvas() {
     if (html) updateSlot(index, slot, html);
   };
 
+  const runMenu = (action: () => void) => {
+    action();
+    setMenu(null);
+  };
+
   return (
-    <main className="flex-1 min-w-0 overflow-y-auto bg-mist-100">
+    <main className="flex-1 min-w-0 overflow-y-auto bg-mist-100" onClick={() => setMenu(null)}>
       <div className="flex justify-center px-6 py-6">
         <div
           className="w-[430px] shrink-0 transition-transform"
@@ -115,6 +125,12 @@ export function Canvas() {
                   event.stopPropagation();
                   startInlineEdit(index);
                 }}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  select(index);
+                  setMenu({ x: event.clientX, y: event.clientY, block: index });
+                }}
                 onBlur={(event) => {
                   if (editing?.block === index) {
                     const next = event.relatedTarget as HTMLElement | null;
@@ -150,6 +166,33 @@ export function Canvas() {
           </div>
         </div>
       </div>
+
+      {menu && (
+        <div
+          className="fixed z-40 w-[164px] py-1 rounded-lg border border-mist-200 bg-white shadow-xl text-[12px] text-ink-800"
+          style={{ left: menu.x, top: menu.y }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {[
+            { label: '复制到剪贴板', hint: '⧉', run: () => copyBlock(menu.block) },
+            { label: '原地复一份', hint: 'Ctrl+D', run: () => duplicateBlock(menu.block) },
+            { label: '前插空行', hint: 'Esc b', run: () => addNative('text', menu.block) },
+            { label: '后插空行', hint: 'Esc a', run: () => addNative('text', menu.block + 1) },
+            { label: '删除', hint: 'Del', run: () => removeBlock(menu.block), danger: true },
+          ].map((item) => (
+            <button
+              key={item.label}
+              onClick={() => runMenu(item.run)}
+              className={`w-full px-3 py-1.5 flex items-center justify-between hover:bg-mist-100 ${
+                item.danger ? 'text-red-600' : ''
+              }`}
+            >
+              <span>{item.label}</span>
+              <span className="text-[10px] text-ink-600/40">{item.hint}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </main>
   );
 }
