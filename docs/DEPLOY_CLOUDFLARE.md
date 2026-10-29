@@ -100,3 +100,24 @@ pnpm --filter @kiumi/edge exec wrangler dev --remote
 - R2 免费额度 10 GB 存储，当前数据 2.7 GB 在额度内
 - D1 免费额度按行读写计费，文档量级在免费范围内
 - `assets-required.json` 与 `assets-manifest.json` 决定覆盖率；缺失素材由 Worker 返回内置占位图
+
+## 让 Worker 读取内网数据服务（Workers VPC）
+
+数据服务只监听内网地址，不开放公网主机名。Worker 通过 Workers VPC 经现有隧道访问它。
+
+1. **隧道开启私有网络**：Cloudflare 控制台 → Networks → Tunnels → 选中数据所在服务器的隧道 →
+   Configure → Private Network → 添加服务器内网网段（例如 `10.0.0.0/24`）。
+2. **创建 VPC 服务**：控制台 → Workers VPC → Create service →
+   选择同一条隧道，主机填数据服务器的内网地址，端口填 `8792`（即 compose 里的发布端口）。
+   创建后复制生成的 `service_id`。
+3. **部署时注入**：
+
+```bash
+export KIUMI_VPC_SERVICE_ID=<上一步的 service id>
+pnpm deploy
+```
+
+`scripts/gen-edge-config.mjs` 会把它写进 `vpc_services` 绑定，Worker 里对应 `env.KIUMI_DATA`。
+
+代码按这个顺序取数据：VPC 绑定 → `KIUMI_DATA_ORIGIN`（HTTP） → R2 → 占位图。
+没有配置前两项时，接口仍可启动，只是模板列表为空。

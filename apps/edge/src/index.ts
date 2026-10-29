@@ -14,6 +14,8 @@ export interface Env {
   KIUMI_STRICT_ASSETS?: string;
   /** Origin of the Shenzhen ECS data service, e.g. https://data.kiumi.example */
   KIUMI_DATA_ORIGIN?: string;
+  /** Workers VPC service binding: reaches the data service over the tunnel. */
+  KIUMI_DATA?: { fetch: (input: string, init?: RequestInit) => Promise<Response> };
   KIUMI_DATA_KEY?: string;
   ID_ISSUER_URL?: string;
   ID_CLIENT_ID?: string;
@@ -54,6 +56,12 @@ const slug = (id: string): string => id.replace(/[^a-zA-Z0-9._-]+/g, '__');
 
 /** Fetch one object from the ECS data service (the primary store). */
 async function fetchFromEcs(env: Env, key: string): Promise<Response | null> {
+  if (env.KIUMI_DATA) {
+    const response = await env.KIUMI_DATA.fetch(`http://kiumi-data/${key}`, {
+      headers: { 'x-data-key': env.KIUMI_DATA_KEY ?? '' },
+    });
+    if (response.ok) return response;
+  }
   if (!env.KIUMI_DATA_ORIGIN) return null;
   const response = await fetch(`${env.KIUMI_DATA_ORIGIN.replace(/\/$/, '')}/${key}`, {
     headers: { 'x-data-key': env.KIUMI_DATA_KEY ?? '' },

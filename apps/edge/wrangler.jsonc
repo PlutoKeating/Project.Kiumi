@@ -16,6 +16,11 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "kiumi", "database_id": "REPLACE_AT_BUILD_TIME" }
   ],
+  // Workers VPC: reach the data service over the existing tunnel, with no
+  // public hostname. Fill service_id via KIUMI_VPC_SERVICE_ID at build time.
+  "vpc_services": [
+    { "binding": "KIUMI_DATA", "service_id": "REPLACE_WITH_VPC_SERVICE_ID", "remote": true }
+  ],
   "vars": {
     "KIUMI_STRICT_ASSETS": "1",
     "KIUMI_DATA_ORIGIN": "REPLACE_WITH_DATA_ORIGIN"

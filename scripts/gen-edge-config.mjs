@@ -18,6 +18,7 @@ const account = process.env.CLOUDFLARE_ACCOUNT_ID;
 const d1 = process.env.D1_DATABASE_ID;
 const dataOrigin = process.env.KIUMI_DATA_ORIGIN;
 const r2 = process.env.R2_BUCKET_NAME;
+const vpc = process.env.KIUMI_VPC_SERVICE_ID;
 
 const missing = [];
 if (!account) missing.push('CLOUDFLARE_ACCOUNT_ID');
@@ -35,6 +36,9 @@ if (r2) out = out.replace('"REPLACE_WITH_BUCKET"', JSON.stringify(r2));
 else out = out.replace(/^.*"r2_buckets".*$/m, '  // r2 disabled for this deployment');
 
 if (dataOrigin) out = out.replace('"REPLACE_WITH_DATA_ORIGIN"', JSON.stringify(dataOrigin));
+
+if (vpc) out = out.replace('"REPLACE_WITH_VPC_SERVICE_ID"', JSON.stringify(vpc));
+else out = out.replace(/^\s*"vpc_services": \[[\s\S]*?\],\n/m, '');
 
 writeFileSync(path.join(root, 'apps/edge/wrangler.generated.jsonc'), out);
 console.log('wrote apps/edge/wrangler.generated.jsonc');
