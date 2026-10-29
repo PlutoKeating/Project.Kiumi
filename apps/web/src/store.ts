@@ -72,6 +72,8 @@ interface State {
   query: string;
   loading: boolean;
   doc: api.Document;
+  past: api.Document[];
+  future: api.Document[];
   selected: number | null;
   previews: Record<string, string>;
   issues: api.Issue[];
@@ -94,6 +96,9 @@ interface State {
   refresh: () => Promise<void>;
   save: () => Promise<void>;
   newDoc: () => void;
+  undo: () => void;
+  redo: () => void;
+  commit: (next: api.Document) => void;
 }
 
 export const useStore = create<State>((set, get) => ({
@@ -105,6 +110,8 @@ export const useStore = create<State>((set, get) => ({
   query: '',
   loading: false,
   doc: emptyDoc(),
+  past: [],
+  future: [],
   selected: null,
   previews: {},
   issues: [],
@@ -166,7 +173,8 @@ export const useStore = create<State>((set, get) => ({
       const index = current === null ? doc.blocks.length : current + 1;
       const blocks = [...doc.blocks];
       blocks.splice(index, 0, block);
-      set({ doc: { ...doc, blocks }, selected: index, message: `已插入 ${record.displayName}` });
+      get().commit({ ...doc, blocks });
+      set({ selected: index, message: `已插入 ${record.displayName}` });
       await get().refresh();
     } catch (error) {
       set({ message: `插入失败：${(error as Error).message}` });
@@ -188,7 +196,8 @@ export const useStore = create<State>((set, get) => ({
       id: `blk-${Date.now().toString(36)}`,
       node,
     };
-    set({ doc: { ...doc, blocks: [...doc.blocks, block] }, selected: doc.blocks.length });
+    get().commit({ ...doc, blocks: [...doc.blocks, block] });
+    set({ selected: doc.blocks.length });
     void get().refresh();
   },
 
@@ -207,7 +216,7 @@ export const useStore = create<State>((set, get) => ({
     const matrix = patchSlot(block.matrix, path, value, compIndex);
     const blocks = [...doc.blocks];
     blocks[index] = { ...block, matrix };
-    set({ doc: { ...doc, blocks } });
+    get().commit({ ...doc, blocks });
     void get().refresh();
   },
 
@@ -217,7 +226,7 @@ export const useStore = create<State>((set, get) => ({
     if (!block || block.kind !== 'native') return;
     const blocks = [...doc.blocks];
     blocks[index] = { ...block, node: { ...block.node, ...patch } };
-    set({ doc: { ...doc, blocks } });
+    get().commit({ ...doc, blocks });
     void get().refresh();
   },
 
@@ -228,14 +237,16 @@ export const useStore = create<State>((set, get) => ({
       id: `blk-${Date.now().toString(36)}`,
       node: { kind: 'image', src },
     };
-    set({ doc: { ...doc, blocks: [...doc.blocks, block] }, selected: doc.blocks.length });
+    get().commit({ ...doc, blocks: [...doc.blocks, block] });
+    set({ selected: doc.blocks.length });
     void get().refresh();
   },
 
   removeBlock(index) {
     const doc = get().doc;
     const blocks = doc.blocks.filter((_, position) => position !== index);
-    set({ doc: { ...doc, blocks }, selected: null });
+    get().commit({ ...doc, blocks });
+    set({ selected: null });
     void get().refresh();
   },
 
@@ -246,7 +257,31 @@ export const useStore = create<State>((set, get) => ({
     const [moved] = blocks.splice(from, 1);
     if (!moved) return;
     blocks.splice(Math.min(to, blocks.length), 0, moved);
-    set({ doc: { ...doc, blocks }, selected: to });
+    get().commit({ ...doc, blocks });
+    set({ selected: to });
+  },
+
+  commit(next) {
+    const { doc, past } = get();
+    if (JSON.stringify(next.blocks) === JSON.stringify(doc.blocks) && next.title === doc.title) return;
+    set({ past: [...past.slice(-49), doc], future: [] });
+    set({ doc: { ...next, meta: { ...next.meta, updatedAt: new Date().toISOString() } } });
+  },
+
+  undo() {
+    const { past, future, doc } = get();
+    const previous = past[past.length - 1];
+    if (!previous) return;
+    set({ past: past.slice(0, -1), future: [doc, ...future].slice(0, 50), doc: previous, selected: null });
+    void get().refresh();
+  },
+
+  redo() {
+    const { past, future, doc } = get();
+    const next = future[0];
+    if (!next) return;
+    set({ past: [...past, doc].slice(-50), future: future.slice(1), doc: next, selected: null });
+    void get().refresh();
   },
 
   async refresh() {
@@ -284,6 +319,15 @@ export const useStore = create<State>((set, get) => ({
   },
 
   newDoc() {
-    set({ doc: emptyDoc(), selected: null, previews: {}, issues: [], message: '已新建' });
+    const { doc, past } = get();
+    set({
+      past: [...past.slice(-49), doc],
+      future: [],
+      doc: emptyDoc(),
+      selected: null,
+      previews: {},
+      issues: [],
+      message: '已新建',
+    });
   },
 }));

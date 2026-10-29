@@ -25,6 +25,10 @@ export function App() {
   const setTitle = useStore((state) => state.setTitle);
   const addNative = useStore((state) => state.addNative);
   const addImageBlock = useStore((state) => state.addImageBlock);
+  const undo = useStore((state) => state.undo);
+  const redo = useStore((state) => state.redo);
+  const canUndo = useStore((state) => state.past.length > 0);
+  const canRedo = useStore((state) => state.future.length > 0);
 
   const [rail, setRail] = useState('templates');
   const [preview, setPreview] = useState<string | null>(null);
@@ -33,6 +37,20 @@ export function App() {
   useEffect(() => {
     void boot();
   }, [boot]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const meta = event.metaKey || event.ctrlKey;
+      if (!meta) return;
+      if (event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo]);
 
   const renderFull = async (): Promise<string> => {
     const result = await renderDocument(doc);
@@ -115,6 +133,22 @@ export function App() {
 
         <div className="ml-auto flex items-center gap-2">
           <span className="text-[11px] text-ink-600/50 max-w-[220px] truncate">{message}</span>
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            title="撤销 (Cmd/Ctrl+Z)"
+            className="text-[12px] px-2.5 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-50 disabled:opacity-35 disabled:hover:bg-transparent"
+          >
+            撤销
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            title="重做 (Cmd/Ctrl+Shift+Z)"
+            className="text-[12px] px-2.5 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-50 disabled:opacity-35 disabled:hover:bg-transparent"
+          >
+            重做
+          </button>
           <button onClick={newDoc} className="text-[12px] px-3 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-50">
             新建
           </button>
