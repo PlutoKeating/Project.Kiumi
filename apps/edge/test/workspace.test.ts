@@ -44,6 +44,14 @@ test('Worker teams isolate drafts and uploads; invitations allow sharing', async
     const upload=(await uploaded.json() as any).data;
     assert.equal(uploaded.status,201);
     assert.equal((await mf.dispatchFetch('https://test.invalid'+upload.url)).status,403);
+    const exportDoc={version:1,id:'test-export',title:'导出',meta:{},blocks:[{kind:'library',id:'image',tplId:'imported:html',matrix:[],html:`<img src="${upload.url}">`}]};
+    const exported=await call('alice','/api/render','POST',{document:exportDoc},team);
+    assert.equal(exported.status,200);
+    const signed=exported.data.html.match(/src="([^"]+)"/)[1];
+    assert.equal((await mf.dispatchFetch(signed)).status,200,'exported images must be externally readable');
+    exportDoc.blocks[0].html=exported.data.html;
+    const repeated=await call('alice','/api/render','POST',{document:exportDoc},team);
+    assert.equal(repeated.data.html,exported.data.html,'re-exporting signed image URLs must not duplicate origin or query');
     const draft={documentId:document.id,accountId:account.id,cover:upload.url,requestId:'same-click'};
     const first=await call('bob','/api/wechat/draft','POST',draft,team);
     assert.equal(first.status,200,JSON.stringify(first));

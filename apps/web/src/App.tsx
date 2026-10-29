@@ -182,7 +182,7 @@ export function App() {
           className="w-[160px] min-w-[90px] shrink text-[13px] px-2 py-1.5 rounded border border-transparent hover:border-mist-200 focus:border-accent-400 focus:outline-none"
         />
 
-        <div className="hidden min-[1400px]:flex shrink-0 items-center gap-1.5 pl-2 border-l border-mist-200 text-[12px] text-ink-600 whitespace-nowrap">
+        <div className="flex shrink-0 items-center gap-1.5 pl-2 border-l border-mist-200 text-[12px] text-ink-600 whitespace-nowrap">
           <span>主题色</span>
           {THEME_SWATCHES.map((color) => (
             <button

@@ -1,7 +1,7 @@
 import { currentUser } from './auth.js';
 import { dataFetch } from './data.js';
 import type { Env } from './index.js';
-import type { KiumiDocument } from '@kiumi/core';
+import { rewriteHtmlAssets, type KiumiDocument } from '@kiumi/core';
 
 export class ApiError extends Error {
   status: number;
@@ -167,11 +167,14 @@ export async function exportImages(html:string,request:Request,env:Env):Promise<
   if(!ids.length)return html;
   const user=await currentUser(request,env);
   if(!user)throw new ApiError(401,'LOGIN_REQUIRED','请登录后导出团队图片');
+  const replacements=new Map<string,string>();
   for(const uploadId of ids) {
     const row=await env.DB.prepare('SELECT u.id FROM uploads u JOIN members m ON m.team_id=u.team_id WHERE u.id=? AND m.user_sub=?').bind(uploadId,user.sub).first();
     if(!row)throw new ApiError(403,'TEAM_FORBIDDEN','不能导出其他团队的图片');
     const from=`/uploads/${uploadId}`,to=`${new URL(request.url).origin}${from}?share=${await uploadShare(env,uploadId)}`;
-    html=html.split(from).join(to);
+    replacements.set(from,to);
   }
-  return html;
+  return rewriteHtmlAssets(html,source=>{
+    try {const url=new URL(source,new URL(request.url).origin);return url.origin===new URL(request.url).origin?(replacements.get(url.pathname)??source):source;}catch{return source;}
+  });
 }

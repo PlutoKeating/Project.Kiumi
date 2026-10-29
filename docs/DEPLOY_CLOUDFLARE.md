@@ -10,7 +10,7 @@
 ```
 浏览器 ──► Worker（前端静态资源 + /api）
               │
-              ├─ D1：文档
+              ├─ D1：团队、文稿、图库索引、加密公众号凭证
               └─ VPC 服务 ──► 隧道 ──► 数据服务（模板目录、素材镜像）
 ```
 
@@ -21,7 +21,7 @@
 | 资源 | 用途 | 说明 |
 |---|---|---|
 | Worker `kiumi` | 前端与接口 | 由 Git 集成创建 |
-| D1 库 `kiumi` | 文档 | 建好后执行 `apps/edge/schema.sql` |
+| D1 库 `kiumi` | 团队与文稿数据 | 执行 `pnpm d1:schema` 应用增量迁移 |
 | 隧道 | 打通到数据服务 | 已运行的 `cloudflared` 即可复用 |
 | VPC 服务 `kiumi-data` | Worker 侧的连接句柄 | 指向数据服务的内网地址与端口 |
 
@@ -48,24 +48,22 @@ Worker 的密钥在面板或用 wrangler 写入，仓库里只留 `.env.example`
 
 ```bash
 npx wrangler secret put KIUMI_DATA_KEY          # 访问数据服务的共享密钥
-npx wrangler secret put WECHAT_APP_ID
-npx wrangler secret put WECHAT_APP_SECRET
 npx wrangler secret put ID_ISSUER_URL           # 账号服务地址
 npx wrangler secret put ID_CLIENT_ID
 ```
 
-本地部署时这些值也可以写进 `.env.local`（已被忽略）。
+本地部署时这些值也可以写进 `.env.local`（已被忽略）。公众号凭证由团队创建者在网站绑定，加密保存到 D1，不使用全站共享公众号。`KIUMI_DATA_KEY` 同时用于派生凭证加密密钥，轮换前必须迁移已存凭证。
 
 ## 5. 数据服务
 
-`deploy/ecs-data/` 下是一份只读的 HTTP 服务，用 Node 跑，挂载数据目录即可：
+`deploy/ecs-data/` 提供模板/素材只读访问、受控图片写入与微信代理，依赖 Node 和 sharp。推荐 Docker Compose 启动：
 
 ```bash
 cd deploy/ecs-data
-KIUMI_DATA_KEY=<密钥> KIUMI_DATA_DIR=/srv/kiumi-data node server.mjs
+./start.sh
 ```
 
-它在 `/health` 返回就绪状态，其它路径按 `catalog/`、`assets/` 相对路径读取文件。
+它在 `/health` 返回就绪状态，模板与素材按 `catalog/`、`assets/` 相对路径读取文件；`uploads/` 单独可写挂载，`/wechat` 处理图片上传和草稿同步。公众号后台需把服务器出口 IP 加入白名单。
 请求需带 `x-data-key`，否则一律 401。
 
 把它的内网地址与端口登记成 VPC 服务后，Worker 里就用 `env.KIUMI_DATA.fetch()` 访问。
