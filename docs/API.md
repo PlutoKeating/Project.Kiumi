@@ -202,3 +202,7 @@ pnpm dev            # 同时起 API 与 Vite（5180）
 | `WECHAT_NOT_CONFIGURED` | 缺少公众号凭证 |
 | `WECHAT_API_ERROR` | 微信接口返回非 0 errcode |
 | `RATE_LIMITED` | 本地限速器拒绝 |
+
+## Word 导入与现有 API 的关系
+
+DOCX/图片 ZIP 在浏览器解析，不新增 Word 转换 API，也不上传原始文档。图片确认后复用 `POST /api/assets/upload`（单张 10 MiB），浏览器另外限制图片总量 80 MiB。文稿沿用 `library` 块的 `html`、`tplId` 和 `matrix: []`，图片使用上传返回地址；保存、签名导出和公众号草稿沿用已有接口。详见 [Word 导入](WORD_IMPORT.md)。

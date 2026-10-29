@@ -69,6 +69,7 @@ export function App() {
     };
 
     const onKey = (event: KeyboardEvent) => {
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       const meta = event.metaKey || event.ctrlKey;
 
       // Save works even while typing.

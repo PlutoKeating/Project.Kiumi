@@ -202,10 +202,10 @@ export function openDocument(id: string): Promise<Document> {
   return request<Document>(`/api/documents/${id}`);
 }
 
-export function uploadImage(file: File): Promise<{ sha256: string; bytes: number; url: string }> {
+export function uploadImage(file: File, signal?: AbortSignal): Promise<{ sha256: string; bytes: number; url: string }> {
   const form = new FormData();
   form.append('file', file);
-  return request('/api/assets/upload', { method: 'POST', body: form });
+  return request('/api/assets/upload', { method: 'POST', body: form, signal });
 }
 
 export async function copyRichHtml(html: string): Promise<void> {

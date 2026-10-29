@@ -9,11 +9,14 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "deploy": "npm run build && wrangler deploy",
-    "deploy:dry": "npm run build && wrangler deploy --dry-run --outdir .wrangler-dry"
+    "deploy:dry": "npm run build && wrangler deploy --dry-run --outdir .wrangler-dry",
+    "test:import": "playwright test"
   },
   "dependencies": {
     "@kiumi/core": "workspace:*",
     "dompurify": "^3.4.17",
+    "jszip": "^3.10.2",
+    "mammoth": "^1.13.0",
     "marked": "^18.1.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

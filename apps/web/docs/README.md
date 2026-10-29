@@ -10,7 +10,9 @@ React + Zustand。顶栏「团队与文稿」提供创建/加入/切换团队、
 
 ## 导入与 SVG
 
-「导入内容」支持 Markdown、HTML 文件、富文本粘贴以及公开网页地址。使用 marked 和 DOMPurify，隔离文档内联样式后追加到文稿。
+「导入内容」支持 DOCX、Word/WPS 富文本粘贴、图片 ZIP、Markdown、HTML 和公开网页。DOCX 通过 Mammoth + JSZip 在浏览器解析，按标题、段落、图片、完整列表和表格分块；先预览、调整标题并确认问题，再上传团队图片并写入画布。图片总量 80 MiB，单张 10 MiB，带图导入需要登录团队。HTML/网页保留原有布局与 SVG 导入行为。
+
+复杂公式、图表、页眉页脚等的处理边界见 [Word 导入说明](../../../docs/WORD_IMPORT.md)。浏览器回归运行 `pnpm --filter @kiumi/web test:import`；支持以环境变量提供不入库的本机样本。
 
 记录 HTML 的块在右侧按实际 DOM 提供文字、图片、颜色和动画参数编辑；源码编辑可处理任意 SVG 参数。画布双击编辑与输出使用同一份 HTML。
 

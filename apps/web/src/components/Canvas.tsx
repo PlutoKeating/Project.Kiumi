@@ -90,7 +90,7 @@ export function Canvas() {
     const block=doc.blocks[index];
     const container=blockRefs.current.get(index)?.querySelector<HTMLElement>('[data-block-content]');
     if(!block||!container)return;
-    let target=clicked.closest<HTMLElement>('p,span,h1,h2,h3,li,td,div');
+    let target=clicked.closest<HTMLElement>('p,span,h1,h2,h3,h4,h5,h6,li,td,th,div');
     if(block.kind==='native')target=container.firstElementChild as HTMLElement;
     if(!target||target===container||!container.contains(target)||target.closest('svg:not(:has(foreignObject))'))return;
     const path:number[]=[];let node:Node=target;
