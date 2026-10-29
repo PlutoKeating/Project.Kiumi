@@ -37,11 +37,11 @@ GET  /api/templates/{house}/{floor}/rooms/{urlencode(tag)}
 | tag | name |
 |---|---|
 | `paper-cp:recent` | 新模板 |
-| `paper-cp:header` | 标题 |
+| `demo:header` | 标题 |
 | `paper-cp:image` | 单图 |
 | `paper-cp:multi-pic` | 多图 |
 | `paper-cp:layout-background` | 背景图 |
-| `paper-cp:card` | 卡片 |
+| `demo:card` | 卡片 |
 | `paper-cp:separator-line` | 分割线 |
 | `paper-cp:top-bottom-guide` | 关注和原文 |
 | `paper-cp:layout` | 布局 |
@@ -49,7 +49,7 @@ GET  /api/templates/{house}/{floor}/rooms/{urlencode(tag)}
 | `paper-cp:table` | 表格 |
 | `paper-cp:element` | 零件 |
 | `paper-cp:sticker` | 贴纸 |
-| `paper-cp:SVG` | SVG 贴纸 |
+| `demo:svg` | SVG 贴纸 |
 | `paper-cp:video` | 视频 |
 | `paper-cp:chatbox` | 对话/问答 |
 | `paper-cp:sync-only` | 同步专属 |
@@ -67,7 +67,7 @@ GET  /api/templates/{house}/{floor}/rooms/{urlencode(tag)}
 ```jsonc
 {
   "template_id": 112,
-  "atom_tpl_id": "paper-cp:header/1-txt-normal",   // 全局唯一标识
+  "atom_tpl_id": "demo:header/1-txt-normal",   // 全局唯一标识
   "display_name": "文字",
   "creator_id": 21,
   "category": "paper-cp",
@@ -146,7 +146,7 @@ GET /api/templates/items?atom_tpl_id=<id>[&atom_tpl_id=...]
 | `GET /api/templates/{house}/{floor}/rooms`（登录可见的 house） | 线上完整库 | 400 InvalidParam |
 
 截图 SVG 菜单的 28 类动效（点击展开 / 路径动画 / 转场 / 抽签 …）属于登录后可见，
-公开库中的 `paper-cp:SVG` 仅为「可换色矢量贴纸」。抓取策略见 `docs/DEVELOPMENT_PLAN.md` 的 M2。
+公开库中的 `demo:svg` 仅为「可换色矢量贴纸」。抓取策略见 `docs/DEVELOPMENT_PLAN.md` 的 M2。
 
 ## 3. 块模型（`matrix`）
 

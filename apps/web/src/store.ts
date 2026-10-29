@@ -11,8 +11,8 @@ export interface RoomGroup {
 
 /** UI grouping over the upstream rooms, mirroring how editors organise tabs. */
 export const ROOM_GROUPS: RoomGroup[] = [
-  { key: 'header', label: '标题', rooms: ['paper-cp:header'] },
-  { key: 'card', label: '卡片', rooms: ['paper-cp:card'] },
+  { key: 'header', label: '标题', rooms: ['demo:header'] },
+  { key: 'card', label: '卡片', rooms: ['demo:card'] },
   {
     key: 'image',
     label: '图片',
@@ -32,7 +32,7 @@ export const ROOM_GROUPS: RoomGroup[] = [
   {
     key: 'svg',
     label: 'SVG',
-    rooms: ['paper-cp:SVG', 'paper-cp:sticker', 'paper-cp:element', 'paper-cp:separator-line'],
+    rooms: ['demo:svg', 'paper-cp:sticker', 'paper-cp:element', 'paper-cp:separator-line'],
   },
   {
     key: 'widget',
@@ -149,7 +149,7 @@ export const useStore = create<State>((set, get) => ({
   rooms: [],
   templates: [],
   activeGroup: 'header',
-  activeRoom: 'paper-cp:header',
+  activeRoom: 'demo:header',
   query: '',
   loading: false,
   offset: 0,

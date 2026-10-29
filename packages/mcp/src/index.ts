@@ -61,7 +61,7 @@ server.registerTool(
     title: 'List templates',
     description: 'List catalog templates filtered by room, name/id substring or SVG presence.',
     inputSchema: {
-      room: z.string().optional().describe('room tag, e.g. paper-cp:header'),
+      room: z.string().optional().describe('room tag, e.g. demo:header'),
       q: z.string().optional().describe('substring of name or atom_tpl_id'),
       hasSvg: z.boolean().optional(),
       limit: z.number().int().min(1).max(200).optional(),

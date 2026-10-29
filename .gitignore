@@ -29,3 +29,6 @@ data/kiumi.db-*
 .idea/
 .vscode/
 *.log
+
+# 由环境变量生成的部署配置（含账号/库 ID）
+apps/edge/wrangler.generated.jsonc

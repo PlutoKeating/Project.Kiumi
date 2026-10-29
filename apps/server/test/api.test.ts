@@ -32,13 +32,13 @@ test('health and rooms', { skip: !available }, async () => {
   const rooms = await app.inject({ method: 'GET', url: '/api/rooms?house=paper&floor=comp' });
   const payload = JSON.parse(rooms.body);
   assert.ok(payload.data.length >= 20);
-  assert.ok(payload.data.some((room: { tag: string }) => room.tag === 'paper-cp:header'));
+  assert.ok(payload.data.some((room: { tag: string }) => room.tag === 'demo:header'));
 });
 
 test('list and fetch one template', { skip: !available }, async () => {
   const list = await app.inject({
     method: 'GET',
-    url: '/api/templates?room=paper-cp:header&limit=3',
+    url: '/api/templates?room=demo:header&limit=3',
   });
   const payload = JSON.parse(list.body);
   assert.equal(payload.data.length, 3);

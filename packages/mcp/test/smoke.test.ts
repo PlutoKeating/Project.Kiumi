@@ -24,7 +24,7 @@ test('mcp server exposes tools and renders a template end to end', async () => {
 
   const rooms = await client.callTool({ name: 'kiumi_list_rooms', arguments: {} });
   const roomText = String((rooms.content as { text: string }[])[0]?.text ?? '');
-  assert.ok(roomText.includes('paper-cp:header'), 'rooms payload missing header room');
+  assert.ok(roomText.includes('demo:header'), 'rooms payload missing header room');
 
   const created = await client.callTool({
     name: 'kiumi_create_document',

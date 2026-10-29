@@ -1,7 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "kiumi",
-  "account_id": "REDACTED",
   "workers_dev": true,
   "preview_urls": false,
   "main": "src/index.ts",
@@ -13,12 +12,13 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
-  "r2_buckets": [{ "binding": "DATA", "bucket_name": "kiumi-data" }],
+  "r2_buckets": [{ "binding": "DATA", "bucket_name": "REPLACE_WITH_BUCKET" }],
   "d1_databases": [
-    { "binding": "DB", "database_name": "kiumi", "database_id": "REDACTED" }
+    { "binding": "DB", "database_name": "kiumi", "database_id": "REPLACE_AT_BUILD_TIME" }
   ],
   "vars": {
-    "KIUMI_STRICT_ASSETS": "1"
+    "KIUMI_STRICT_ASSETS": "1",
+    "KIUMI_DATA_ORIGIN": "REPLACE_WITH_DATA_ORIGIN"
   },
   "observability": { "enabled": true }
 }

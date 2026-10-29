@@ -2,7 +2,7 @@
  * Parser for the upstream AngularJS `$templateCache` content packs.
  *
  * The pack is a single JS file made of thousands of calls shaped like:
- *   $templateCache.put('//sd.xiumius.cn/tpls/paper-cp/header/t-a-01-01.html?x=1', '<div ...>')
+ *   $templateCache.put('https://cdn.example/tpls/demo/header/t-a-01.html?x=1', '<div ...>')
  * We only need the (url, html) pairs, so a tolerant scanner beats evaluating JS.
  */
 

@@ -58,7 +58,7 @@ Cookie 只从环境变量或 `--cookie` 读取，不写盘、不进日志。
 
 ```bash
 pnpm kiumi stats
-pnpm kiumi list --room paper-cp:header --limit 20
+pnpm kiumi list --room demo:header --limit 20
 pnpm kiumi list --q 标题 --has-svg
 pnpm kiumi show demo:header/t-a-01
 ```

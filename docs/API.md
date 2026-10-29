@@ -19,7 +19,7 @@ Base: `/api`。响应统一信封：
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/rooms` | 分类树。`?house=paper&floor=comp` |
-| GET | `/api/templates` | 列表。`?room=paper-cp:header&q=标题&hasSvg=true&cursor=&limit=50` |
+| GET | `/api/templates` | 列表。`?room=demo:header&q=标题&hasSvg=true&cursor=&limit=50` |
 | GET | `/api/template?id=<atom_tpl_id>` | 单条完整记录（含 `matrix`、`html`） |
 | GET | `/api/template/preview?id=<atom_tpl_id>` | 成品 HTML（`text/html`），素材重写为本地镜像 |
 | GET | `/api/slots?id=<atom_tpl_id>` | 该模板可编辑的槽位列表 |
@@ -81,7 +81,7 @@ const kiumi = createKiumi({ dataDir: './data' });
 
 // 模板库
 const rooms = await kiumi.catalog.rooms({ house: 'paper', floor: 'comp' });
-const page  = await kiumi.catalog.list({ room: 'paper-cp:header', q: '标题', limit: 20 });
+const page  = await kiumi.catalog.list({ room: 'demo:header', q: '标题', limit: 20 });
 const tpl   = await kiumi.catalog.get('demo:header/t-a-01');
 
 // 文档

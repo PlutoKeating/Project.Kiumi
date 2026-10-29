@@ -144,7 +144,7 @@ pnpm -r build
 pnpm kiumi crawl all          # 全量抓取（templates + assets）
 pnpm kiumi crawl probe        # 有 Cookie 时探测需登录端点
 pnpm kiumi stats              # 统计
-pnpm kiumi list --room paper-cp:header --q 标题
+pnpm kiumi list --room demo:header --q 标题
 pnpm kiumi render --tpl demo:header/t-a-01 -o out.html
 pnpm kiumi md article.md -o doc.json
 pnpm kiumi validate out.html

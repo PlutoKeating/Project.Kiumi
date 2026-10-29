@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { renderMatrix, renderDocument, validateHtml } from '../src/index.ts';
@@ -88,9 +88,11 @@ test('native blocks render inline-styled html', () => {
 
 test('real catalog renders without validation errors', { skip: !existsSync(path.join(root, 'data/catalog/index.json')) }, () => {
   const skeletons = JSON.parse(readFileSync(path.join(root, 'data/catalog/pack.json'), 'utf8'));
-  const record = JSON.parse(
-    readFileSync(path.join(root, 'data/catalog/templates/demo__header__t-a-01.json'), 'utf8'),
-  );
+  // Any locally crawled record: the catalog itself is never distributed.
+  const dir = path.join(root, 'data/catalog/templates');
+  const sample = readdirSync(dir).find((name) => name.endsWith('.json'));
+  assert.ok(sample, 'no local catalog records');
+  const record = JSON.parse(readFileSync(path.join(dir, sample), 'utf8'));
   const result = renderMatrix(record.matrix, skeletons);
   assert.ok(result.bytes > 200);
   const errors = validateHtml(result.html).filter((issue) => issue.level === 'error');
