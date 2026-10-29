@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fetchBytes, RateLimiter, type FetchOptions } from './http.ts';
+import { fetchBytes, RateLimiter, sleep, type FetchOptions } from './http.ts';
 import { assetUrl } from './source.ts';
 
 export interface AssetEntry {
@@ -26,6 +26,9 @@ export interface MirrorOptions extends FetchOptions {
   rps?: number;
   onProgress?: (done: number, total: number, url: string, manifest: AssetManifest) => void;
   existing?: AssetManifest;
+  /** Consecutive failures before the mirror pauses; the CDN soft-blocks bursts. */
+  breakerThreshold?: number;
+  breakerCooldownMs?: number;
 }
 
 export interface MirrorResult {
@@ -45,12 +48,30 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
   let skipped = 0;
   let cursor = 0;
   let done = 0;
+  let consecutiveFailures = 0;
+  let cooldown: Promise<void> | null = null;
+  const threshold = options.breakerThreshold ?? 15;
+  const cooldownMs = options.breakerCooldownMs ?? 30_000;
+
+  /** Pause every worker once the CDN starts rejecting a burst. */
+  const tripBreaker = async (): Promise<void> => {
+    if (cooldown) {
+      await cooldown;
+      return;
+    }
+    cooldown = sleep(cooldownMs).then(() => {
+      cooldown = null;
+      consecutiveFailures = 0;
+    });
+    await cooldown;
+  };
 
   const worker = async (): Promise<void> => {
     for (;;) {
       const index = cursor++;
       const url = urls[index];
       if (!url) return;
+      if (cooldown) await cooldown;
       const target = path.join(options.assetsDir, localPathFor(url));
       try {
         const known = manifest[url];
@@ -91,8 +112,11 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
           sourceUrl: url,
         };
         downloaded++;
+        consecutiveFailures = 0;
       } catch (error) {
         failed.push({ url, error: (error as Error).message });
+        consecutiveFailures++;
+        if (consecutiveFailures >= threshold) await tripBreaker();
       } finally {
         done++;
         options.onProgress?.(done, urls.length, url, manifest);

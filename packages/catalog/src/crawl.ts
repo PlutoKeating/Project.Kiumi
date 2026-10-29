@@ -247,6 +247,8 @@ export async function crawlAssets(options: CrawlAssetsOptions): Promise<{
     rps: options.rps ?? 4,
     existing,
     cookie: options.cookie,
+    breakerThreshold: 12,
+    breakerCooldownMs: 45_000,
     onProgress: (done, total, _url, snapshot) => {
       if (done % 25 === 0 || done === total) options.log?.(`assets ${done}/${total}`);
       // Flush periodically so an interrupted mirror still leaves a usable manifest.
