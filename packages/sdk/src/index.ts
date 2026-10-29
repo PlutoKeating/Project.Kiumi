@@ -279,7 +279,11 @@ export class KiumiClient {
     return {
       inlineSvg: (url: string) => {
         if (this.svgCache.has(url)) return this.svgCache.get(url);
-        const normalized = url.startsWith('//') ? `https:${url}` : url;
+        const normalized = url.startsWith('//')
+          ? `https:${url}`
+          : url.startsWith('http://')
+            ? `https://${url.slice(7)}`
+            : url;
         const entry = manifest[normalized] ?? manifest[url];
         // Fall back to the deterministic mirror path so inlining works while a
         // crawl is still running and the manifest has not been written yet.
