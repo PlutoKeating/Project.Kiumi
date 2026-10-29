@@ -52,22 +52,36 @@ export function TemplateBrowser() {
 
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
-  // Legacy groups are fixed; the live tag corpus adds one group per top-level tag.
+  // The live tag corpus supersedes the archived rooms; mark the old ones so the
+  // same name never appears twice without a qualifier.
   const modernGroups = rooms
     .filter((room) => room.tag.startsWith('modern:') && room.count > 0)
     .map((room) => ({
       key: room.tag,
-      label: `${room.name}·新`,
+      label: room.name,
       rooms: [room.tag],
     }));
-  const groups = [...ROOM_GROUPS, ...modernGroups];
+  // Keep the tab bar short: modern groups plus one entry for the archived rooms.
+  const legacyParts = ROOM_GROUPS.filter((group) =>
+    group.rooms.some((tag) => rooms.some((room) => room.tag === tag)),
+  );
+  const groups = modernGroups.length
+    ? [
+        ...modernGroups,
+        {
+          key: 'legacy',
+          label: '旧版',
+          rooms: legacyParts.flatMap((group) => group.rooms),
+        },
+      ]
+    : ROOM_GROUPS;
 
   const group = groups.find((item) => item.key === activeGroup);
   const groupRooms: Room[] = rooms.filter((room) => group?.rooms.includes(room.tag));
 
   return (
     <section className="w-[360px] shrink-0 bg-ink-700 text-mist-100 flex flex-col min-h-0">
-      <div className="flex items-stretch border-b border-white/10 relative">
+      <div className="flex items-stretch border-b border-white/10 relative overflow-x-auto">
         {groups.map((item) => {
           const available = item.rooms.some((tag) => rooms.some((room) => room.tag === tag));
           return (
@@ -77,7 +91,7 @@ export function TemplateBrowser() {
               onMouseEnter={() => setOpenGroup(item.key)}
               onMouseLeave={() => setOpenGroup((current) => (current === item.key ? null : current))}
               onClick={() => setGroup(item.key)}
-              className={`flex-1 py-2.5 text-[13px] transition ${
+              className={`flex-1 shrink-0 whitespace-nowrap px-2 py-2.5 text-[13px] transition ${
                 activeGroup === item.key
                   ? 'text-white border-b-2 border-accent-400'
                   : available

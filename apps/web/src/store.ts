@@ -176,7 +176,14 @@ export const useStore = create<State>((set, get) => ({
     });
     try {
       const rooms = await api.fetchRooms();
-      set({ rooms, ready: true });
+      // Prefer the live tag corpus: it supersedes the archived rooms.
+      const modernRooms = rooms.filter((room) => room.tag.startsWith('modern:') && room.count > 0);
+      const modern = modernRooms.find((room) => room.name === '标题') ?? modernRooms[0];
+      if (modern) {
+        set({ rooms, ready: true, activeGroup: modern.tag, activeRoom: modern.tag });
+      } else {
+        set({ rooms, ready: true });
+      }
       await get().reloadTemplates();
     } catch (error) {
       set({ message: `加载失败：${(error as Error).message}` });
@@ -184,6 +191,12 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setGroup(key) {
+    if (key === 'legacy') {
+      const first = get().rooms.find((room) => !room.tag.startsWith('modern:'));
+      if (first) set({ activeGroup: 'legacy', activeRoom: first.tag, offset: 0 });
+      void get().reloadTemplates();
+      return;
+    }
     if (key.startsWith('modern:')) {
       set({ activeGroup: key, activeRoom: key, offset: 0 });
       void get().reloadTemplates();
