@@ -54,6 +54,9 @@ Base: `/api`。响应统一信封：
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/assets/*` | 本地镜像素材（带 `ETag`，`immutable`） |
+| GET | `/api/assets` | 镜像素材列表。`?q=&limit=&offset=` |
+| GET | `/uploads/*` | 上传图片访问 |
+| GET | `/api/uploads` | 上传图片列表（按时间倒序） |
 | POST | `/api/assets/upload` | `multipart/form-data` → `{ sha256, url, bytes }` |
 
 ### 微信同步
