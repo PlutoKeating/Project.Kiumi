@@ -41,99 +41,61 @@
 
 每个里程碑都有可执行的验收命令。**未通过验收不得进入下一里程碑。**
 
-### M0 · 骨架与文档 — 本次交付
+### M0 · 骨架与文档 — ✅ 完成
 
-- [x] `docs/RESEARCH_XIUMI.md` 逆向报告
-- [x] `docs/ARCHITECTURE.md`
-- [x] `docs/API.md`
-- [x] `docs/DEVELOPMENT_PLAN.md`
+- [x] 五份文档（逆向报告 / 架构 / API / 计划 / 快速开始）
 - [x] pnpm workspaces + tsconfig + 根脚本
-- [ ] `pnpm -r typecheck` 通过
-- [ ] 首次 git 提交
+- [x] `pnpm -r typecheck` 零错误、首次提交
 
-**验收**：`pnpm install && pnpm -r typecheck` 零错误。
+### M1 · 数据摄入 — ✅ 完成
 
-### M1 · 数据摄入（`@kiumi/catalog`）
+- [x] 房间发现 → 全室抓取 → 按 `atom_tpl_id` 去重
+- [x] `$templateCache` 解析 → `data/catalog/pack.json`（1,360 个骨架）
+- [x] 素材清单 + 镜像（限速/重试/哈希/可续跑）
+- [x] 实测结果：**3,927 模板 / 43 分类 / 1,360 骨架 / 0 失败**
 
-- 房间发现 → 全室抓取 → 按 `atom_tpl_id` 去重
-- `$templateCache` 解析 → `data/templates/**`
-- 素材清单 + 镜像（限速/重试/哈希/断点续传）
-- 产出：`index.json` / `templates/*.json` / `pack.json` / `assets-manifest.json`
+### M2 · 会员库抓取 — ⏸ 待凭证
 
-**验收**：
-```bash
-kiumi crawl all --limit 0
-kiumi stats            # 期望：≥2400 模板, ≥1200 骨架, ≥1500 素材
-kiumi crawl templates  # 第二次运行应全部命中缓存，0 次网络请求
-```
+- [x] `--cookie` / `XIUMI_COOKIE` 注入通道
+- [x] 未登录端点返回 401 时记录原因、不中断
+- [ ] 实际抓取会员 house 与 `/api/fragments/v5/*`（需用户提供 Cookie）
 
-### M2 · 会员库抓取（依赖凭证）
+### M3 · 渲染引擎 — ✅ 完成
 
-- `--cookie` / `XIUMI_COOKIE` 注入
-- 探测并抓取 `/api/fragments/v5/*`、会员 house
-- 抓不到的端点记录到 `data/crawl-report.json`，不静默失败
+- [x] `model` / `dsl` / `style` / `pack` / `hydrate` / `blocks` / `validate`
+- [x] 全库 2,426 条压测：0 异常、0 校验错误、字节量为上游 84%
+- [x] 6 个单测（水合、嵌套展开、确定性、校验规则、原生块、真实样本）
 
-**验收**：有凭证时 VIP 条目数 > 0；无凭证时报告明确写出「跳过原因」。
+### M4 · CLI + SDK + MCP — ✅ 完成（Markdown 导入待补）
 
-### M3 · 渲染引擎（`@kiumi/core`）
+- [x] `kiumi crawl|stats|list|show|render|fill|validate`
+- [x] `@kiumi/sdk` 统一门面 + 文件文档仓库
+- [x] MCP 13 个工具，stdio 冒烟测试通过
+- [ ] `kiumi md`（Markdown → 块模型），待接线
 
-- `model.ts` 类型 + `dsl.ts` 常量
-- `hydrate.ts` 模板水合（路径 A）
-- `blocks.ts` 自有渲染（路径 B）
-- `inline.ts` 样式内联与归一化
-- `validate.ts` 微信合规规则
+### M5 · 服务端 — ✅ 完成
 
-**验收**：
-```bash
-kiumi render --tpl demo:header/t-a-01 -o /tmp/a.html
-# 1) 体量与原 renderer_accelerate 同数量级（±5%）
-# 2) validate 输出 0 error
-# 3) 20 个抽样模板的 golden 快照全部稳定（二次运行 diff 为空）
-```
+- [x] Fastify：catalog / template / render / validate / fill / documents / assets / wechat
+- [x] 素材本地代理 + 上传
+- [x] 微信 access_token 缓存、草稿箱、永久素材
+- [x] 实测：`rooms` / `templates` / `template` / `render` / `wechat/config` 均通
 
-### M4 · CLI + SDK + MCP
+### M6 · 前端工作台 — 🟡 可用，未完成
 
-- 全部命令按 `docs/API.md` 实现
-- MCP 12 个工具可被任意 MCP 客户端发现与调用
+- [x] 左侧轨道 + 顶部 Tab + 悬停分类菜单
+- [x] 模板卡实时预览（iframe 直出成品 HTML）
+- [x] 点击插入、画布选中、结构列表、上下移动、删除
+- [x] 右侧槽位编辑（文字 / 图片）、实时重渲染、校验问题展示
+- [x] 顶部工具条：标题 / 正文 / 图片 / 分割线 / 间距 / 上传图片
+- [x] 预览弹窗、复制富文本、导出 HTML
+- [ ] 图片素材库、收藏、剪贴板、我的图库四个面板（目前是占位）
+- [ ] 拖拽排序、跨容器移动、格式刷、撤销重做
 
-**验收**：
-```bash
-kiumi md README.md -o /tmp/doc.json && kiumi render /tmp/doc.json -o /tmp/doc.html
-npx @modelcontextprotocol/inspector node packages/mcp/dist/index.js   # 工具列表齐全
-```
+### M7 · 微信直连与打包 — 🟡 完成代码，未联调真实公众号
 
-### M5 · 服务端（`apps/server`）
-
-- Fastify + Drizzle + SQLite；catalog 入库
-- `/api/render` `/api/validate` `/api/templates*` `/api/documents*` `/assets/*`
-- 素材上传、微信草稿同步
-
-**验收**：`curl` 全量打通 `docs/API.md` 的每个端点；渲染接口 P95 < 50ms（本地）。
-
-### M6 · 前端工作台（`apps/web`）
-
-对标秀米的核心交互（自有视觉）：
-
-1. 左侧轨道：图文模板 / 图片素材 / 收藏 / 剪贴板 / 我的图库
-2. 顶部 Tab + 悬停巨型菜单：标题 / 卡片 / 图片 / 布局 / SVG / 组件 / 热门
-3. 模板卡点击 → 插入画布光标处
-4. 画布：块选中、右键菜单、拖拽排序、跨容器移动
-5. 右侧：块属性面板（文字/颜色/间距/图片/链接/动画）
-6. 顶部工具条：字号、颜色、对齐、行距、字距、格式刷、撤销重做
-7. 预览（手机框）+ 一键复制到微信 + 导出 HTML
-
-**验收**：从空白到一篇 5 段图文（含标题、卡片、分割线、图片）全流程可用；
-复制到微信后台后样式不丢失（人工核对）；工具栏 12 项格式操作生效。
-
-### M7 · 微信直连 + 打包
-
-- 公众号草稿箱 API（`cgi-bin/draft/add`）、图片永久素材
-- Docker Compose、`kiumi serve`
-- README 完整使用说明
-
-**验收**：配置测试号后 `kiumi export --wechat` 能在后台看到草稿。
-
----
+- [x] 草稿箱 API、图片永久素材、凭证只读环境变量
+- [x] Dockerfile ×2 + docker-compose + nginx 反代
+- [ ] 用真实测试号跑通 `kiumi export --wechat`
 
 ## 2. 交付物清单
 

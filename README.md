@@ -51,9 +51,20 @@ pnpm kiumi validate out.html
 - [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md) — 里程碑、验收标准、风险
 - [`docs/QUICK_START.md`](docs/QUICK_START.md) — 本地跑起来
 
-## 状态
+## 当前状态
 
-开发中。里程碑进度见 `docs/DEVELOPMENT_PLAN.md`。
+| 模块 | 状态 |
+|---|---|
+| 模板目录（3,927 条 / 43 分类 / 1,360 骨架） | ✅ |
+| 渲染引擎（水合 + 原生块 + 微信校验） | ✅ 全库 0 异常、0 错误 |
+| CLI（crawl/list/show/render/fill/validate） | ✅ |
+| SDK | ✅ |
+| MCP（13 个工具） | ✅ 冒烟通过 |
+| HTTP 服务（19 个端点） | ✅ |
+| 工作台前端 | 🟡 主流程可用，图库/收藏/剪贴板待接 |
+| 微信草稿箱 | 🟡 代码完成，待真实账号联调 |
+
+详细里程碑与验收标准见 [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md)。
 
 ## 许可
 

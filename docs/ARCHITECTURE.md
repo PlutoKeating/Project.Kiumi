@@ -132,20 +132,24 @@ type Block =
 
 ## 7. 存储
 
-**开发/单机**：SQLite（`data/kiumi.db`，Drizzle ORM），WAL 模式。
-**生产**：同一套 Drizzle schema 可切 Postgres，仅换 driver。
-
-核心表：
+**文件优先**。catalog 是 3,927 条结构化 JSON，文件布局天然可 diff、可 grep、可离线；
+在这个量级下数据库是纯负担，因此本期不引入 SQLite/ORM。
 
 ```
-templates(id, atom_tpl_id UNIQUE, room, display_name, accessibility, version,
-          has_svg, created_at, updated_at, matrix JSON, html TEXT, source TEXT)
-template_rooms(tag PK, name, order_num, house, floor)
-documents(id, title, blocks JSON, created_at, updated_at)
-assets(sha256 PK, path, mime, bytes, source_url)
+data/catalog/rooms.json          分类
+data/catalog/index.json          轻量索引（列表与筛选）
+data/catalog/templates/<slug>.json   单条矩阵 + 成品 HTML
+data/catalog/pack.json           tplId -> 骨架 HTML
+data/catalog/assets-manifest.json 远端 URL -> 本地路径 + sha256
+data/documents/<id>.json         用户文档
+data/uploads/<sha256>.<ext>      上传图片
 ```
 
-`matrix` 与 `html` 双存：`html` 用于列表缩略与快速取用，`matrix` 用于编辑。
+检索目前是「索引过滤 + 按需全量加载」：3,927 条全量读入约 0.3 秒，足够单人使用。
+当需要并发多用户或模糊排序时，再引入 SQLite FTS5（`node:sqlite` 内置，无需原生依赖），
+届时 `catalog` 作为唯一写入口、数据库作为派生索引。
+
+`matrix` 与 `html` 双存：`html` 用于缩略与快速取用，`matrix` 用于编辑。
 
 ## 8. HTTP API（server）
 
@@ -164,6 +168,7 @@ assets(sha256 PK, path, mime, bytes, source_url)
 | D2 | 渲染不用浏览器 | 可做 golden-file 测试、可跑在 CLI/MCP、毫秒级 |
 | D3 | 双路径渲染 | 保真与可扩展不能同时由一套引擎满足 |
 | D4 | `data/assets` 不入库 | 300MB 级二进制进 git 会毁掉仓库；用 manifest + 命令复现 |
-| D5 | SQLite 起步 | 单机零运维；Drizzle 保证可平滑切 PG |
+| D5 | 文件优先，暂不引入数据库 | 3,927 条结构化 JSON 用文件即可；需要全文检索时再上 `node:sqlite` |
+| D8 | 素材重写发生在渲染期 | 记录里保留原始绝对 URL，导出到微信仍可直连；画布预览才换成本地镜像 |
 | D6 | MCP 与 CLI 共用 sdk | 一处实现，两处暴露，避免语义漂移 |
 | D7 | 前端自有视觉 | 用户拍板：功能对等，视觉不抄 |

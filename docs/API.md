@@ -20,17 +20,19 @@ Base: `/api`。响应统一信封：
 |---|---|---|
 | GET | `/api/rooms` | 分类树。`?house=paper&floor=comp` |
 | GET | `/api/templates` | 列表。`?room=paper-cp:header&q=标题&hasSvg=true&cursor=&limit=50` |
-| GET | `/api/templates/:id` | 单条完整记录（含 `matrix`、`html`） |
-| GET | `/api/templates/:id/preview` | 直接返回成品 HTML（`text/html`），用于缩略预览 |
+| GET | `/api/template?id=<atom_tpl_id>` | 单条完整记录（含 `matrix`、`html`） |
+| GET | `/api/template/preview?id=<atom_tpl_id>` | 成品 HTML（`text/html`），素材重写为本地镜像 |
+| GET | `/api/slots?id=<atom_tpl_id>` | 该模板可编辑的槽位列表 |
 | GET | `/api/search?q=…` | 跨 room 全文检索（名称 + 文本内容） |
+| GET | `/api/health` | 存活与数据目录 |
 
-`atom_tpl_id` 含 `:` 与 `/`，作为路径参数时需 `encodeURIComponent`。
+`atom_tpl_id` 含 `:` 与 `/`，放在 query 参数而非路径段，避免 `%2F` 被路由提前解码。
 
 ### 渲染与校验
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/api/render` | body: `{ document }` 或 `{ tplId, matrix }`；返回 `{ html, issues, bytes }` |
+| POST | `/api/render` | body: `{ document }` / `{ tplId, matrix, set }` / `{ matrix }`；`localAssets: true` 时把素材重写为 `/assets/*`；返回 `{ html, issues, bytes }` |
 | POST | `/api/validate` | body: `{ html }`；返回 `{ issues }` |
 | POST | `/api/fill` | body: `{ tplId, set: { txt1: "…" } }`；返回新的 `{ matrix, html }` |
 
@@ -60,7 +62,7 @@ Base: `/api`。响应统一信封：
 |---|---|---|
 | GET | `/api/wechat/config` | 返回 `{ configured: boolean }`，不回传密钥 |
 | POST | `/api/wechat/draft` | body `{ documentId, thumbMediaId?, author? }` → 创建草稿 |
-| POST | `/api/wechat/material` | 上传图片为永久素材，返回 `media_id` + `url` |
+| POST | `/api/wechat/material` | multipart 上传图片为永久素材，返回 `mediaId` + `url` |
 
 错误码：`AUTH_REQUIRED` `TEMPLATE_NOT_FOUND` `DOCUMENT_NOT_FOUND` `INVALID_BODY`
 `RENDER_FAILED` `WECHAT_NOT_CONFIGURED` `WECHAT_API_ERROR` `RATE_LIMITED`。
