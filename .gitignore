@@ -4,6 +4,7 @@ node_modules/
 # build outputs
 dist/
 *.tsbuildinfo
+.wrangler/
 
 # data: raw crawl cache and mirrored binaries are reproducible, never committed
 data/raw/
