@@ -50,6 +50,7 @@ pnpm kiumi validate out.html
 - [`docs/API.md`](docs/API.md) — HTTP / SDK / CLI / MCP 四层契约
 - [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md) — 里程碑、验收标准、风险
 - [`docs/QUICK_START.md`](docs/QUICK_START.md) — 本地跑起来
+- [`docs/DELIVERY.md`](docs/DELIVERY.md) — 交付清单、验收路径、已知取舍
 
 ## 当前状态
 
