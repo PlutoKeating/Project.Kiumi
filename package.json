@@ -1,0 +1,22 @@
+{
+  "name": "kiumi",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "WeChat article layout system: template catalog + block editor + deterministic renderer",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "build": "pnpm -r --if-present build",
+    "kiumi": "node packages/cli/src/index.ts",
+    "mcp": "node packages/mcp/src/index.ts",
+    "dev:server": "node apps/server/src/index.ts",
+    "test": "node --test packages/*/test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

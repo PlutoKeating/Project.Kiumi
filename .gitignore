@@ -1,0 +1,24 @@
+node_modules/
+.pnpm-store/
+
+# build outputs
+dist/
+*.tsbuildinfo
+
+# data: raw crawl cache and mirrored binaries are reproducible, never committed
+data/raw/
+data/assets/
+data/uploads/
+data/kiumi.db
+data/kiumi.db-*
+
+# env
+.env
+.env.local
+.env.*.local
+
+# editor / os
+.DS_Store
+.idea/
+.vscode/
+*.log
