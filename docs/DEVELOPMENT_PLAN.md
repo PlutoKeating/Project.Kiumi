@@ -99,12 +99,13 @@
 - [x] 结构列表拖拽排序（原生 drag 事件，无新依赖）
 - [ ] 跨容器移动、格式刷
 
-### M7 · 微信直连与打包 — 🟡 打包已验证，微信待联调
+### M7 · 微信直连与打包 — ✅ 完成（真实公众号已验证）
 
 - [x] 草稿箱 API、图片永久素材、凭证只读环境变量
 - [x] Dockerfile ×2 + docker-compose + nginx 反代
 - [x] `docker compose up` 实测：镜像构建通过，工作台/API/代理全部可用
-- [ ] 用真实测试号跑通草稿箱推送（需要 AppID/Secret 与 IP 白名单）
+- [x] 真实公众号跑通：`kiumi wechat status` 取到 access_token；
+      `kiumi export --wechat` 生成封面素材并建草稿；`draft/batchget` 回读确认 total_count=1
 
 ## 2. 交付物清单
 
