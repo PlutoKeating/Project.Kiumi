@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { uploadImage } from '../api.ts';
 import { primaryTextSlot } from '../lib/slots.ts';
 import { useStore } from '../store.ts';
 
@@ -19,9 +20,18 @@ export function Canvas() {
   const moveBlock = useStore((state) => state.moveBlock);
   const copyBlock = useStore((state) => state.copyBlock);
   const duplicateBlock = useStore((state) => state.duplicateBlock);
+  const addImageBlock = useStore((state) => state.addImageBlock);
   const blockRefs = useRef(new Map<number, HTMLDivElement>());
   const previewRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ from: number; over: number | null } | null>(null);
+
+  // Dropping a picture from the desktop is the fastest way in; it uploads and
+  // lands as an image block at the end of the document.
+  const onFileDrop = async (file: File | undefined) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    const uploaded = await uploadImage(file);
+    addImageBlock(uploaded.url);
+  };
 
   // Keyboard matches the editor people already know: Delete removes the selected
   // block, arrows walk the document, Escape drops the selection.
@@ -107,7 +117,18 @@ export function Canvas() {
   };
 
   return (
-    <main className="flex-1 min-w-0 overflow-y-auto bg-mist-100" onClick={() => setMenu(null)}>
+    <main
+      className="flex-1 min-w-0 overflow-y-auto bg-mist-100"
+      onClick={() => setMenu(null)}
+      onDragOver={(event) => {
+        if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault();
+      }}
+      onDrop={(event) => {
+        if (!event.dataTransfer.files?.length) return;
+        event.preventDefault();
+        void onFileDrop(event.dataTransfer.files[0]);
+      }}
+    >
       <div className="flex justify-center px-6 py-6">
         <div
           className="w-[430px] shrink-0 transition-transform"
