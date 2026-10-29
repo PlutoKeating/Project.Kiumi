@@ -32,6 +32,10 @@ let out = base
   .replace('"REPLACE_WITH_ACCOUNT_ID"', JSON.stringify(account))
   .replace('"REPLACE_AT_BUILD_TIME"', JSON.stringify(d1));
 
+if (!out.includes(account)) {
+  out = out.replace('"name": "kiumi",', `"name": "kiumi",\n  "account_id": ${JSON.stringify(account)},`);
+}
+
 if (r2) out = out.replace('"REPLACE_WITH_BUCKET"', JSON.stringify(r2));
 else out = out.replace(/^.*"r2_buckets".*$/m, '  // r2 disabled for this deployment');
 

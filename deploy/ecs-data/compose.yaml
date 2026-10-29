@@ -14,7 +14,10 @@ services:
       KIUMI_DATA_DIR: /data
       KIUMI_DATA_PORT: "8080"
     ports:
+      # 本机调试
       - "127.0.0.1:${KIUMI_DATA_LOCAL_PORT:-8792}:8080"
+      # 内网地址，供 Workers VPC 经隧道访问（不经过公网）
+      - "${KIUMI_DATA_PRIVATE_IP:-127.0.0.1}:${KIUMI_DATA_LOCAL_PORT:-8792}:8080"
     volumes:
       - ./data:/data:ro
     read_only: true

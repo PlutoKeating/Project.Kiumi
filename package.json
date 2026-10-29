@@ -17,7 +17,7 @@
     "dev": "pnpm --parallel --filter @kiumi/server --filter @kiumi/web dev",
     "serve": "node --env-file-if-exists=.env --env-file-if-exists=.env.local apps/server/src/index.ts",
     "build:web": "pnpm --filter @kiumi/web build",
-    "deploy": "node scripts/gen-edge-config.mjs && pnpm build:web && pnpm --filter @kiumi/edge exec wrangler deploy -c wrangler.generated.jsonc",
+    "deploy": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/gen-edge-config.mjs && pnpm build:web && pnpm --filter @kiumi/edge exec wrangler deploy -c wrangler.generated.jsonc",
     "sync:r2": "pnpm kiumi sync r2 --concurrency 8",
     "d1:schema": "pnpm --filter @kiumi/edge exec wrangler d1 execute kiumi --remote --file=schema.sql"
   },
