@@ -9,7 +9,7 @@ import {
 
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
-  DATA: R2Bucket;
+  DATA?: R2Bucket;
   DB: D1Database;
   KIUMI_STRICT_ASSETS?: string;
   WECHAT_APP_ID?: string;
@@ -48,6 +48,7 @@ function mimeOf(key: string): string {
 const slug = (id: string): string => id.replace(/[^a-zA-Z0-9._-]+/g, '__');
 
 async function readJson<T>(env: Env, key: string): Promise<T | null> {
+  if (!env.DATA) return null;
   const object = await env.DATA.get(key);
   if (!object) return null;
   return (await object.json()) as T;
@@ -424,6 +425,7 @@ async function coverage(env: Env): Promise<Response> {
 }
 
 async function serveR2(env: Env, key: string): Promise<Response> {
+  if (!env.DATA) return missingPlaceholder();
   const object = await env.DATA.get(key);
   if (!object) {
     if (key.startsWith('assets/')) return missingPlaceholder();
@@ -451,6 +453,7 @@ function missingPlaceholder(): Response {
 }
 
 async function upload(env: Env, request: Request): Promise<Response> {
+  if (!env.DATA) return fail('R2_NOT_ENABLED', 'R2 bucket is not configured yet', 503);
   const form = await request.formData();
   const file = form.get('file');
   if (!(file instanceof File)) return fail('INVALID_BODY', 'multipart field "file" is required');

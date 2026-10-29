@@ -4,6 +4,23 @@
 
 ---
 
+## 当前状态（已实际执行）
+
+| 资源 | 状态 |
+|---|---|
+| Cloudflare 账号 | `REDACTED` / `REDACTED` |
+| D1 库 `kiumi` | ✅ 已创建 `REDACTED`，schema 已应用 |
+| Worker `kiumi` | ✅ 已部署 https://kiumi.williamhvollita.workers.dev（暂无 R2，`/api/rooms` 为空） |
+| R2 桶 `kiumi-data` | ❌ 账号未开通 R2（API 返回 `10042`），需在控制台点一次开通 |
+
+R2 开通后：
+
+```bash
+npx wrangler r2 bucket create kiumi-data
+pnpm kiumi sync r2 --concurrency 8
+cd apps/edge && npx wrangler deploy
+```
+
 ## 0. 前提
 
 | 资源 | 用途 | 一次性创建 |
