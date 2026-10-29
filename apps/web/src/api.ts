@@ -97,6 +97,36 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload.data;
 }
 
+export interface SessionUser {
+  sub: string;
+  name?: string;
+  email?: string;
+}
+
+export interface SessionState {
+  user: SessionUser | null;
+  loginEnabled: boolean;
+  /** Static builds talk to the local server directly, so there may be no session endpoint. */
+  unavailable?: boolean;
+}
+
+export async function fetchSession(): Promise<SessionState> {
+  try {
+    return await request<SessionState>('/api/me');
+  } catch {
+    return { user: null, loginEnabled: false, unavailable: true };
+  }
+}
+
+/** Full page navigation keeps the HttpOnly session cookie in the Worker. */
+export function loginUrl(next = '/'): string {
+  return `/auth/login?next=${encodeURIComponent(next)}`;
+}
+
+export function logoutUrl(): string {
+  return '/auth/logout';
+}
+
 export function fetchRooms(): Promise<Room[]> {
   return request<Room[]>('/api/rooms');
 }

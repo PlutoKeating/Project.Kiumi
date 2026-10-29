@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { copyRichHtml, renderDocument, uploadImage } from './api.ts';
+import { copyRichHtml, fetchSession, renderDocument, uploadImage, type SessionState } from './api.ts';
 import { AssetsPanel } from './components/AssetsPanel.tsx';
 import { ClipboardPanel, FavoritesPanel, GalleryPanel } from './components/SidePanels.tsx';
 import { Canvas } from './components/Canvas.tsx';
@@ -21,6 +21,10 @@ const NATIVE_TOOLS = [
 export function App() {
   const ready = useStore((state) => state.ready);
   const message = useStore((state) => state.message);
+  const [session, setSession] = useState<SessionState | null>(null);
+  useEffect(() => {
+    void fetchSession().then(setSession);
+  }, []);
   const doc = useStore((state) => state.doc);
   const boot = useStore((state) => state.boot);
   const save = useStore((state) => state.save);
@@ -271,6 +275,31 @@ export function App() {
             导出 HTML
           </button>
         </div>
+
+        {session && !session.unavailable && session.loginEnabled && (
+          <div className="ml-auto flex items-center gap-2 pl-3 border-l border-mist-200">
+            {session.user ? (
+              <>
+                <span className="w-6 h-6 rounded-full bg-ink-900 text-white grid place-items-center text-[11px]">
+                  {(session.user.name ?? session.user.sub).slice(0, 1).toUpperCase()}
+                </span>
+                <span className="text-[12px] text-ink-600 max-w-[120px] truncate">
+                  {session.user.name ?? session.user.sub}
+                </span>
+                <a href="/auth/logout" className="text-[12px] text-ink-600/60 hover:text-ink-900">
+                  退出
+                </a>
+              </>
+            ) : (
+              <a
+                href={`/auth/login?next=${encodeURIComponent(window.location.pathname)}`}
+                className="text-[12px] px-3 py-1.5 rounded border border-accent-500 text-accent-500 hover:bg-accent-500/10"
+              >
+                登录
+              </a>
+            )}
+          </div>
+        )}
       </header>
 
       <div className="flex-1 flex min-h-0">
@@ -325,7 +354,7 @@ export function App() {
 
       {!ready && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 text-[12px] bg-ink-900 text-white px-3 py-1.5 rounded">
-          正在连接本地服务…
+          正在加载…
         </div>
       )}
     </div>
