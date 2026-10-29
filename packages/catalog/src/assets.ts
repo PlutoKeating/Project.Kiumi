@@ -63,6 +63,20 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
             continue;
           }
         }
+        // Resume without a manifest: reuse bytes already on the deterministic path.
+        const onDisk = await readFile(target).catch(() => null);
+        if (onDisk) {
+          manifest[url] = {
+            path: localPathFor(url),
+            sha256: createHash('sha256').update(onDisk).digest('hex'),
+            bytes: onDisk.byteLength,
+            sourceUrl: url,
+          };
+          skipped++;
+          done++;
+          options.onProgress?.(done, urls.length, url);
+          continue;
+        }
         const { text } = await fetchText(url, limiter, {
           cookie: options.cookie,
           retries: 2,
