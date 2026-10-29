@@ -320,7 +320,11 @@ export class KiumiClient {
     for (const block of document.blocks) {
       if (block.kind !== 'library') continue;
       const record = await this.get(block.tplId);
-      if (record) recorded.set(block.tplId, record.html);
+      // Recorded markup cannot carry edits, so it is only used while the matrix
+      // still matches what the template shipped with.
+      if (record && JSON.stringify(record.matrix) === JSON.stringify(block.matrix)) {
+        recorded.set(block.tplId, record.html);
+      }
     }
     return renderDocument(document, skeletons ?? (await this.skeletons()), {
       ...(await this.svgOptions()),

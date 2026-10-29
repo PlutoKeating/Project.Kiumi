@@ -371,6 +371,9 @@ async function render(env: Env, request: Request): Promise<Response> {
     const record = await getRecord(env, body.tplId);
     if (!record) return fail('TEMPLATE_NOT_FOUND', `no template ${body.tplId}`, 404);
     const matrix = body.set ? fillMatrix(record.matrix, body.set) : record.matrix;
+    // Recorded markup is a byte-faithful copy of the original, so it cannot
+    // carry edits: once someone overrides a slot, render from the matrix.
+    const recordedHtml = body.set ? undefined : record.html;
     const result = renderDocument(
       {
         version: 1,
@@ -380,7 +383,7 @@ async function render(env: Env, request: Request): Promise<Response> {
         meta: { createdAt: '', updatedAt: '' },
       },
       skeletonsMap,
-      { recordedHtml: (tplId) => (tplId === record.atomTplId ? record.html : undefined) },
+      { recordedHtml: (tplId) => (tplId === record.atomTplId ? recordedHtml : undefined) },
     );
     html = result.html;
     warnings = result.warnings;
