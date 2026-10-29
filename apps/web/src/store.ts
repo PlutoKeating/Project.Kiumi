@@ -54,6 +54,7 @@ export const ROOM_GROUPS: RoomGroup[] = [
 ];
 
 const FAVORITES_KEY = 'kiumi:favorites';
+const FAVORITE_BLOCKS_KEY = 'kiumi:favorite-blocks';
 const RECENT_KEY = 'kiumi:recent';
 const CLIPBOARD_KEY = 'kiumi:clipboard';
 
@@ -110,6 +111,9 @@ interface State {
   issues: api.Issue[];
   message: string;
   favorites: string[];
+  favoriteBlocks: api.Block[];
+  toggleBlockFavorite: (block: api.Block) => void;
+  insertFavorite: (id: string) => void;
   clipboard: api.Block[];
 
   boot: () => Promise<void>;
@@ -180,11 +184,13 @@ export const useStore = create<State>((set, get) => ({
   issues: [],
   message: '',
   favorites: [],
+  favoriteBlocks: [],
   clipboard: [],
 
   async boot() {
     set({
       favorites: readLocal<string[]>(FAVORITES_KEY, []),
+      favoriteBlocks: readLocal<api.Block[]>(FAVORITE_BLOCKS_KEY, []),
       clipboard: readLocal<api.Block[]>(CLIPBOARD_KEY, []),
       recent: readLocal<{ id: string; name: string }[]>(RECENT_KEY, []),
     });
@@ -581,6 +587,23 @@ export const useStore = create<State>((set, get) => ({
     blocks.splice(index + 1, 0, clone);
     get().commit({ ...doc, blocks });
     set({ selected: index + 1, message: '已原地复制' });
+    void get().refresh();
+  },
+
+  toggleBlockFavorite(block) {
+    const exists = get().favoriteBlocks.some(item => item.id === block.id);
+    const favoriteBlocks = exists ? get().favoriteBlocks.filter(item => item.id !== block.id) : [structuredClone(block), ...get().favoriteBlocks].slice(0, 100);
+    writeLocal(FAVORITE_BLOCKS_KEY, favoriteBlocks);
+    set({ favoriteBlocks, message: exists ? '已移除图文收藏' : '已收藏内容，可在左侧图文收藏中复用' });
+  },
+
+  insertFavorite(id) {
+    const source = get().favoriteBlocks.find(item => item.id === id);
+    if (!source) return;
+    const doc = get().doc;
+    const block = { ...structuredClone(source), id: crypto.randomUUID() };
+    get().commit({ ...doc, blocks: [...doc.blocks, block] });
+    set({ selected: doc.blocks.length, selectedIds: [block.id], message: '已插入收藏内容' });
     void get().refresh();
   },
 

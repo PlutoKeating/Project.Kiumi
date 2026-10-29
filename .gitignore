@@ -37,3 +37,10 @@ apps/edge/wrangler.generated.jsonc
 # Browser regression reports
 apps/web/test-results/
 apps/web/playwright-report/
+
+# Impeccable per-machine hooks and visual review output (global skill install)
+.codex/hooks.json
+.cursor/hooks.json
+.gemini/settings.json
+**/.impeccable/review/
+**/.impeccable/mocks/

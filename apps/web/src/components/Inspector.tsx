@@ -28,7 +28,7 @@ export function Inspector() {
   const warnCount = issues.filter((issue) => issue.level === 'warn').length;
 
   return (
-    <aside className="w-[320px] shrink-0 bg-white border-l border-mist-200 flex flex-col min-h-0">
+    <aside className="inspector w-[320px] shrink-0 bg-white border-l border-mist-200 flex flex-col min-h-0">
       <div className="px-4 py-3 border-b border-mist-200">
         <h2 className="text-[13px] font-medium text-ink-900">结构</h2>
         <p className="text-[11px] text-ink-600/50 mt-0.5">

@@ -1,3 +1,4 @@
+import { Modal } from './Modal.tsx';
 import { useEffect, useState } from 'react';
 import * as api from '../api.ts';
 import { useStore } from '../store.ts';
@@ -41,8 +42,8 @@ export function Workspace({session,onChange}:{session:api.SessionState|null;onCh
 
   return <>
     <button className={button} onClick={()=>setOpen(true)}>{current?.name ?? '团队与文稿'}</button>
-    {open && <div className="fixed inset-0 z-50 bg-ink-900/50 flex items-center justify-center" onClick={()=>setOpen(false)}>
-      <section className="bg-white rounded-xl shadow-xl w-[900px] max-h-[85vh] overflow-y-auto p-6 text-ink-900" onClick={e=>e.stopPropagation()}>
+    {open && <Modal onClose={()=>!busy&&setOpen(false)}>
+      <section role="dialog" aria-modal="true" aria-label="团队工作空间" className="workspace-dialog bg-white rounded-xl shadow-xl w-[900px] max-h-[85vh] overflow-y-auto p-6 text-ink-900" onClick={e=>e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5"><h2 className="text-lg font-semibold">团队工作空间</h2><button className={button} onClick={()=>setOpen(false)}>关闭</button></div>
         {notice && <p role="status" className="mb-4 text-sm text-accent-500 break-all">{notice}</p>}
         {!user ? <div className="space-y-4"><p>登录后创建或加入团队，共享文稿、图库和公众号。</p><a className={button} href="/auth/login">登录 / 注册</a></div> : <>
@@ -62,6 +63,6 @@ export function Workspace({session,onChange}:{session:api.SessionState|null;onCh
           </div>}
         </>}
       </section>
-    </div>}
+    </Modal>}
   </>;
 }

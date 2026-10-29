@@ -179,6 +179,8 @@ export interface KiumiDocument {
     updatedAt: string;
     author?: string;
     digest?: string;
+    cover?: string;
+    tags?: string[];
   };
 }
 

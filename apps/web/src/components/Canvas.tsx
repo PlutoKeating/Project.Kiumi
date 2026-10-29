@@ -1,3 +1,5 @@
+import { ArticleSettings } from './ArticleSettings.tsx';
+import { BlockToolbar } from './BlockToolbar.tsx';
 import { isPlaceholder } from '../lib/template-style.ts';
 import { useEffect, useRef, useState } from 'react';
 import { uploadImage } from '../api.ts';
@@ -123,7 +125,7 @@ export function Canvas() {
 
   return (
     <main
-      className="flex-1 min-w-0 overflow-y-auto bg-mist-100"
+      className="editor-canvas flex-1 min-w-0 overflow-y-auto"
       onClick={() => setMenu(null)}
       onDragOver={(event) => {
         if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault();
@@ -143,21 +145,7 @@ export function Canvas() {
             ref={previewRef}
             className="rounded-xl shadow-[0_8px_30px_rgba(18,21,28,0.10)] bg-white min-h-[720px] px-5 py-6"
           >
-            <div className="mb-4 pb-3 border-b border-mist-200">
-              <input
-                value={doc.title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="请输入图文标题"
-                className="w-full text-[18px] font-medium text-ink-900 placeholder:text-ink-600/30 focus:outline-none"
-              />
-              <textarea
-                value={doc.meta.digest ?? ''}
-                onChange={(event) => setDigest(event.target.value)}
-                placeholder="微信分享时的摘要，点击左侧图片可改封面"
-                rows={2}
-                className="mt-1 w-full text-[12px] text-ink-600 placeholder:text-ink-600/30 resize-none focus:outline-none"
-              />
-            </div>
+            <ArticleSettings />
 
             {doc.blocks.length === 0 && (
               <div className="h-[600px] flex flex-col items-center justify-center text-center gap-2 text-ink-600/40">
@@ -168,6 +156,7 @@ export function Canvas() {
 
             {doc.blocks.map((block, index) => (
               <div
+                data-editor-block={block.id}
                 key={block.id}
                 ref={(element) => {
                   if (element) blockRefs.current.set(index, element);
@@ -237,7 +226,7 @@ export function Canvas() {
               >
                 <div
                   className={`absolute -top-3 right-0 z-10 hidden group-hover:flex items-center gap-1 bg-white border border-mist-200 rounded shadow-sm px-1.5 py-1 ${
-                    editing ? '!hidden' : ''
+                    editing || selected === index ? '!hidden' : ''
                   }`}
                 >
                   <button
@@ -313,6 +302,7 @@ export function Canvas() {
         </div>
       </div>
 
+      <BlockToolbar />
       {menu && (
         <div
           className="fixed z-40 w-[164px] py-1 rounded-lg border border-mist-200 bg-white shadow-xl text-[12px] text-ink-800"

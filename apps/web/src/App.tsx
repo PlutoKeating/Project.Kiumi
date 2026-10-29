@@ -1,3 +1,4 @@
+import { Modal } from './components/Modal.tsx';
 import { renderDocument as renderLocal } from '@kiumi/core';
 import { useEffect, useRef, useState } from 'react';
 import { copyRichHtml, fetchSession, renderDocument, uploadImage, type SessionState } from './api.ts';
@@ -12,7 +13,7 @@ import { WechatPanel } from './components/WechatPanel.tsx';
 import { Workspace } from './components/Workspace.tsx';
 import { useStore } from './store.ts';
 
-const THEME_SWATCHES = ['#3F6FE0', '#2EA36B', '#E8843C', '#D9534F', '#7A5AF8', '#2B3440'];
+const THEME_SWATCHES = ['#718d86', '#9a8eb0', '#c99485', '#9ba9c4', '#baaa7d', '#444e53'];
 
 const NATIVE_TOOLS = [
   { kind: 'heading', label: '标题' },
@@ -56,6 +57,12 @@ export function App() {
   const [collapsed, setCollapsed] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const show = () => { setRail('templates'); setCollapsed(false); };
+    window.addEventListener('kiumi:templates', show);
+    return () => window.removeEventListener('kiumi:templates', show);
+  }, []);
 
   useEffect(() => {
     void boot();
@@ -149,7 +156,7 @@ export function App() {
     const html = await renderFull();
     await copyRichHtml(html);
     setPreview(null);
-    alert('已复制富文本，可直接粘贴到公众号后台');
+    useStore.setState({ message: '已复制富文本，可直接粘贴到公众号后台' });
   };
 
   const onExport = async () => {
@@ -169,7 +176,7 @@ export function App() {
   const onPreview = async () => setPreview(renderLocal(useStore.getState().doc).html);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="workbench h-full flex flex-col">
       <header className="workbench-header shrink-0 bg-white border-b border-mist-200">
         <div className="flex items-center gap-2 px-4 py-2 min-w-0">
         <div className="flex items-center gap-2">
@@ -304,13 +311,13 @@ export function App() {
             预览
           </button>
           <button
-            onClick={() => void onCopy()}
+            onClick={() => void onCopy().catch(error => useStore.setState({message: `复制失败：${error.message}`}))}
             className="text-[12px] px-3 py-1.5 rounded bg-accent-500 text-white hover:bg-accent-400"
           >
             复制到公众号
           </button>
           <button
-            onClick={() => void onExport()}
+            onClick={() => void onExport().catch(error => useStore.setState({message: `导出失败：${error.message}`}))}
             className="text-[12px] px-3 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-50"
           >
             导出 HTML
@@ -345,12 +352,9 @@ export function App() {
       </div>
 
       {preview !== null && (
-        <div
-          className="fixed inset-0 z-50 bg-ink-900/60 flex items-center justify-center p-8"
-          onClick={() => setPreview(null)}
-        >
+        <Modal onClose={() => setPreview(null)}>
           <div
-            className="bg-white rounded-xl overflow-hidden w-[420px] max-h-full flex flex-col"
+            role="dialog" aria-modal="true" aria-label="文章预览" className="bg-white rounded-xl overflow-hidden w-[420px] max-h-full flex flex-col"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-2 border-b border-mist-200">
@@ -367,7 +371,7 @@ export function App() {
               srcDoc={`<body style="margin:0;padding:16px;max-width:677px;font-family:-apple-system,'PingFang SC',sans-serif">${preview}</body>`}
             />
           </div>
-        </div>
+        </Modal>
       )}
 
       {!ready && (

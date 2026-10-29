@@ -1,3 +1,4 @@
+import { Modal } from './Modal.tsx';
 import { useEffect, useState } from 'react';
 import * as api from '../api.ts';
 import { useStore } from '../store.ts';
@@ -22,8 +23,8 @@ export function WechatPanel() {
   useEffect(()=>{if(open) {setNotice('');void reload().catch(e=>setNotice(e.message));}},[open]);
   const run=async(fn:()=>Promise<void>)=>{setBusy(true);setNotice('');try{await fn();}catch(e){setNotice((e as Error).message);}finally{setBusy(false);}};
   return <>
-    <button className={button} onClick={()=>setOpen(true)}>公众号草稿</button>
-    {open&&<div className="fixed inset-0 z-50 bg-ink-900/50 flex items-center justify-center" onClick={()=>!busy&&setOpen(false)}><section className="w-[680px] max-h-[85vh] overflow-y-auto bg-white rounded-xl p-6" onClick={e=>e.stopPropagation()}>
+    <button className={button} onClick={()=>{setCover(useStore.getState().doc.meta.cover??'');setOpen(true);}}>公众号草稿</button>
+    {open&&<Modal onClose={()=>!busy&&setOpen(false)}><section role="dialog" aria-modal="true" aria-label="公众号草稿" className="w-[680px] max-h-[85vh] overflow-y-auto bg-white rounded-xl p-6" onClick={e=>e.stopPropagation()}>
       <div className="flex justify-between mb-5"><h2 className="font-semibold text-lg">同步到公众号草稿箱</h2><button disabled={busy} onClick={()=>setOpen(false)}>关闭</button></div>
       <p className="text-sm text-ink-600 mb-4">选择团队公众号和封面，正文图片会自动传到微信。正式发表在公众号后台完成。</p>
       {notice&&<p role="status" className="text-red-600 text-sm mb-4 break-words">{notice}</p>}
@@ -45,6 +46,6 @@ export function WechatPanel() {
           <input className={field} placeholder="公众号名称" required value={name} onChange={e=>setName(e.target.value)}/><input className={field} placeholder="AppID" required value={appId} onChange={e=>setAppId(e.target.value)}/><input type="password" autoComplete="new-password" className={field} placeholder="AppSecret（仅用于服务端连接，不回显）" required value={secret} onChange={e=>setSecret(e.target.value)}/><button disabled={busy} className={button}>验证并绑定</button>
         </form>
       </>}</div>}
-    </section></div>}
+    </section></Modal>}
   </>;
 }

@@ -31,17 +31,17 @@ export function AssetsPanel() {
   }, [query]);
 
   return (
-    <section className="w-[360px] shrink-0 bg-ink-700 text-mist-100 flex flex-col min-h-0">
-      <div className="px-3 py-2 border-b border-white/10 text-[13px]">图片素材</div>
-      <div className="px-3 py-2 border-b border-white/10">
+    <section className="library-panel w-[360px] shrink-0 bg-mist-50 text-ink-600 flex flex-col min-h-0">
+      <div className="px-3 py-2 border-b border-mist-200 text-[13px]">图片素材</div>
+      <div className="px-3 py-2 border-b border-mist-200">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="按文件名搜索"
-          className="w-full bg-ink-800 border border-white/10 rounded px-2 py-1.5 text-[12px] placeholder:text-mist-200/30 focus:outline-none focus:border-accent-400"
+          className="w-full bg-white border border-mist-200 rounded px-2 py-1.5 text-[12px] placeholder:text-ink-600 focus:outline-none focus:border-accent-400"
         />
       </div>
-      <div className="px-3 py-1.5 text-[11px] text-mist-200/50">
+      <div className="px-3 py-1.5 text-[11px] text-ink-600">
         {loading ? '加载中…' : `已镜像 ${total} 个`}
       </div>
       <div className="flex-1 overflow-y-auto px-3 pb-4 grid grid-cols-3 gap-2 content-start">
@@ -55,7 +55,7 @@ export function AssetsPanel() {
               if (event.key === 'Enter' || event.key === ' ') addImageBlock(item.url);
             }}
             title={item.url}
-            className="h-[100px] rounded border border-white/10 bg-white/5 overflow-hidden hover:border-accent-400 cursor-pointer"
+            className="h-[100px] rounded border border-mist-200 bg-white/5 overflow-hidden hover:border-accent-400 cursor-pointer"
           >
             <img
               src={`/assets/${item.path}`}
@@ -66,7 +66,7 @@ export function AssetsPanel() {
           </div>
         ))}
         {!loading && items.length === 0 && (
-          <p className="col-span-3 text-[12px] text-mist-200/40 py-6 text-center">
+          <p className="col-span-3 text-[12px] text-ink-600 py-6 text-center">
             还没有镜像素材，运行 <code>pnpm kiumi crawl assets</code>
           </p>
         )}

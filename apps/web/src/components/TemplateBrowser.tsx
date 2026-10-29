@@ -144,8 +144,8 @@ export function TemplateBrowser() {
   const groupRooms: Room[] = rooms.filter((room) => group?.rooms.includes(room.tag));
 
   return (
-    <section className="w-[360px] shrink-0 bg-ink-700 text-mist-100 flex flex-col min-h-0">
-      <div className="flex items-stretch border-b border-white/10 relative overflow-x-auto">
+    <section className="library-panel template-browser w-[360px] shrink-0 bg-mist-50 text-ink-600 flex flex-col min-h-0">
+      <div className="flex items-stretch border-b border-mist-200 relative overflow-x-auto">
         {groups.map((item) => {
           const available = item.rooms.some((tag) => rooms.some((room) => room.tag === tag));
           return (
@@ -157,10 +157,10 @@ export function TemplateBrowser() {
               onClick={() => setGroup(item.key)}
               className={`flex-1 shrink-0 whitespace-nowrap px-2 py-2.5 text-[13px] transition ${
                 activeGroup === item.key
-                  ? 'text-white border-b-2 border-accent-400'
+                  ? 'text-accent-500 border-b-2 border-accent-400'
                   : available
-                    ? 'text-mist-200/70 hover:text-white'
-                    : 'text-mist-200/25 cursor-not-allowed'
+                    ? 'text-ink-600 hover:text-ink-900'
+                    : 'text-ink-600 cursor-not-allowed'
               }`}
             >
               {item.label}
@@ -170,7 +170,7 @@ export function TemplateBrowser() {
 
         {openGroup && (
           <div
-            className="absolute left-0 right-0 top-full z-20 bg-ink-600 border-t border-white/10 shadow-xl"
+            className="absolute left-0 right-0 top-full z-20 bg-mist-50 border-t border-mist-200 shadow-xl"
             onMouseEnter={() => setOpenGroup(openGroup)}
             onMouseLeave={() => setOpenGroup(null)}
           >
@@ -186,12 +186,12 @@ export function TemplateBrowser() {
                       setRoom(tag);
                       setOpenGroup(null);
                     }}
-                    className={`text-left text-[12px] px-2 py-1 rounded hover:bg-white/10 ${
-                      activeRoom === tag ? 'text-accent-400' : 'text-mist-100'
+                    className={`text-left text-[12px] px-2 py-1 rounded hover:bg-mist-100 ${
+                      activeRoom === tag ? 'text-accent-400' : 'text-ink-600'
                     }`}
                   >
                     {room.name}
-                    <span className="ml-1 text-[10px] text-mist-200/40">{room.count}</span>
+                    <span className="ml-1 text-[10px] text-ink-600">{room.count}</span>
                   </button>
                 );
               })}
@@ -200,33 +200,33 @@ export function TemplateBrowser() {
         )}
       </div>
 
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 text-[11px]">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-mist-200 text-[11px]">
         {(['recommend', 'recent'] as const).map((mode) => (
           <button
             key={mode}
             onClick={() => setView(mode)}
             className={`px-1.5 py-0.5 rounded ${
-              view === mode ? 'bg-white/15 text-white' : 'text-mist-200/60 hover:text-white'
+              view === mode ? 'bg-accent-500/10 text-accent-500' : 'text-ink-600 hover:text-ink-900'
             }`}
           >
             {mode === 'recommend' ? '推荐模板' : '最近使用'}
           </button>
         ))}
-        <span className="text-mist-200/25">样刊模板</span>
-        <span className="ml-auto text-mist-200/25">主题色</span>
+        <span className="text-ink-600">样刊模板</span>
+        <span className="ml-auto text-ink-600">主题色</span>
       </div>
 
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-mist-200">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="搜索模板名称"
-          className="flex-1 bg-ink-800 border border-white/10 rounded px-2 py-1.5 text-[12px] text-mist-100 placeholder:text-mist-200/30 focus:outline-none focus:border-accent-400"
+          className="flex-1 bg-white border border-mist-200 rounded px-2 py-1.5 text-[12px] text-ink-600 placeholder:text-ink-600 focus:outline-none focus:border-accent-400"
         />
         {view === 'recommend' && (
           <button
             onClick={shuffle}
-            className="shrink-0 text-[11px] px-2 py-1.5 rounded border border-white/15 text-mist-100 hover:bg-white/10"
+            className="shrink-0 text-[11px] px-2 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-100"
             title="换一批"
           >
             换一换
@@ -234,18 +234,18 @@ export function TemplateBrowser() {
         )}
       </div>
 
-      <div className="px-3 py-1.5 text-[11px] text-mist-200/50 flex items-center justify-between">
+      <div className="px-3 py-1.5 text-[11px] text-ink-600 flex items-center justify-between">
         <span>{roomLabel(groupRooms, activeRoom)}</span>
         <span>{loading ? '加载中…' : `${templates.length} 个`}</span>
       </div>
 
-      <div className="px-3 py-1 text-[10px] text-mist-200/60 flex items-center gap-2">
+      <div className="px-3 py-1 text-[10px] text-ink-600 flex items-center gap-2">
         <span className="truncate flex-1" title={syncStatus}>{syncPaused ? '模板后台同步已暂停' : syncStatus}</span>
-        <button onClick={() => { pauseCatalogSync(!syncPaused); setSyncPaused(!syncPaused); if (syncPaused) void syncCatalog(); }} className="shrink-0 hover:text-white">{syncPaused ? '继续同步' : '暂停同步'}</button>
+        <button onClick={() => { pauseCatalogSync(!syncPaused); setSyncPaused(!syncPaused); if (syncPaused) void syncCatalog(); }} className="shrink-0 hover:text-ink-900">{syncPaused ? '继续同步' : '暂停同步'}</button>
       </div>
       <div className="flex-1 overflow-y-auto px-3 pb-4 grid grid-cols-2 gap-2 content-start">
         {view === 'recent' && recent.length === 0 && (
-          <p className="col-span-2 text-[12px] text-mist-200/40 py-6 text-center">还没有使用过模板</p>
+          <p className="col-span-2 text-[12px] text-ink-600 py-6 text-center">还没有使用过模板</p>
         )}
         {view === 'recent' &&
           recent.map((item) => (
@@ -267,7 +267,7 @@ export function TemplateBrowser() {
           <TemplateCard key={item.atomTplId} item={item} onPick={() => void insertTemplate(item.atomTplId)} />
         ))}
         {!loading && templates.length === 0 && (
-          <p className="col-span-2 text-[12px] text-mist-200/40 py-6 text-center">没有匹配的模板</p>
+          <p className="col-span-2 text-[12px] text-ink-600 py-6 text-center">没有匹配的模板</p>
         )}
       </div>
     </section>

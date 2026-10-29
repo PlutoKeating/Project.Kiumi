@@ -1,3 +1,4 @@
+import { Modal } from './Modal.tsx';
 import { useEffect, useRef, useState } from 'react';
 import * as api from '../api.ts';
 import { useStore } from '../store.ts';
@@ -70,7 +71,7 @@ export function ImportPanel() {
 
   return <>
     <button className="text-xs px-3 py-1.5 rounded border border-mist-200" onClick={() => setOpen(true)}>导入内容</button>
-    {open && <div className="fixed inset-0 z-50 bg-ink-900/50 flex items-center justify-center" onClick={close}>
+    {open && <Modal onClose={close}>
       <section role="dialog" aria-modal="true" aria-label="导入内容" className="bg-white rounded-xl w-[900px] max-h-[90vh] overflow-y-auto p-6 whitespace-normal text-ink-900" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between mb-4"><h2 className="text-lg font-semibold">{preview ? '确认导入预览' : '导入到文稿 / 图库'}</h2><button disabled={busy} onClick={close}>关闭</button></div>
         {!preview ? <>
@@ -101,6 +102,6 @@ export function ImportPanel() {
         </>}
         {message && <p role="status" className="text-sm mt-3 whitespace-pre-wrap">{message}</p>}
       </section>
-    </div>}
+    </Modal>}
   </>;
 }
