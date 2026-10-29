@@ -1,0 +1,19 @@
+{
+  "name": "@kiumi/core",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Block model, template hydration, deterministic renderer and WeChat validator",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "node-html-parser": "^6.1.13"
+  }
+}
