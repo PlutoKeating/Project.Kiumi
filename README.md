@@ -96,6 +96,7 @@ kiumi audit
 ## 文档
 
 - [架构](docs/ARCHITECTURE.md)
+- [交接说明](docs/HANDOFF.md)
 - [接口](docs/API.md)
 - [界面与快捷键](docs/UX_XIUMI.md)
 - [部署](docs/DEPLOY_CLOUDFLARE.md)
