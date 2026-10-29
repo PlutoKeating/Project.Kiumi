@@ -7,7 +7,7 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import { rewriteAssetUrls, type AssetManifest } from '@kiumi/catalog';
 import { validateHtml, type KiumiDocument } from '@kiumi/core';
 import { DocumentBuilder, FileDocumentStore, KiumiClient, fillMatrix } from '@kiumi/sdk';
-import { WeChatClient, WeChatError } from './wechat.ts';
+import { WeChatClient, WeChatError } from '@kiumi/sdk';
 
 export interface AppOptions {
   dataDir: string;
