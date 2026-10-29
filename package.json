@@ -13,10 +13,13 @@
     "kiumi": "node packages/cli/src/index.ts",
     "mcp": "node packages/mcp/src/index.ts",
     "dev:server": "node apps/server/src/index.ts",
-    "test": "node --test packages/*/test/*.test.ts"
+    "test": "node --test packages/*/test/*.test.ts",
+    "dev": "pnpm --parallel --filter @kiumi/server --filter @kiumi/web dev",
+    "serve": "node apps/server/src/index.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "playwright-core": "^1.64.1",
     "typescript": "^5.7.2"
   }
 }
