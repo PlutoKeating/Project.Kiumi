@@ -79,8 +79,6 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
           const cached = await readFile(path.join(options.assetsDir, known.path)).catch(() => null);
           if (cached) {
             skipped++;
-            done++;
-            options.onProgress?.(done, urls.length, url, manifest);
             continue;
           }
         }
@@ -94,8 +92,6 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
             sourceUrl: url,
           };
           skipped++;
-          done++;
-          options.onProgress?.(done, urls.length, url, manifest);
           continue;
         }
         const { bytes } = await fetchBytes(url, limiter, {
@@ -115,8 +111,15 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
         consecutiveFailures = 0;
       } catch (error) {
         failed.push({ url, error: (error as Error).message });
-        consecutiveFailures++;
-        if (consecutiveFailures >= threshold) await tripBreaker();
+        // A 404/410 is a permanent upstream deletion, not a burst block; counting
+        // it would trip the breaker every few requests once the dead tail starts.
+        const status = (error as { status?: number }).status;
+        if (status === 404 || status === 410) {
+          consecutiveFailures = 0;
+        } else {
+          consecutiveFailures++;
+          if (consecutiveFailures >= threshold) await tripBreaker();
+        }
       } finally {
         done++;
         options.onProgress?.(done, urls.length, url, manifest);
