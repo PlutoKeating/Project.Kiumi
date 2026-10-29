@@ -61,7 +61,7 @@ pnpm kiumi validate out.html
 | CLI（crawl/list/show/render/fill/validate） | ✅ |
 | SDK | ✅ |
 | MCP（13 个工具） | ✅ 冒烟通过 |
-| HTTP 服务（19 个端点） | ✅ |
+| HTTP 服务（24 个端点） | ✅ |
 | 工作台前端 | 🟡 模板库/素材库/编辑/撤销可用，收藏与剪贴板待接 |
 | 微信草稿箱 | 🟡 代码完成，待真实账号联调 |
 

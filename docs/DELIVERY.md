@@ -31,7 +31,7 @@
 | `@kiumi/sdk` | 目录检索、文档构建、槽位填充、Markdown 转换 |
 | `@kiumi/cli` | `crawl / stats / list / show / render / fill / md / validate / audit` |
 | `@kiumi/mcp` | 13 个工具（检索、文档、渲染、校验） |
-| `apps/server` | 20 个 HTTP 端点、素材服务、微信草稿箱 |
+| `apps/server` | 24 个 HTTP 端点、素材服务、微信草稿箱 |
 | `apps/web` | 三栏工作台：模板库、素材库、画布、槽位编辑、撤销重做 |
 
 ---

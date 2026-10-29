@@ -110,7 +110,7 @@
 | 数据 | 2,426 模板 / 1,227 骨架 / 1,593 素材 / 980 tplId 映射 |
 | 库 | `@kiumi/core` `@kiumi/catalog` `@kiumi/sdk` |
 | 工具 | `kiumi` CLI（12 命令）、`@kiumi/mcp`（12 工具） |
-| 服务 | HTTP API（18 端点） |
+| 服务 | HTTP API（24 端点） |
 | 界面 | React 工作台（7 个功能域） |
 | 文档 | 本目录 5 份 + README |
 
