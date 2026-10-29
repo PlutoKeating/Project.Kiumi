@@ -71,8 +71,11 @@ KIUMI_STRICT_ASSETS=0 pnpm serve                                # 镜像未齐�
 严格模式下一个远端 URL 都不会出现：未镜像的素材会被替换成本地占位图，
 并在响应头 `x-kiumi-missing-assets` 与覆盖率接口里列出，便于补齐而不是静默回源。
 
-全量 9,508 个素材在 1.6 GB 量级，无法进 git；`data/assets` 保持 ignore，
-由上面的命令复现。
+全量 9,508 个素材在 2 GB 量级，无法进 git；`data/assets` 保持 ignore，由命令复现。
+
+**上游失效素材**：抽样 20 个未镜像 URL，11 个返回 200、9 个 404。也就是说约 38% 的引用
+已经被上游删除，**100% 镜像在物理上不可能**。这部分在严格模式下落到本地占位图，
+并在 `/api/assets/coverage` 的 `missing` 里逐条列出，不会静默回源。
 
 现代库规模（`pnpm kiumi crawl tags` 实测）：
 
