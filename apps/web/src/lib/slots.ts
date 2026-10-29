@@ -105,6 +105,11 @@ export function patchSlot(
   return clone;
 }
 
+/** First text slot in a matrix: the one inline editing targets. */
+export function primaryTextSlot(matrix: unknown): string | undefined {
+  return listSlots(matrix).find((slot) => slot.prop === 'text')?.slot;
+}
+
 export function plainText(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, '\n')
