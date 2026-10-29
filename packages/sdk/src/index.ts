@@ -284,6 +284,13 @@ export class KiumiClient {
     if (!record) throw new Error(`TEMPLATE_NOT_FOUND: ${atomTplId}`);
     const matrix = fillMatrix(record.matrix, set);
     const result = await this.render(matrix);
+    if (record.room.startsWith('booklet-pg')) {
+      result.warnings.push({
+        code: 'H5_PAGE_UNSUPPORTED',
+        message:
+          'booklet-pg templates are H5 pages (layered swiper), not article bodies; output is archival only',
+      });
+    }
     return { matrix, html: result.html, warnings: result.warnings };
   }
 

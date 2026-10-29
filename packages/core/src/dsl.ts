@@ -44,8 +44,8 @@ export const KNOWN_CELL_TYPES = new Set([
 /** Cell types that behave like a single image slot. */
 export const IMAGE_CELL_TYPES = new Set(['image', 'crop-image']);
 
-/** Cell types that host children. */
-export const CONTAINER_CELL_TYPES = new Set(['group', 'container']);
+/** Cell types that host children. `table` cells mount rows the same way. */
+export const CONTAINER_CELL_TYPES = new Set(['group', 'container', 'table']);
 
 /** `demo:header/t-a-01` -> `paper-cp` */
 export function houseOf(tplId: string): string {
