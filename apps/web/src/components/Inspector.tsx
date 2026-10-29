@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { listSlots, plainText, toHtml, type SlotInfo } from '../lib/slots.ts';
+import { MarkupEditor } from './MarkupEditor.tsx';
 import { useStore } from '../store.ts';
 
 export function Inspector() {
@@ -131,7 +132,7 @@ export function Inspector() {
                 {favorites.includes(block.tplId) ? '已收藏' : '收藏模板'}
               </button>
             </div>
-            <div className="space-y-3">
+            {block.html ? <MarkupEditor key={block.id} index={selected!} html={block.html} /> : <div className="space-y-3">
               {slots.map((slot, index) => (
                 <SlotEditor
                   key={`${slot.path}-${index}`}
@@ -142,7 +143,7 @@ export function Inspector() {
               {slots.length === 0 && (
                 <p className="text-[12px] text-ink-600/40">该模板没有可编辑的文字或图片槽位</p>
               )}
-            </div>
+            </div>}
           </>
         )}
 

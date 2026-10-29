@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { uploadImage } from '../api.ts';
+import { cleanHtml } from '../lib/import.ts';
 import { primaryTextSlot } from '../lib/slots.ts';
 import { useStore } from '../store.ts';
 
@@ -13,6 +14,9 @@ export function Canvas() {
   const setTitle = useStore((state) => state.setTitle);
   const setDigest = useStore((state) => state.setDigest);
   const updateSlot = useStore((state) => state.updateSlot);
+  const updateHtml = useStore((state) => state.updateHtml);
+  const updateNative = useStore((state) => state.updateNative);
+  const inlineTarget = useRef<{element:HTMLElement;path:number[]}|null>(null);
   const [editing, setEditing] = useState<{ block: number; slot: string } | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; block: number } | null>(null);
   const addNative = useStore((state) => state.addNative);
@@ -42,11 +46,6 @@ export function Canvas() {
       if (selected === null) return;
       if (event.key === 'Escape') {
         select(null);
-        return;
-      }
-      if (event.key === 'Delete' || event.key === 'Backspace') {
-        event.preventDefault();
-        removeBlock(selected);
         return;
       }
       if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -79,36 +78,32 @@ export function Canvas() {
 
   // Double-click a block to edit its primary text slot in place, like the
   // official editor does. The inspector remains the full-fidelity surface.
-  const startInlineEdit = (index: number) => {
-    const block = doc.blocks[index];
-    if (!block || block.kind !== 'library') return;
-    const slot = primaryTextSlot(block.matrix);
-    if (!slot) return;
-    const root = blockRefs.current.get(index);
-    const target = root?.querySelector<HTMLElement>(`[tn-bind-cell="${slot}"]`);
-    if (!target) return;
-    target.setAttribute('contenteditable', 'true');
-    target.focus();
-    const range = document.createRange();
-    range.selectNodeContents(target);
-    range.collapse(false);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    setEditing({ block: index, slot });
+  const startInlineEdit = (index: number, clicked: HTMLElement) => {
+    const block=doc.blocks[index];
+    const container=blockRefs.current.get(index)?.querySelector<HTMLElement>('[data-block-content]');
+    if(!block||!container)return;
+    let target=clicked.closest<HTMLElement>('p,span,h1,h2,h3,li,td,div');
+    if(block.kind==='native')target=container.firstElementChild as HTMLElement;
+    if(!target||target===container||!container.contains(target)||target.closest('svg:not(:has(foreignObject))'))return;
+    const path:number[]=[];let node:Node=target;
+    while(node!==container&&node.parentNode){path.unshift(Array.from(node.parentNode.childNodes).indexOf(node as ChildNode));node=node.parentNode;}
+    inlineTarget.current={element:target,path};
+    target.contentEditable='true';target.focus();
+    setEditing({block:index,slot:''});
   };
-
-  const finishInlineEdit = (index: number, slot: string) => {
-    const root = blockRefs.current.get(index);
-    const target = root?.querySelector<HTMLElement>(`[tn-bind-cell="${slot}"]`);
-    if (!target) {
-      setEditing(null);
-      return;
-    }
-    const html = target.innerHTML.trim();
-    target.removeAttribute('contenteditable');
-    setEditing(null);
-    if (html) updateSlot(index, slot, html);
+  const finishInlineEdit = (index:number, _slot:string) => {
+    const edited=inlineTarget.current,block=doc.blocks[index];
+    if(!edited||!block){setEditing(null);return;}
+    const value=cleanHtml(edited.element.innerHTML);
+    edited.element.removeAttribute('contenteditable');inlineTarget.current=null;setEditing(null);
+    if(block.kind==='native'){updateNative(index,{html:value});return;}
+    if(block.html){
+      // Update only the edited node; keep original source URLs elsewhere.
+      const root=document.createElement('template');root.innerHTML=cleanHtml(block.html);
+      let node:Node=root.content;
+      for(const part of edited.path){const next=node.childNodes[part];if(!next)return;node=next;}
+      if(node instanceof Element){node.innerHTML=value;updateHtml(index,root.innerHTML);}
+    } else {const slot=primaryTextSlot(block.matrix);if(slot)updateSlot(index,slot,value);}
   };
 
   const runMenu = (action: () => void) => {
@@ -126,7 +121,7 @@ export function Canvas() {
       onDrop={(event) => {
         if (!event.dataTransfer.files?.length) return;
         event.preventDefault();
-        void onFileDrop(event.dataTransfer.files[0]);
+        void onFileDrop(event.dataTransfer.files[0]).catch(error=>useStore.setState({message:error.message}));
       }}
     >
       <div className="flex justify-center px-6 py-6">
@@ -175,7 +170,7 @@ export function Canvas() {
                 }}
                 onDoubleClick={(event) => {
                   event.stopPropagation();
-                  startInlineEdit(index);
+                  startInlineEdit(index, event.target as HTMLElement);
                 }}
                 onContextMenu={(event) => {
                   event.preventDefault();
@@ -269,7 +264,8 @@ export function Canvas() {
                   </button>
                 </div>
                 <div
-                  className={editing?.block === index ? '' : 'pointer-events-none'}
+                  data-block-content
+                  onClick={event => { if((event.target as HTMLElement).closest('a'))event.preventDefault(); }}
                   dangerouslySetInnerHTML={{ __html: previews[block.id] ?? '' }}
                 />
               </div>

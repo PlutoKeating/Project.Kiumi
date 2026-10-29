@@ -6,6 +6,8 @@ import { Canvas } from './components/Canvas.tsx';
 import { Inspector } from './components/Inspector.tsx';
 import { LeftRail } from './components/LeftRail.tsx';
 import { TemplateBrowser } from './components/TemplateBrowser.tsx';
+import { ImportPanel } from './components/ImportPanel.tsx';
+import { WechatPanel } from './components/WechatPanel.tsx';
 import { Workspace } from './components/Workspace.tsx';
 import { useStore } from './store.ts';
 
@@ -252,6 +254,8 @@ export function App() {
           >
             重做
           </button>
+          <ImportPanel />
+          <WechatPanel key={workspaceVersion} />
           <Workspace session={session} onChange={() => setWorkspaceVersion(v => v + 1)} />
           <button onClick={newDoc} className="text-[12px] px-3 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-50">
             新建

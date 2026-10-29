@@ -99,7 +99,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const payload = (await response.json()) as Envelope<T>;
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error?.message ?? `request failed: ${response.status}`);
+    throw new Error((typeof payload.error === 'string' ? payload.error : payload.error?.message) ?? `request failed: ${response.status}`);
   }
   return payload.data;
 }

@@ -8,7 +8,8 @@ import { createHmac } from 'node:crypto';
 test('Worker teams isolate drafts and uploads; invitations allow sharing', async () => {
   const bundled=await build({entryPoints:[new URL('../src/index.ts',import.meta.url).pathname],bundle:true,write:false,format:'esm',platform:'browser',target:'es2022'});
   const key='local-test-key-never-used-in-production';
-  const mf=new Miniflare({modules:true,script:bundled.outputFiles[0]!.text,compatibilityDate:'2026-01-01',compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],bindings:{KIUMI_DATA_KEY:key},serviceBindings:{KIUMI_DATA:async(req)=>new Response(req.method==='PUT'?'stored':'image'),ASSETS:async()=>new Response('app')}});
+  let deliveries=0;
+  const mf=new Miniflare({modules:true,script:bundled.outputFiles[0]!.text,compatibilityDate:'2026-01-01',compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],bindings:{KIUMI_DATA_KEY:key},serviceBindings:{KIUMI_DATA:async(req)=>{if(new URL(req.url).pathname==='/wechat'){const payload=await req.json() as any;if(payload.action==='draft')deliveries++;return Response.json({ok:true,data:payload.action==='check'?{connected:true}:{mediaId:'test-draft',verified:true}});}if(new URL(req.url).pathname.endsWith('.json'))return Response.json({});return new Response(req.method==='PUT'?'stored':'image');},ASSETS:async()=>new Response('app')}});
   try {
     const db=await mf.getD1Database('DB');
     const migration=await readFile(new URL('../migrations/0001_teams.sql',import.meta.url),'utf8');
@@ -31,7 +32,24 @@ test('Worker teams isolate drafts and uploads; invitations allow sharing', async
     assert.equal((await call('bob','/api/teams/invite','POST',{},team)).status,403);
     const changed=await call('bob','/api/documents/'+document.id,'PATCH',{meta:{digest:'摘要'},title:'共同编辑'},team);
     assert.equal(changed.data.meta.digest,'摘要');
-    await call('alice','/api/teams/members','DELETE',{userId:'bob'},team);
+    assert.equal((await call('bob','/api/accounts','POST',{name:'test',appId:'wx1234567890123456',secret:'test-secret'},team)).status,403);
+    assert.equal((await call('alice','/api/accounts','POST',{name:'test',appId:'wx1234567890123456',secret:'test-secret'},team)).status,200);
+    const account=(await call('alice','/api/accounts','GET',undefined,team)).data[0];
+    assert.equal(account.secret,undefined);
+    const stored=await db.prepare('SELECT secret FROM wechat_accounts').first<{secret:string}>();
+    assert.ok(!stored!.secret.includes('test-secret'));
+    const form=new FormData();form.set('file',new File([Uint8Array.from([137,80,78,71,13,10,26,10])],'cover.png',{type:'image/png'}));
+    const encoded=new Request('https://test.invalid',{method:'POST',body:form});
+    const uploaded=await mf.dispatchFetch('https://test.invalid/api/assets/upload',{method:'POST',headers:{cookie:cookie('alice'),'x-team-id':team,'content-type':encoded.headers.get('content-type')!},body:await encoded.arrayBuffer()});
+    const upload=(await uploaded.json() as any).data;
+    assert.equal(uploaded.status,201);
+    assert.equal((await mf.dispatchFetch('https://test.invalid'+upload.url)).status,403);
+    const draft={documentId:document.id,accountId:account.id,cover:upload.url,requestId:'same-click'};
+    const first=await call('bob','/api/wechat/draft','POST',draft,team);
+    assert.equal(first.status,200,JSON.stringify(first));
+    assert.equal((await call('bob','/api/wechat/draft','POST',draft,team)).data.mediaId,'test-draft');
+    assert.equal(deliveries,1,'retries must not create duplicate drafts');
+    await call('alice','/api/teams/members','DELETE' ,{userId:'bob'},team);
     assert.equal((await call('bob','/api/documents/'+document.id,'GET',undefined,team)).status,403);
     assert.equal((await call('alice','/api/nonexistent')).status,404);
   } finally {await mf.dispose();}

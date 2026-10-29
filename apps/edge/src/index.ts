@@ -1,6 +1,7 @@
 import {
   fillMatrix,
   sanitizeHtml,
+  rewriteHtmlAssets,
   normalizeMatrix,
   renderDocument,
   validateHtml,
@@ -8,7 +9,8 @@ import {
   type TemplateRecord,
 } from '@kiumi/core';
 import { currentUser, handleAuth } from './auth.js';
-import { workspaceRoutes, privateUpload, exportImages, ApiError } from './workspace.js';
+import { workspaceRoutes, privateUpload, exportImages, ApiError, teamContext } from './workspace.js';
+import { wechatRoutes } from './wechat.js';
 import { dataFetch } from './data.js';
 
 export interface Env {
@@ -162,6 +164,20 @@ export default {
         const origin = request.headers.get('origin');
         if (origin && origin !== url.origin) return fail('FORBIDDEN', '不允许跨站写入', 403);
       }
+      if(path === '/api/import/url' && request.method === 'POST') {
+        await teamContext(env,request);
+        const input=await request.json() as {url?:string};
+        if(typeof input.url!=='string' || !/^https?:\/\//.test(input.url))return fail('INVALID_BODY','请输入网页地址');
+        const response=await dataFetch(env,'import',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)});
+        return new Response(response.body,{status:response.status,headers:{'content-type':'application/json'}});
+      }
+      const wechat = await wechatRoutes(request, env, async doc => {
+        const rendered = await render(env, new Request(request.url, {method:'POST',headers:request.headers,body:JSON.stringify({document:doc,localAssets:false,forWechat:true})}));
+        const payload = await rendered.json() as {data?:{html:string};error?:{message:string}};
+        if(!payload.data)throw new Error(payload.error?.message ?? '渲染失败');
+        return payload.data.html;
+      });
+      if(wechat)return wechat;
       const workspace = await workspaceRoutes(request, env);
       if (workspace) return workspace;
       if (path.startsWith('/uploads/')) return await privateUpload(request, env);
@@ -176,9 +192,6 @@ export default {
       if (path === '/api/fill' && request.method === 'POST') return fill(env, request);
       if (path === '/api/assets') return assetsList(env, url);
       if (path === '/api/assets/coverage') return coverage(env);
-      if (path === '/api/wechat/config')
-        return json({ configured: Boolean(env.WECHAT_APP_ID && env.WECHAT_APP_SECRET) });
-      if (path === '/api/wechat/draft' && request.method === 'POST') return fail('ACCOUNT_REQUIRED', '请先在团队中绑定公众号', 409);
       if (path.startsWith('/assets/')) return serveR2(env, `assets/${path.slice('/assets/'.length)}`);
       if (path === '/assets/__missing.svg') return missingPlaceholder();
 
@@ -314,15 +327,14 @@ async function search(env: Env, url: URL): Promise<Response> {
 // Render
 // ---------------------------------------------------------------------------
 
-function localizeAssets(html: string, map: Record<string, { path: string }>): string {
-  return html.replace(
-    /(?:https?:)?\/\/[^"'()\s]+\.(?:png|jpe?g|gif|svg|webp|bmp)(?:\?[^"'()\s]*)?/gi,
-    (raw) => {
-      const normalized = raw.startsWith('//') ? `https:${raw}` : raw.replace(/^http:\/\//, 'https://');
-      const entry = map[normalized];
-      return entry ? `/assets/${entry.path}` : '/assets/__missing.svg';
-    },
-  );
+function localizeAssets(html: string, map: Record<string, { path: string }>, origin='', forWechat=false): string {
+  return rewriteHtmlAssets(html,raw=>{
+    const normalized=raw.startsWith('//')?`https:${raw}`:raw.replace(/^http:\/\//,'https://');
+    const entry=map[normalized];
+    if(entry)return forWechat?normalized:`${origin}/assets/${entry.path}`;
+    if(/^https?:\/\/[^/]*(?:xiumi\.us|xiumius\.cn)\//i.test(normalized))return null;
+    return raw;
+  });
 }
 
 async function render(env: Env, request: Request): Promise<Response> {
@@ -332,6 +344,7 @@ async function render(env: Env, request: Request): Promise<Response> {
     matrix?: unknown;
     set?: Record<string, string>;
     localAssets?: boolean;
+    forWechat?: boolean;
   };
   const skeletonsMap = await skeletons(env);
   const map = await manifest(env);
@@ -386,8 +399,8 @@ async function render(env: Env, request: Request): Promise<Response> {
     return fail('INVALID_BODY', 'provide document, tplId or matrix');
   }
 
-  if (body.localAssets) html = localizeAssets(html, map);
-  else html = await exportImages(html, request, env);
+  html = localizeAssets(html, map, body.localAssets ? '' : new URL(request.url).origin, body.forWechat);
+  if (!body.localAssets && !body.forWechat) html = await exportImages(html, request, env);
   return json({ html, bytes: html.length, warnings, issues: validateHtml(html) });
 }
 

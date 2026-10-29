@@ -15,6 +15,10 @@
 | GET | `/api/uploads` | 团队图库 |
 | POST | `/api/assets/upload` | multipart 图片，PNG/JPEG/GIF/WebP，最多 10 MB |
 | GET | `/uploads/:id` | 成员读取；导出签名链接允许外部读取 |
+| GET/POST | `/api/accounts` | 团队公众号列表 / 创建者验证并绑定 `{name,appId,secret}` |
+| DELETE | `/api/accounts/:id` | 创建者解除绑定 |
+| POST | `/api/wechat/draft` | `{documentId,accountId,cover,requestId}` 创建草稿并回读 |
+| POST | `/api/import/url` | `{url}` 获取公开网页内容供客户端导入 |
 
 未知 `/api/*` 返回 JSON 404，不回落到网页。团队隔离错误为 403，未登录为 401，未选团队为 409。模板目录公开可读；本地 Fastify 保持单用户开发模式。
 

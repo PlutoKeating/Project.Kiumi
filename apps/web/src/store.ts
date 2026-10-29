@@ -1,4 +1,4 @@
-import { patchRecordedHtml } from '@kiumi/core';
+import { patchRecordedHtml, sanitizeHtml } from '@kiumi/core';
 import { create } from 'zustand';
 import * as api from './api.ts';
 import { patchSlot } from './lib/slots.ts';
@@ -284,7 +284,8 @@ export const useStore = create<State>((set, get) => ({
     const blocks = doc.blocks.map((block) => {
       if (block.kind !== 'library' || !hasThemeColors(block.matrix)) return block;
       touched++;
-      return { ...block, matrix: applyThemeColor(block.matrix, color) };
+      const matrix=applyThemeColor(block.matrix,color);
+      return { ...block, matrix, html:block.html?patchRecordedHtml(block.html,block.matrix,matrix):undefined };
     });
     if (!touched) {
       set({ themeColor: color, message: '当前文档没有可换色的模板' });
@@ -440,7 +441,7 @@ export const useStore = create<State>((set, get) => ({
 
   commit(next) {
     const { doc, past } = get();
-    if (JSON.stringify(next.blocks) === JSON.stringify(doc.blocks) && next.title === doc.title) return;
+    if (JSON.stringify(next.blocks) === JSON.stringify(doc.blocks) && next.title === doc.title && JSON.stringify(next.meta) === JSON.stringify(doc.meta)) return;
     set({ past: [...past.slice(-49), doc], future: [] });
     set({ doc: { ...next, meta: { ...next.meta, updatedAt: new Date().toISOString() } } });
   },
@@ -504,6 +505,7 @@ export const useStore = create<State>((set, get) => ({
     get().loadDoc(readLocal<api.Document>(api.workspaceKey(), emptyDoc()));
   },
   updateHtml(index, html) {
+    html=sanitizeHtml(html);
     const doc=get().doc, block=doc.blocks[index];
     if(!block) return;
     const blocks=[...doc.blocks];
