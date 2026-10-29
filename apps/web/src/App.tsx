@@ -8,6 +8,8 @@ import { LeftRail } from './components/LeftRail.tsx';
 import { TemplateBrowser } from './components/TemplateBrowser.tsx';
 import { useStore } from './store.ts';
 
+const THEME_SWATCHES = ['#3F6FE0', '#2EA36B', '#E8843C', '#D9534F', '#7A5AF8', '#2B3440'];
+
 const NATIVE_TOOLS = [
   { kind: 'heading', label: '标题' },
   { kind: 'text', label: '正文' },
@@ -34,6 +36,8 @@ export function App() {
   const removeBlock = useStore((state) => state.removeBlock);
   const duplicateBlock = useStore((state) => state.duplicateBlock);
   const select = useStore((state) => state.select);
+  const themeColor = useStore((state) => state.themeColor);
+  const applyTheme = useStore((state) => state.applyTheme);
 
   const [rail, setRail] = useState('templates');
   const [collapsed, setCollapsed] = useState(false);
@@ -146,6 +150,24 @@ export function App() {
           onChange={(event) => setTitle(event.target.value)}
           className="w-[240px] text-[13px] px-2 py-1.5 rounded border border-transparent hover:border-mist-200 focus:border-accent-400 focus:outline-none"
         />
+
+        <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-mist-200 text-[12px] text-ink-600">
+          <span>主题色</span>
+          {THEME_SWATCHES.map((color) => (
+            <button
+              key={color}
+              onClick={() => applyTheme(color)}
+              title={color}
+              aria-label={`主题色 ${color}`}
+              className={`w-5 h-5 rounded-full border transition ${
+                themeColor.toLowerCase() === color.toLowerCase()
+                  ? 'border-ink-900 scale-110'
+                  : 'border-mist-200 hover:scale-105'
+              }`}
+              style={{ background: color }}
+            />
+          ))}
+        </div>
 
         <div className="hidden md:flex items-center gap-1 pl-2 border-l border-mist-200">
           {NATIVE_TOOLS.map((tool) => (

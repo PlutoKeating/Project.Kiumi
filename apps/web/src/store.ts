@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as api from './api.ts';
 import { patchSlot } from './lib/slots.ts';
+import { applyThemeColor, hasThemeColors } from './lib/theme.ts';
 
 export interface RoomGroup {
   key: string;
@@ -96,6 +97,7 @@ interface State {
   view: 'recommend' | 'recent';
   recent: { id: string; name: string }[];
   zoom: number;
+  themeColor: string;
   doc: api.Document;
   past: api.Document[];
   future: api.Document[];
@@ -113,6 +115,7 @@ interface State {
   setView: (view: 'recommend' | 'recent') => void;
   shuffle: () => void;
   setZoom: (zoom: number) => void;
+  applyTheme: (color: string) => void;
   reloadTemplates: () => Promise<void>;
   insertTemplate: (atomTplId: string) => Promise<void>;
   addNative: (kind: api.NativeNode['kind'], index?: number) => void;
@@ -149,6 +152,7 @@ export const useStore = create<State>((set, get) => ({
   view: 'recommend',
   recent: [],
   zoom: 100,
+  themeColor: '#3F6FE0',
   doc: emptyDoc(),
   past: [],
   future: [],
@@ -208,6 +212,23 @@ export const useStore = create<State>((set, get) => ({
 
   setZoom(zoom) {
     set({ zoom: Math.min(140, Math.max(50, zoom)) });
+  },
+
+  applyTheme(color) {
+    const doc = get().doc;
+    let touched = 0;
+    const blocks = doc.blocks.map((block) => {
+      if (block.kind !== 'library' || !hasThemeColors(block.matrix)) return block;
+      touched++;
+      return { ...block, matrix: applyThemeColor(block.matrix, color) };
+    });
+    if (!touched) {
+      set({ themeColor: color, message: '当前文档没有可换色的模板' });
+      return;
+    }
+    get().commit({ ...doc, blocks });
+    set({ themeColor: color, message: `已对 ${touched} 个模板块换色` });
+    void get().refresh();
   },
 
   async reloadTemplates() {
