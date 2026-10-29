@@ -12,6 +12,12 @@ export interface HydrateOptions {
   warnings: Warning[];
   /** Emitted as `tn-from-house-<x>` on every component wrapper. */
   defaultHouse?: string;
+  /**
+   * Resolve an `.svg` asset into markup. Upstream inlines stickers so they can
+   * be recoloured and animated inside an article, where external SVG files are
+   * unreliable.
+   */
+  inlineSvg?: (url: string) => string | undefined;
 }
 
 interface CompContext {
@@ -163,11 +169,19 @@ function fillCell(node: AnyNode, cell: Cell, comp: Comp, ctx: CompContext): void
 
   if (IMAGE_CELL_TYPES.has(cell.type)) {
     const target = node.tagName?.toLowerCase() === 'img' ? node : node.querySelector('img');
-    if (target && cell.src) target.setAttribute('src', cell.src);
-    if (target && cell.src && !target.getAttribute('style')) {
-      target.setAttribute('style', 'max-width: 100%; vertical-align: middle;');
+    if (target && cell.src) {
+      const isSvg = /\.svg(\?|$)/i.test(cell.src);
+      const markup = isSvg ? ctx.options.inlineSvg?.(cell.src) : undefined;
+      if (markup) {
+        inlineSvgInto(target, markup);
+        return;
+      }
+      target.setAttribute('src', cell.src);
+      if (!target.getAttribute('style')) {
+        target.setAttribute('style', 'max-width: 100%; vertical-align: middle;');
+      }
+      return;
     }
-    if (target && cell.src) return;
     // crop-image slots are styled boxes whose picture is a CSS background.
     if (cell.src && !target) {
       const css = node.getAttribute('style') ?? '';
@@ -222,6 +236,20 @@ function expandGroup(node: AnyNode, cell: Cell, comp: Comp, ctx: CompContext): v
 
   if (html) mount!.insertAdjacentHTML('afterend', html);
   mount!.remove();
+}
+
+/** Replace an <img> with the SVG markup, keeping its presentation styles. */
+function inlineSvgInto(target: AnyNode, markup: string): void {
+  const parsed = parse(markup, { lowerCaseTagName: false } as never);
+  const svg = parsed.querySelector('svg');
+  if (!svg) return;
+  const inherited = target.getAttribute('style');
+  if (inherited) {
+    const merged = [svg.getAttribute('style'), inherited].filter(Boolean).join('; ');
+    svg.setAttribute('style', merged);
+  }
+  target.insertAdjacentHTML('afterend', svg.toString());
+  target.remove();
 }
 
 /** Generic rendering used when a skeleton is unavailable. */

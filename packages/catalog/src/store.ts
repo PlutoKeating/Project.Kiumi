@@ -87,7 +87,7 @@ export interface LoadedCatalog {
   rooms: RoomInfo[];
   index: TemplateIndexEntry[];
   skeletons: Record<string, string>;
-  assetsManifest: Record<string, string>;
+  assetsManifest: Record<string, { path: string; sha256?: string; bytes?: number }>;
 }
 
 /** Load the normalized catalog from disk. Throws when the crawl has not run. */
@@ -97,7 +97,7 @@ export async function loadCatalog(dataDir: string): Promise<LoadedCatalog> {
     readJson<RoomInfo[]>(paths.rooms),
     readJson<TemplateIndexEntry[]>(paths.index),
     readJson<Record<string, string>>(paths.pack),
-    readJson<Record<string, string>>(paths.assetsManifest),
+    readJson<Record<string, { path: string; sha256?: string; bytes?: number }>>(paths.assetsManifest),
   ]);
   if (!index) {
     throw new Error(

@@ -1,7 +1,9 @@
 import {
   loadCatalog,
+  localPathFor,
   type LoadedCatalog,
 } from '@kiumi/catalog';
+import { readFileSync } from 'node:fs';
 import {
   normalizeMatrix,
   primarySlot,
@@ -177,6 +179,7 @@ export class KiumiClient {
   readonly dataDir: string;
   private loadedPromise?: Promise<LoadedCatalog>;
   private deepRecords?: Map<string, TemplateRecord>;
+  private svgCache = new Map<string, string | undefined>();
 
   constructor(options: KiumiClientOptions = {}) {
     this.dataDir = path.resolve(options.dataDir ?? process.env.KIUMI_DATA_DIR ?? './data');
@@ -268,15 +271,50 @@ export class KiumiClient {
     return (await this.loaded()).skeletons;
   }
 
+  /** Inline `.svg` stickers from the local mirror, mirroring upstream output. */
+  private async svgOptions(): Promise<{ inlineSvg: (url: string) => string | undefined }> {
+    const catalog = await this.loaded();
+    const manifest = catalog.assetsManifest ?? {};
+    const root = catalog.paths.assets;
+    return {
+      inlineSvg: (url: string) => {
+        if (this.svgCache.has(url)) return this.svgCache.get(url);
+        const normalized = url.startsWith('//') ? `https:${url}` : url;
+        const entry = manifest[normalized] ?? manifest[url];
+        // Fall back to the deterministic mirror path so inlining works while a
+        // crawl is still running and the manifest has not been written yet.
+        const candidates = [
+          entry?.path ? path.join(root, entry.path) : null,
+          normalized.startsWith('http') ? path.join(root, localPathFor(normalized)) : null,
+        ].filter((value): value is string => Boolean(value));
+        let text: string | undefined;
+        for (const file of candidates) {
+          try {
+            text = readFileSync(file, 'utf8');
+            break;
+          } catch {
+            text = undefined;
+          }
+        }
+        this.svgCache.set(url, text);
+        return text;
+      },
+    };
+  }
+
   async render(matrix: unknown, skeletons?: Record<string, string>): Promise<RenderResult> {
-    return renderMatrix(matrix, skeletons ?? (await this.skeletons()));
+    return renderMatrix(matrix, skeletons ?? (await this.skeletons()), await this.svgOptions());
   }
 
   async renderDocument(
     document: KiumiDocument,
     skeletons?: Record<string, string>,
   ): Promise<RenderResult> {
-    return renderDocument(document, skeletons ?? (await this.skeletons()));
+    return renderDocument(
+      document,
+      skeletons ?? (await this.skeletons()),
+      await this.svgOptions(),
+    );
   }
 
   async fill(atomTplId: string, set: Record<string, string>): Promise<FillResult> {
