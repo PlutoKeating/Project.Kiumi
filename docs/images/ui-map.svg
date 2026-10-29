@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <rect width="1200" height="620" fill="#f7f8fa"/>
+
+  <rect x="24" y="20" width="1152" height="580" rx="14" fill="#ffffff" stroke="#e2e6ee"/>
+
+  <rect x="24" y="20" width="1152" height="56" rx="14" fill="#ffffff"/>
+  <rect x="24" y="62" width="1152" height="14" fill="#ffffff"/>
+  <text x="48" y="54" font-size="15" fill="#12151c" font-weight="600">Kiumi</text>
+  <text x="130" y="54" font-size="13" fill="#8a93a3">未命名图文</text>
+  <text x="560" y="54" font-size="13" fill="#5b6472">主题色 ● ● ● ● ●</text>
+  <text x="760" y="54" font-size="13" fill="#5b6472">保存 · 预览 · 复制到公众号</text>
+  <rect x="24" y="76" width="1152" height="1" fill="#e2e6ee"/>
+
+  <rect x="24" y="76" width="72" height="524" fill="#1a1f29"/>
+  <circle cx="60" cy="112" r="10" fill="#3f6fe0"/>
+  <text x="60" y="140" font-size="11" fill="#eef0f4" text-anchor="middle">模板</text>
+  <circle cx="60" cy="180" r="10" fill="#2a3140"/>
+  <text x="60" y="208" font-size="11" fill="#aab3c2" text-anchor="middle">素材</text>
+  <circle cx="60" cy="248" r="10" fill="#2a3140"/>
+  <text x="60" y="276" font-size="11" fill="#aab3c2" text-anchor="middle">收藏</text>
+  <circle cx="60" cy="316" r="10" fill="#2a3140"/>
+  <text x="60" y="344" font-size="11" fill="#aab3c2" text-anchor="middle">剪贴板</text>
+  <circle cx="60" cy="384" r="10" fill="#2a3140"/>
+  <text x="60" y="412" font-size="11" fill="#aab3c2" text-anchor="middle">图库</text>
+
+  <rect x="96" y="76" width="264" height="524" fill="#232a36"/>
+  <text x="112" y="108" font-size="14" fill="#ffffff">标题</text>
+  <text x="170" y="108" font-size="14" fill="#9aa4b5">卡片</text>
+  <text x="228" y="108" font-size="14" fill="#9aa4b5">图片</text>
+  <text x="286" y="108" font-size="14" fill="#9aa4b5">布局</text>
+  <rect x="96" y="122" width="264" height="1" fill="#313a49"/>
+
+  <rect x="112" y="140" width="232" height="30" rx="6" fill="#1a1f29" stroke="#313a49"/>
+  <text x="124" y="160" font-size="12" fill="#6f7a8c">搜索模板名称</text>
+
+  <rect x="112" y="186" width="108" height="96" rx="8" fill="#ffffff"/>
+  <text x="166" y="238" font-size="12" fill="#3d4655" text-anchor="middle">模板缩略图</text>
+  <rect x="236" y="186" width="108" height="96" rx="8" fill="#ffffff"/>
+  <text x="290" y="238" font-size="12" fill="#3d4655" text-anchor="middle">模板缩略图</text>
+  <rect x="112" y="294" width="108" height="96" rx="8" fill="#ffffff"/>
+  <text x="166" y="346" font-size="12" fill="#3d4655" text-anchor="middle">模板缩略图</text>
+  <rect x="236" y="294" width="108" height="96" rx="8" fill="#ffffff"/>
+  <text x="290" y="346" font-size="12" fill="#3d4655" text-anchor="middle">模板缩略图</text>
+
+  <text x="228" y="440" font-size="12" fill="#9aa4b5" text-anchor="middle">点一下，模板就进画布</text>
+
+  <rect x="380" y="76" width="500" height="524" fill="#eef0f4"/>
+  <rect x="452" y="104" width="356" height="452" rx="10" fill="#ffffff" stroke="#e2e6ee"/>
+  <text x="476" y="140" font-size="16" fill="#12151c" font-weight="600">未命名图文</text>
+  <text x="476" y="162" font-size="11" fill="#aab3c2">微信分享时的摘要</text>
+  <rect x="476" y="176" width="308" height="1" fill="#eef0f4"/>
+
+  <rect x="476" y="192" width="308" height="58" rx="6" fill="#fdf1ef" stroke="#f3c6bd"/>
+  <text x="630" y="226" font-size="14" fill="#8a3b2e" text-anchor="middle">一日三餐 · 均衡饮食</text>
+
+  <rect x="476" y="266" width="308" height="120" rx="6" fill="#f4f7fd" stroke="#cfdcf7" stroke-dasharray="5 4"/>
+  <text x="630" y="320" font-size="12" fill="#5b6472" text-anchor="middle">选中一块后，右侧显示它的属性</text>
+  <text x="630" y="342" font-size="12" fill="#8a93a3" text-anchor="middle">双击文字可以就地修改</text>
+
+  <rect x="476" y="402" width="308" height="72" rx="6" fill="#f7f8fa" stroke="#e2e6ee"/>
+  <text x="630" y="444" font-size="12" fill="#5b6472" text-anchor="middle">拖拽可以调整先后顺序</text>
+
+  <text x="630" y="540" font-size="12" fill="#8a93a3" text-anchor="middle">1 块 · 100% 缩放</text>
+
+  <rect x="900" y="76" width="276" height="524" fill="#ffffff"/>
+  <text x="920" y="110" font-size="14" fill="#12151c" font-weight="600">结构</text>
+  <text x="920" y="132" font-size="11" fill="#8a93a3">1 块 · 0 错误 · 0 警告</text>
+
+  <rect x="912" y="148" width="252" height="34" rx="5" fill="#eef2fd" stroke="#cfdcf7"/>
+  <text x="926" y="170" font-size="12" fill="#3f6fe0">1　标题块</text>
+
+  <text x="920" y="216" font-size="13" fill="#12151c" font-weight="600">属性</text>
+  <text x="920" y="242" font-size="11" fill="#8a93a3">文字</text>
+  <rect x="912" y="250" width="252" height="56" rx="5" fill="#ffffff" stroke="#e2e6ee"/>
+  <text x="926" y="282" font-size="12" fill="#3d4655">一日三餐 · 均衡饮食</text>
+
+  <text x="920" y="336" font-size="11" fill="#8a93a3">图片地址</text>
+  <rect x="912" y="344" width="252" height="34" rx="5" fill="#ffffff" stroke="#e2e6ee"/>
+  <text x="926" y="366" font-size="12" fill="#aab3c2">https://…</text>
+
+  <text x="920" y="410" font-size="11" fill="#8a93a3">字号 / 颜色 / 对齐</text>
+  <rect x="912" y="418" width="252" height="34" rx="5" fill="#f7f8fa" stroke="#e2e6ee"/>
+  <text x="926" y="440" font-size="12" fill="#5b6472">16px　#3F3F3F　两端对齐</text>
+
+  <text x="960" y="492" font-size="12" fill="#3f6fe0">收藏这个模板</text>
+</svg>

@@ -1,91 +1,97 @@
+<div align="center">
+
 # Kiumi
 
-公众号图文排版系统：**模板库 + 块编辑器 + 确定性渲染器 + 微信合规校验**。
+排版公众号图文：挑一个模板，在画布上改字换图，复制出来就能贴进公众号后台。
 
-同一套核心能力，三种交付形态：
+**[kiumi.plutokeating.beer](https://kiumi.plutokeating.beer)**
 
-- **CLI** — 脚本化排版、批量出稿
-- **SDK** — 嵌进你自己的流水线
-- **MCP** — 让 AI 直接操作排版
+</div>
 
-再加一个浏览器工作台。
+![工作台](docs/images/workbench-card.png)
 
----
+## 怎么用
 
-## 为什么是确定性渲染
+1. 打开上面的网址。
+2. 在左侧点一个模板缩略图，它会出现在中间的文稿里。
+3. 双击文字就能改；选中任意一块，右侧可以调字号、颜色、图片地址。
+4. 点「复制到公众号」，到公众号后台粘贴。
 
-排版工具的通病是把渲染绑在浏览器上：要开无头浏览器、出图慢、没法做回归测试。
-Kiumi 的渲染器是**纯函数**：`(文档树, 模板骨架) → HTML 字符串`，无 DOM、无网络、无随机。
-于是同一份输入在 CLI、MCP、服务端、前端产出的字节完全一致，可以用 golden-file 快照锁住每次改动。
+![操作流程](docs/images/flow.svg)
 
-## 界面
+## 四块界面
 
-![模板库与画布](docs/images/workbench-card.png)
+![界面说明](docs/images/ui-map.svg)
 
-![布局模板](docs/images/workbench-layout.png)
+| 位置 | 作用 |
+|---|---|
+| 最左一条 | 切换模板、素材、收藏、剪贴板、我的图库 |
+| 左边的面板 | 浏览模板，点一下就用 |
+| 中间画布 | 你的文稿，看到的就是发出去的样子 |
+| 右侧 | 选中的那块内容的设置 |
 
-![SVG 动效库](docs/images/workbench-svg.png)
+## 常用操作
 
-![素材库](docs/images/assets-panel.png)
+| 想做的事 | 怎么做 |
+|---|---|
+| 改文字 | 在画布上双击那段文字 |
+| 换图片 | 选中那块，在右侧填图片地址，或从素材库里点一张 |
+| 调整顺序 | 在右侧结构列表里拖动 |
+| 换个颜色 | 顶栏点主题色，能换色的模板会一起变色 |
+| 统一格式 | 选中一块按 `Ctrl+Alt+C` 取格式，再选另一块按 `Ctrl+Alt+V` |
+| 撤销 | `Ctrl+Z` |
+| 删除 | 选中后按 `Delete` |
+| 插入空行 | 在画布上右键，选「前插空行」或「后插空行」 |
 
-## 快速开始
+## 模板和图片放在哪里
+
+模板和图片保存在自己的数据服务里，由这台服务提供给网站。仓库里只有代码，没有模板和图片。
+
+## 给开发者
 
 ```bash
 pnpm install
-pnpm kiumi crawl all                 # 抓取模板库（约 2,400 条）
-pnpm kiumi list --room paper-cp:header --q 标题
-pnpm kiumi render --tpl demo:header/t-a-01 -o out.html
-pnpm kiumi validate out.html
+pnpm dev        # 本地 API 与工作台
+pnpm test
 ```
 
-详见 [`docs/QUICK_START.md`](docs/QUICK_START.md)。
-
-## 仓库结构
-
-| 路径 | 职责 |
+| 目录 | 内容 |
 |---|---|
-| `packages/core` | 模型、DSL、水合渲染、校验（无 IO） |
-| `packages/catalog` | 抓取、归一化、素材镜像（唯一做网络 IO 的地方） |
-| `packages/sdk` | 统一门面，供 CLI / MCP / server 复用 |
+| `packages/core` | 排版引擎：把模板和数据变成最终 HTML |
+| `packages/catalog` | 模板整理与素材同步 |
+| `packages/sdk` | 给命令行、MCP、服务端共用的接口 |
 | `packages/cli` | `kiumi` 命令行 |
-| `packages/mcp` | MCP server |
-| `apps/server` | Fastify 的 HTTP API、素材代理与微信同步 |
-| `apps/web` | React 工作台 |
-| `data/` | 归一化 catalog（入库）+ 镜像素材（gitignore） |
+| `packages/mcp` | 给 AI 客户端用的 MCP 服务 |
+| `apps/edge` | Cloudflare Worker，同时提供网页与接口 |
+| `apps/web` | 浏览器里的工作台 |
+| `apps/server` | 本地服务，用于查看素材与推送草稿 |
+| `deploy/ecs-data` | 数据服务，只读，提供给 Worker |
+
+命令行常用的几条：
+
+```bash
+kiumi list --room <分类> --q <关键词>
+kiumi render --tpl <模板编号> --set 'txt1=<p>标题</p>' -o out.html
+kiumi validate out.html
+kiumi audit
+```
+
+更细的说明在 [`docs/`](docs/)。
+
+## 现在的状态
+
+| 项 | 结果 |
+|---|---|
+| 模板 | 3,927 个全部能正常排版，0 失败 |
+| 内容保真 | 3,153 个模板（97.7%）的文字与源站成品逐字一致 |
+| 检查 | 文字类模板 0 错误；表单类模板会报错，公众号正文不支持表单 |
+| 测试 | 14 个自动用例 |
+| 公众号 | 已用真实公众号跑通：取凭证、传封面、建草稿、回读确认 |
 
 ## 文档
 
-- [`docs/RESEARCH_XIUMI.md`](docs/RESEARCH_XIUMI.md) — 秀米平台逆向报告、数据源、块模型、DSL
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — 架构、双路径渲染、存储、决策记录
-- [`docs/API.md`](docs/API.md) — HTTP / SDK / CLI / MCP 四层契约
-- [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md) — 里程碑、验收标准、风险
-- [`docs/QUICK_START.md`](docs/QUICK_START.md) — 本地跑起来
-- [`docs/DELIVERY.md`](docs/DELIVERY.md) — 交付清单、验收路径、已知取舍
-
-## 当前状态
-
-| 模块 | 状态 |
-|---|---|
-| 模板目录（3,927 条 / 43 分类 / 1,360 骨架） | ✅ |
-| 渲染引擎（水合 + 原生块 + 微信校验） | ✅ 全库 0 异常、0 错误 |
-| CLI（crawl/list/show/render/fill/validate） | ✅ |
-| SDK | ✅ |
-| MCP（13 个工具） | ✅ 冒烟通过 |
-| HTTP 服务（24 个端点） | ✅ |
-| 工作台前端 | 🟡 模板库/素材库/编辑/撤销可用，收藏与剪贴板待接 |
-| 微信草稿箱 | ✅ 真实账号跑通（取 token → 传封面 → 建草稿） |
-
-一条命令复现保真指标：
-
-```bash
-pnpm kiumi audit      # paper-cp 3,228 条：0 渲染失败、0 校验错误、文本 97.7% 与上游逐字一致
-```
-
-详细里程碑与验收标准见 [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md)。
-
-## 许可
-
-代码以 **AGPL-3.0-or-later** 发布，见 [LICENSE](LICENSE)。
-
-本项目把第三方排版模板抓取到本地仅用于研究渲染管线；**抓取到的模板与素材不随本仓库分发**，
-其版权归原作者所有。仓库只包含引擎、工具链与文档。
+- [架构](docs/ARCHITECTURE.md)
+- [接口](docs/API.md)
+- [界面与快捷键](docs/UX_XIUMI.md)
+- [部署](docs/DEPLOY_CLOUDFLARE.md)
+- [快速开始](docs/QUICK_START.md)

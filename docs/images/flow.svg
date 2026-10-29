@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="300" viewBox="0 0 1080 300" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <rect width="1080" height="300" fill="#f7f8fa"/>
+
+  <g>
+    <rect x="40" y="76" width="200" height="128" rx="12" fill="#ffffff" stroke="#e2e6ee"/>
+    <circle cx="76" cy="112" r="14" fill="#eef2fd"/>
+    <text x="76" y="117" font-size="13" fill="#3f6fe0" text-anchor="middle">1</text>
+    <text x="100" y="117" font-size="15" fill="#12151c" font-weight="600">选模板</text>
+    <text x="64" y="150" font-size="12" fill="#5b6472">左侧点一下缩略图</text>
+    <text x="64" y="172" font-size="12" fill="#8a93a3">模板出现在画布</text>
+  </g>
+
+  <path d="M250 140 L288 140" stroke="#c3cbd8" stroke-width="2" fill="none"/>
+  <path d="M282 134 L292 140 L282 146 Z" fill="#c3cbd8"/>
+
+  <g>
+    <rect x="300" y="76" width="200" height="128" rx="12" fill="#ffffff" stroke="#e2e6ee"/>
+    <circle cx="336" cy="112" r="14" fill="#eef2fd"/>
+    <text x="336" y="117" font-size="13" fill="#3f6fe0" text-anchor="middle">2</text>
+    <text x="360" y="117" font-size="15" fill="#12151c" font-weight="600">改内容</text>
+    <text x="324" y="150" font-size="12" fill="#5b6472">双击文字直接输入</text>
+    <text x="324" y="172" font-size="12" fill="#8a93a3">右侧调字号与颜色</text>
+  </g>
+
+  <path d="M510 140 L548 140" stroke="#c3cbd8" stroke-width="2" fill="none"/>
+  <path d="M542 134 L552 140 L542 146 Z" fill="#c3cbd8"/>
+
+  <g>
+    <rect x="560" y="76" width="200" height="128" rx="12" fill="#ffffff" stroke="#e2e6ee"/>
+    <circle cx="596" cy="112" r="14" fill="#eef2fd"/>
+    <text x="596" y="117" font-size="13" fill="#3f6fe0" text-anchor="middle">3</text>
+    <text x="620" y="117" font-size="15" fill="#12151c" font-weight="600">排顺序</text>
+    <text x="584" y="150" font-size="12" fill="#5b6472">拖拽调整先后</text>
+    <text x="584" y="172" font-size="12" fill="#8a93a3">Ctrl+Z 撤销</text>
+  </g>
+
+  <path d="M770 140 L808 140" stroke="#c3cbd8" stroke-width="2" fill="none"/>
+  <path d="M802 134 L812 140 L802 146 Z" fill="#c3cbd8"/>
+
+  <g>
+    <rect x="820" y="76" width="212" height="128" rx="12" fill="#eef2fd" stroke="#cfdcf7"/>
+    <circle cx="856" cy="112" r="14" fill="#3f6fe0"/>
+    <text x="856" y="117" font-size="13" fill="#ffffff" text-anchor="middle">4</text>
+    <text x="880" y="117" font-size="15" fill="#12151c" font-weight="600">复制出来</text>
+    <text x="844" y="150" font-size="12" fill="#3d4a63">一键复制富文本</text>
+    <text x="844" y="172" font-size="12" fill="#5b6b85">粘到公众号后台即可</text>
+  </g>
+
+  <text x="540" y="252" font-size="12" fill="#aab3c2" text-anchor="middle">全程在浏览器里完成，不需要安装</text>
+</svg>
