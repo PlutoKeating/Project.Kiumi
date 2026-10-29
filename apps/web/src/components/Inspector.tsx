@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { listSlots, plainText, toHtml, type SlotInfo } from '../lib/slots.ts';
 import { useStore } from '../store.ts';
 
@@ -18,6 +18,9 @@ export function Inspector() {
   const block = selected === null ? null : doc.blocks[selected];
   const slots = block?.kind === 'library' ? listSlots(block.matrix) : [];
 
+  const dragFrom = useRef<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+
   const errorCount = issues.filter((issue) => issue.level === 'error').length;
   const warnCount = issues.filter((issue) => issue.level === 'warn').length;
 
@@ -34,11 +37,31 @@ export function Inspector() {
         {doc.blocks.map((item, index) => (
           <div
             key={item.id}
-            className={`flex items-center gap-2 px-3 py-2 text-[12px] cursor-pointer border-l-2 ${
+            draggable
+            onDragStart={() => {
+              dragFrom.current = index;
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDragOver(index);
+            }}
+            onDragLeave={() => setDragOver((current) => (current === index ? null : current))}
+            onDrop={(event) => {
+              event.preventDefault();
+              const from = dragFrom.current;
+              dragFrom.current = null;
+              setDragOver(null);
+              if (from !== null && from !== index) moveBlock(from, index);
+            }}
+            onDragEnd={() => {
+              dragFrom.current = null;
+              setDragOver(null);
+            }}
+            className={`flex items-center gap-2 px-3 py-2 text-[12px] cursor-grab border-l-2 ${
               selected === index
                 ? 'bg-accent-500/10 border-accent-500'
                 : 'border-transparent hover:bg-mist-50'
-            }`}
+            } ${dragOver === index ? 'outline outline-1 outline-accent-400/60' : ''}`}
             onClick={() => select(index)}
           >
             <span className="text-ink-600/40 w-4 text-right">{index + 1}</span>
