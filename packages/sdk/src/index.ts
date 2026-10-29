@@ -361,11 +361,16 @@ export class KiumiClient {
     document: KiumiDocument,
     skeletons?: Record<string, string>,
   ): Promise<RenderResult> {
-    return renderDocument(
-      document,
-      skeletons ?? (await this.skeletons()),
-      await this.svgOptions(),
-    );
+    const recorded = new Map<string, string>();
+    for (const block of document.blocks) {
+      if (block.kind !== 'library') continue;
+      const record = await this.get(block.tplId);
+      if (record) recorded.set(block.tplId, record.html);
+    }
+    return renderDocument(document, skeletons ?? (await this.skeletons()), {
+      ...(await this.svgOptions()),
+      recordedHtml: (tplId: string) => recorded.get(tplId),
+    });
   }
 
   /**

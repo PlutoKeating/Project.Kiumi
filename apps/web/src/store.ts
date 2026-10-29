@@ -175,9 +175,14 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setGroup(key) {
+    if (key.startsWith('modern:')) {
+      set({ activeGroup: key, activeRoom: key, offset: 0 });
+      void get().reloadTemplates();
+      return;
+    }
     const group = ROOM_GROUPS.find((item) => item.key === key);
     const first = group?.rooms.find((room) => get().rooms.some((entry) => entry.tag === room));
-    set({ activeGroup: key, activeRoom: first ?? null });
+    set({ activeGroup: key, activeRoom: first ?? null, offset: 0 });
     void get().reloadTemplates();
   },
 

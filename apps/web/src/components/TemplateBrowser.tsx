@@ -52,13 +52,23 @@ export function TemplateBrowser() {
 
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
-  const group = ROOM_GROUPS.find((item) => item.key === activeGroup);
+  // Legacy groups are fixed; the live tag corpus adds one group per top-level tag.
+  const modernGroups = rooms
+    .filter((room) => room.tag.startsWith('modern:') && room.count > 0)
+    .map((room) => ({
+      key: room.tag,
+      label: `${room.name}·新`,
+      rooms: [room.tag],
+    }));
+  const groups = [...ROOM_GROUPS, ...modernGroups];
+
+  const group = groups.find((item) => item.key === activeGroup);
   const groupRooms: Room[] = rooms.filter((room) => group?.rooms.includes(room.tag));
 
   return (
     <section className="w-[360px] shrink-0 bg-ink-700 text-mist-100 flex flex-col min-h-0">
       <div className="flex items-stretch border-b border-white/10 relative">
-        {ROOM_GROUPS.map((item) => {
+        {groups.map((item) => {
           const available = item.rooms.some((tag) => rooms.some((room) => room.tag === tag));
           return (
             <button
@@ -87,7 +97,7 @@ export function TemplateBrowser() {
             onMouseLeave={() => setOpenGroup(null)}
           >
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 p-3">
-              {(ROOM_GROUPS.find((item) => item.key === openGroup)?.rooms ?? []).map((tag) => {
+              {(groups.find((item) => item.key === openGroup)?.rooms ?? []).map((tag) => {
                 const room = rooms.find((entry) => entry.tag === tag);
                 if (!room) return null;
                 return (
@@ -184,5 +194,6 @@ export function TemplateBrowser() {
 
 function roomLabel(rooms: Room[], activeRoom: string | null): string {
   const room = rooms.find((entry) => entry.tag === activeRoom);
-  return room ? room.name : '全部';
+  if (!room) return '全部';
+  return room.name;
 }
