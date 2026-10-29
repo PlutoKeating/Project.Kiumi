@@ -1,0 +1,28 @@
+# kiumi-data：一个容器。只发布到本机 127.0.0.1:${KIUMI_DATA_LOCAL_PORT}，
+# 由服务器上已有的隧道转发。
+# 数据在 ./data（catalog 与 assets）。与同机其它服务隔离：独立 compose 项目、独立目录、独立密钥、独立端口。
+name: kiumi-data
+
+services:
+  data:
+    build:
+      context: .
+    image: kiumi-data:local
+    restart: unless-stopped
+    environment:
+      KIUMI_DATA_KEY: ${KIUMI_DATA_KEY:?请运行 ./start.sh 生成 KIUMI_DATA_KEY}
+      KIUMI_DATA_DIR: /data
+      KIUMI_DATA_PORT: "8080"
+    ports:
+      - "127.0.0.1:${KIUMI_DATA_LOCAL_PORT:-8792}:8080"
+    volumes:
+      - ./data:/data:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 192m
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

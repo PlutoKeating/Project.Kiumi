@@ -4,22 +4,10 @@
 
 ---
 
-## 当前状态（已实际执行）
+## 当前状态
 
-| 资源 | 状态 |
-|---|---|
-| Cloudflare 账号 | `REDACTED` / `REDACTED` |
-| D1 库 `kiumi` | ✅ 已创建 `REDACTED`，schema 已应用 |
-| Worker `kiumi` | ✅ 已部署 https://kiumi.williamhvollita.workers.dev（暂无 R2，`/api/rooms` 为空） |
-| R2 桶 `kiumi-data` | ❌ 账号未开通 R2（API 返回 `10042`），需在控制台点一次开通 |
-
-R2 开通后：
-
-```bash
-npx wrangler r2 bucket create kiumi-data
-pnpm kiumi sync r2 --concurrency 8
-cd apps/edge && npx wrangler deploy
-```
+代码已就绪，部署需自行准备：Cloudflare 账号（Workers + D1）与一个提供数据的对象存储或自建数据服务。
+具体账号、库 ID、主机地址等运维信息只保存在私有环境变量与私有运维记录里，**不进入本仓库**。
 
 ## 0. 前提
 

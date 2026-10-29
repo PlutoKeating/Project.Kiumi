@@ -12,6 +12,11 @@ export interface Env {
   DATA?: R2Bucket;
   DB: D1Database;
   KIUMI_STRICT_ASSETS?: string;
+  /** Origin of the Shenzhen ECS data service, e.g. https://data.kiumi.example */
+  KIUMI_DATA_ORIGIN?: string;
+  KIUMI_DATA_KEY?: string;
+  ID_ISSUER_URL?: string;
+  ID_CLIENT_ID?: string;
   WECHAT_APP_ID?: string;
   WECHAT_APP_SECRET?: string;
   WECHAT_DEFAULT_THUMB_MEDIA_ID?: string;
@@ -47,11 +52,34 @@ function mimeOf(key: string): string {
 
 const slug = (id: string): string => id.replace(/[^a-zA-Z0-9._-]+/g, '__');
 
-async function readJson<T>(env: Env, key: string): Promise<T | null> {
+/** Fetch one object from the ECS data service (the primary store). */
+async function fetchFromEcs(env: Env, key: string): Promise<Response | null> {
+  if (!env.KIUMI_DATA_ORIGIN) return null;
+  const response = await fetch(`${env.KIUMI_DATA_ORIGIN.replace(/\/$/, '')}/${key}`, {
+    headers: { 'x-data-key': env.KIUMI_DATA_KEY ?? '' },
+    cf: { cacheTtl: 300, cacheEverything: true },
+  });
+  return response.ok ? response : null;
+}
+
+/** R2 stays supported, but the ECS mirror is the source of truth. */
+async function readObject(env: Env, key: string): Promise<Response | null> {
+  const fromEcs = await fetchFromEcs(env, key);
+  if (fromEcs) return fromEcs;
   if (!env.DATA) return null;
   const object = await env.DATA.get(key);
   if (!object) return null;
-  return (await object.json()) as T;
+  return new Response(object.body, { headers: { 'content-type': 'application/json; charset=utf-8' } });
+}
+
+async function readJson<T>(env: Env, key: string): Promise<T | null> {
+  const response = await readObject(env, key);
+  if (!response) return null;
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
 }
 
 interface IndexEntry {
@@ -425,6 +453,16 @@ async function coverage(env: Env): Promise<Response> {
 }
 
 async function serveR2(env: Env, key: string): Promise<Response> {
+  const upstream = await fetchFromEcs(env, key);
+  if (upstream) {
+    return new Response(upstream.body, {
+      headers: {
+        'content-type': upstream.headers.get('content-type') ?? mimeOf(key),
+        'cache-control': 'public, max-age=31536000, immutable',
+        etag: upstream.headers.get('etag') ?? '',
+      },
+    });
+  }
   if (!env.DATA) return missingPlaceholder();
   const object = await env.DATA.get(key);
   if (!object) {
