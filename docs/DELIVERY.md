@@ -10,7 +10,10 @@
 
 | 项 | 数量 | 位置 |
 |---|---|---|
-| 模板（去重后） | **3,927** | `data/catalog/templates/*.json` |
+| 模板（旧版 rooms 库） | **3,927** | `data/catalog/templates/*.json` |
+| 模板（线上标签库） | **21,817** | 索引 `modern-index.json`；载荷 `modern/`（本地） |
+| SVG 动效（入库） | **442** | `data/catalog/svg-anim/*.json` |
+| 标签体系 | **89 叶子 / 7 一级** | `data/catalog/tags.json` |
 | 分类（room） | **43** | `data/catalog/rooms.json` |
 | 模板骨架 | **1,360** | `data/catalog/pack.json` |
 | 素材 URL 清单 | **3,433** | 记在每条模板的 `assetUrls` |

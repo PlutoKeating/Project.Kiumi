@@ -100,6 +100,42 @@ GET  /api/templates/{house}/{floor}/rooms/{urlencode(tag)}
 - `//statics.xiumi.us/mat/i/**` — 素材库
 - 全库实测去重后 **1,593** 个资源 URL。
 
+### 2.4.1 线上标签体系（登录后可见，权威来源）
+
+编辑器实际使用的不是 `rooms` 接口，而是标签树 + 标签列表：
+
+```
+GET /api/templates/tags_tree?tag_category=paper-cp&tag_level_from=2&tag_level_to=0&template=false
+GET /api/templates?tag_ids=<id>&tag_category=paper-cp&match_level=default
+                     &template_category=paper-cp&limit=100&offset=0
+GET /api/templates/items?atom_tpl_id=<id>[&atom_tpl_id=...]
+```
+
+`tags_tree` 返回三级结构，与界面的菜单一一对应：
+
+| 一级 | 二级（叶子） |
+|---|---|
+| 标题 | 基础/极简/框线/图片/底色/符号/主副/编号/竖排/渐变/动态/文字纹理/文字阴影 |
+| 卡片 | 基础/极简/纯文字/框线/底色/底纹/图文/对话问答/轴线 |
+| 图片 | 基础/纯图片/单图/双图/三图/四图/多图/圆形图/背景图/滑动图片 |
+| 布局 | 基础/表格/左右图文/上下图文/上下滑动/左右滑动/自由布局/组合 |
+| SVG | 基础 SVG/图片轮播/点击展开/路径动画/抽签/趣味滑动/轮换转场/分支转场/滑动触发/视差移动/点击切换/翻页翻转/缩放/点击答题/文字弹幕/点击显示/点击换图/点击打开/点击消失/点击弹出/点击放大/点击打印/点击跳转/点击播放/长按切换/区域触发/点击掉落/点击+自动 |
+| 组件 | 分割线/分隔符/公众号组件/引导关注/二维码/文末互动/零件/视频/表单 |
+| 热门 | 简约/节气/秋天/校园/党政/商务/电商/体育/美食/健康/卡通/万圣节 |
+
+共 **89 个叶子标签**。标签列表接口一次返回完整记录（含 `matrix` 与 `renderer_accelerate`），
+分页参数是 `limit` / `offset`。
+
+实测全量：**52,040 次拉取 → 21,817 条唯一模板 → 136 MB HTML**，0 错误。
+
+### 2.4.2 SVG 动效是渲染期合成的
+
+现代 SVG 模板的 `matrix` 里没有最终 `<svg>` 标记，只有 `svg-layout` 容器与
+`Fade` / `Expand` 等动画描述符（cell `type` 直接是动画名）。真正的 SVG 由官方引擎在渲染时合成。
+
+因此本项目对这类模板采用保真兜底：矩阵渲染若丢失 `<svg>`，直接回用官方成品 HTML，
+并给出 `SVG_ENGINE_FALLBACK` 警告。实测输出与上游逐字节一致（14,918 B，4 个 `<svg>`、6 个 `animate`）。
+
 ### 2.5 需登录的接口（本期通过注入 Cookie 抓取）
 
 | 端点 | 用途 | 未登录响应 |
