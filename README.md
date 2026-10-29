@@ -61,8 +61,14 @@ pnpm kiumi validate out.html
 | SDK | ✅ |
 | MCP（13 个工具） | ✅ 冒烟通过 |
 | HTTP 服务（19 个端点） | ✅ |
-| 工作台前端 | 🟡 主流程可用，图库/收藏/剪贴板待接 |
+| 工作台前端 | 🟡 模板库/素材库/编辑/撤销可用，收藏与剪贴板待接 |
 | 微信草稿箱 | 🟡 代码完成，待真实账号联调 |
+
+一条命令复现保真指标：
+
+```bash
+pnpm kiumi audit      # paper-cp 3,228 条：0 渲染失败、0 校验错误、文本 97.7% 与上游逐字一致
+```
 
 详细里程碑与验收标准见 [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md)。
 
