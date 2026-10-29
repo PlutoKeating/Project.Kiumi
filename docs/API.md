@@ -101,24 +101,27 @@ const { html, issues, bytes } = kiumi.render(doc.toJSON());
 ## 3. CLI（`kiumi`）
 
 ```
-kiumi crawl rooms   [--house paper] [--floor comp]
-kiumi crawl templates [--room <tag>] [--include-obsolete] [--concurrency 2]
-kiumi crawl pack    [--house paper]
-kiumi crawl assets  [--from catalog] [--concurrency 4]
+kiumi crawl templates [--house <h>] [--cookie <c>] [--public-only] [--no-skeletons] [--rps <n>]
+kiumi crawl assets    [--concurrency <n>] [--rps <n>] [--limit <n>]
 kiumi crawl all
 
-kiumi list  [--room <tag>] [--q <text>] [--json]
-kiumi show  <atom_tpl_id> [--html]
+kiumi stats [--json]
+kiumi list  [--room <tag>] [--q <text>] [--has-svg] [--limit n] [--offset n] [--json]
+kiumi show  <atom_tpl_id> [--html | --matrix | --json]
 
-kiumi render <doc.json>  [-o out.html] [--wechat] [--pretty]
+kiumi render <doc.json>  [-o out.html] [--pretty] [--json] [--no-validate]
 kiumi render --tpl <atom_tpl_id> [--set txt1="…"] [-o out.html]
 kiumi fill   <atom_tpl_id> --set txt1="…" --set img1.src="…" -o doc.json
 
+kiumi md    <file.md> [-o doc.json] [--title <t>]
 kiumi validate <file.html> [--json] [--max-bytes 20000]
-kumi  export  <doc.json> -o out.html --mode wechat|plain
+```
 
-kiumi md <file.md> -o doc.json [--theme default]
-kiumi serve [--port 5173]
+服务端与前端不进 CLI，用根脚本启动：
+
+```
+pnpm serve          # 启动 HTTP API（默认 8787）
+pnpm dev            # 同时起 API 与 Vite（5180）
 ```
 
 通用约定：`--json` 输出机器可读；非零退出码表示失败；`--quiet` 关闭进度输出。

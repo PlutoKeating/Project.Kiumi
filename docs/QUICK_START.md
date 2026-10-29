@@ -101,6 +101,25 @@ KIUMI_DATA_DIR=./data pnpm mcp
 
 工具清单见 `docs/API.md`。
 
+## 启动服务端与前端
+
+```bash
+pnpm serve        # API :8787
+pnpm dev          # API + Vite :5180
+# 或分别启动
+node apps/server/src/index.ts
+pnpm --filter @kiumi/web dev
+```
+
+浏览器打开 http://127.0.0.1:5180 。
+
+## Markdown 转稿
+
+```bash
+pnpm kiumi md article.md -o doc.json
+pnpm kiumi render doc.json -o out.html
+```
+
 ## 测试
 
 ```bash
