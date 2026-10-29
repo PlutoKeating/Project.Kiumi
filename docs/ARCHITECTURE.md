@@ -30,7 +30,7 @@ packages/
   cli/        kiumi 命令行
   mcp/        MCP server（stdio），暴露同一组能力
 apps/
-  server/     Fastify + Drizzle(SQLite) — HTTP API、素材代理、微信同步
+  server/     Fastify — HTTP API、素材代理、微信同步（数据落在 data/ 文件）
   web/        React 19 + Vite + Tailwind — 工作台
 data/
   catalog/    归一化后的模板与组件（提交入库，体积小、可 diff）

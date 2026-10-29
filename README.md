@@ -39,7 +39,7 @@ pnpm kiumi validate out.html
 | `packages/sdk` | 统一门面，供 CLI / MCP / server 复用 |
 | `packages/cli` | `kiumi` 命令行 |
 | `packages/mcp` | MCP server |
-| `apps/server` | Fastify + Drizzle/SQLite 的 HTTP API |
+| `apps/server` | Fastify 的 HTTP API、素材代理与微信同步 |
 | `apps/web` | React 工作台 |
 | `data/` | 归一化 catalog（入库）+ 镜像素材（gitignore） |
 

@@ -21,13 +21,13 @@
 | # | 问题 | 默认值 |
 |---|---|---|
 | D-05 | 会员/SVG 动效库抓取方式 | 抓取器支持 `--cookie` 注入；凭证只从 `.env` / 环境变量读取，**永不入库**；无凭证时该阶段跳过并记录 |
-| D-06 | 数据存储 | SQLite + Drizzle，schema 兼容 Postgres |
+| D-06 | 数据存储 | 文件优先（catalog/documents 均为 JSON）；需要全文检索时再引入 `node:sqlite` |
 | D-07 | 素材落地 | 全量镜像到 `data/assets/`（gitignore），catalog 中 URL 重写为本地路径 |
 | D-08 | 图片上传 | 本地磁盘 `${DATA_DIR}/uploads`，抽象成 `AssetStore` 接口，后续可换 S3/MinIO |
 | D-09 | 账号体系 | 单用户本地模式，无登录页；预留 `userId` 字段 |
 | D-10 | Markdown 导入 | 实现 `kiumi md`，输出块模型 JSON（复用 doocs/md 的主题思路，不自建语法树） |
 | D-11 | 许可证 | MIT |
-| D-12 | 部署 | Docker Compose（`server` + `web` + 卷挂载 `data/`），并提供裸机 `kiumi serve` |
+| D-12 | 部署 | Docker Compose（`server` + `web` + 卷挂载 `data/`），裸机用 `pnpm dev` / `pnpm serve` |
 | D-13 | 测试 | golden-file 渲染快照 + 抓取幂等测试 + 校验器规则单测 |
 | D-14 | 品牌 | 项目名 **Kiumi**；UI 不出现 XIUMI 名称与 Logo；数据源标注保留在 catalog 元数据中 |
 | D-15 | 字体 | 秀米的 `tnYzkFontUsageId`（有字库 webfont）在微信不可用；默认降级系统字体，提供可选「文字转图」开关 |
@@ -137,13 +137,16 @@ pnpm install
 pnpm -r typecheck
 pnpm -r build
 
-pnpm kiumi crawl all          # 全量抓取
+pnpm kiumi crawl all          # 全量抓取（templates + assets）
+pnpm kiumi crawl probe        # 有 Cookie 时探测会员端点
 pnpm kiumi stats              # 统计
 pnpm kiumi list --room paper-cp:header --q 标题
 pnpm kiumi render --tpl demo:header/t-a-01 -o out.html
+pnpm kiumi md article.md -o doc.json
 pnpm kiumi validate out.html
-pnpm kiumi serve              # 起 API
-pnpm --filter @kiumi/web dev  # 起前端
+pnpm kiumi audit              # 全库保真指标
+pnpm dev                      # 起 API + 前端
+docker compose up -d --build  # 容器化
 ```
 
 ---
