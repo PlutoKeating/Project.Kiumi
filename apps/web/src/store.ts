@@ -98,6 +98,7 @@ interface State {
   recent: { id: string; name: string }[];
   zoom: number;
   themeColor: string;
+  formatBrush: Record<string, unknown> | null;
   doc: api.Document;
   past: api.Document[];
   future: api.Document[];
@@ -116,6 +117,9 @@ interface State {
   shuffle: () => void;
   setZoom: (zoom: number) => void;
   applyTheme: (color: string) => void;
+  takeFormat: (index: number) => void;
+  brushFormat: (index: number) => void;
+  clearFormat: () => void;
   reloadTemplates: () => Promise<void>;
   insertTemplate: (atomTplId: string) => Promise<void>;
   addNative: (kind: api.NativeNode['kind'], index?: number) => void;
@@ -153,6 +157,7 @@ export const useStore = create<State>((set, get) => ({
   recent: [],
   zoom: 100,
   themeColor: '#3F6FE0',
+  formatBrush: null,
   doc: emptyDoc(),
   past: [],
   future: [],
@@ -212,6 +217,46 @@ export const useStore = create<State>((set, get) => ({
 
   setZoom(zoom) {
     set({ zoom: Math.min(140, Math.max(50, zoom)) });
+  },
+
+  takeFormat(index) {
+    const block = get().doc.blocks[index];
+    if (!block || block.kind !== 'library') {
+      set({ message: '格式刷只支持模板块' });
+      return;
+    }
+    const first = Array.isArray(block.matrix) ? block.matrix[0] : block.matrix;
+    const style = (first as { _comp?: { style?: Record<string, unknown> } } | undefined)?._comp?.style;
+    if (!style) {
+      set({ message: '该块没有可复制的格式' });
+      return;
+    }
+    set({ formatBrush: structuredClone(style) as Record<string, unknown>, message: '已取格式' });
+  },
+
+  brushFormat(index) {
+    const brush = get().formatBrush;
+    const block = get().doc.blocks[index];
+    if (!brush || !block || block.kind !== 'library') {
+      set({ message: '先取格式，再刷到模板块上' });
+      return;
+    }
+    const doc = get().doc;
+    const matrix = structuredClone(block.matrix) as unknown;
+    const first = (Array.isArray(matrix) ? matrix[0] : matrix) as
+      | { _comp?: { style?: Record<string, unknown> } }
+      | undefined;
+    if (!first?._comp) return;
+    first._comp.style = { ...(first._comp.style ?? {}), ...brush };
+    const blocks = [...doc.blocks];
+    blocks[index] = { ...block, matrix };
+    get().commit({ ...doc, blocks });
+    set({ message: '已刷格式' });
+    void get().refresh();
+  },
+
+  clearFormat() {
+    set({ formatBrush: null, message: '格式刷已清除' });
   },
 
   applyTheme(color) {

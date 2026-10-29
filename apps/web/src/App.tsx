@@ -38,6 +38,10 @@ export function App() {
   const select = useStore((state) => state.select);
   const themeColor = useStore((state) => state.themeColor);
   const applyTheme = useStore((state) => state.applyTheme);
+  const formatBrush = useStore((state) => state.formatBrush);
+  const takeFormat = useStore((state) => state.takeFormat);
+  const brushFormat = useStore((state) => state.brushFormat);
+  const clearFormat = useStore((state) => state.clearFormat);
 
   const [rail, setRail] = useState('templates');
   const [collapsed, setCollapsed] = useState(false);
@@ -80,6 +84,21 @@ export function App() {
         redo();
         return;
       }
+      if (meta && event.altKey && event.key.toLowerCase() === 'c' && selected !== null) {
+        event.preventDefault();
+        takeFormat(selected);
+        return;
+      }
+      if (meta && event.altKey && event.key.toLowerCase() === 'v' && selected !== null) {
+        event.preventDefault();
+        brushFormat(selected);
+        return;
+      }
+      if (meta && event.altKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        clearFormat();
+        return;
+      }
       if (meta && event.key.toLowerCase() === 'd' && selected !== null) {
         event.preventDefault();
         duplicateBlock(selected);
@@ -102,7 +121,7 @@ export function App() {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [undo, redo, save, selected, removeBlock, duplicateBlock, select]);
+  }, [undo, redo, save, selected, removeBlock, duplicateBlock, select, takeFormat, brushFormat, clearFormat]);
 
   // Read the document from the store so keyboard handlers never act on a stale
   // render closure.
@@ -205,6 +224,11 @@ export function App() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          {formatBrush && (
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-accent-500/10 text-accent-500">
+              格式刷已就绪
+            </span>
+          )}
           <span className="text-[11px] text-ink-600/50 max-w-[220px] truncate">{message}</span>
           <button
             onClick={undo}
