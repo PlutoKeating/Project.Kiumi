@@ -4,7 +4,7 @@ import path from 'node:path';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
-import { rewriteAssetUrls, type AssetManifest } from '@kiumi/catalog';
+import { rewriteAssetUrls, rewriteAssetUrlsStrict, type AssetManifest } from '@kiumi/catalog';
 import { validateHtml, type KiumiDocument } from '@kiumi/core';
 import { DocumentBuilder, FileDocumentStore, KiumiClient, fillMatrix } from '@kiumi/sdk';
 import { WeChatClient, WeChatError } from '@kiumi/sdk';
@@ -76,6 +76,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     return manifestCache;
   };
 
+  const strictAssets = process.env.KIUMI_STRICT_ASSETS === '1';
+
   const app = Fastify({ logger: options.logger ?? false, bodyLimit: 32 * 1024 * 1024 });
 
   await app.register(cors, { origin: true });
@@ -142,7 +144,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     if (!record) throw new ApiError('TEMPLATE_NOT_FOUND', `no template ${id}`, 404);
     reply.header('content-type', 'text/html; charset=utf-8');
     reply.header('cache-control', 'public, max-age=300');
-    return rewriteAssetUrls(record.html, await manifest());
+    const rewritten = rewriteAssetUrlsStrict(record.html, await manifest(), {
+      strict: strictAssets,
+    });
+    if (rewritten.missing.length) {
+      reply.header('x-kiumi-missing-assets', String(rewritten.missing.length));
+    }
+    return rewritten.html;
   });
 
   app.get('/api/search', async (request) => {
@@ -180,7 +188,32 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // Render and validate
   // -------------------------------------------------------------------------
 
-  app.post('/api/render', async (request) => {
+  let coverageCache: { at: number; value: unknown } | null = null;
+
+  app.get('/api/assets/coverage', async () => {
+    if (coverageCache && Date.now() - coverageCache.at < 60_000) return envelope(coverageCache.value);
+    const manifestMap = await manifest();
+    let required: string[] = [];
+    try {
+      required = JSON.parse(
+        await readFile(path.join(dataDir, 'catalog/assets-required.json'), 'utf8'),
+      ) as string[];
+    } catch {
+      required = [];
+    }
+    const mirrored = required.filter((url) => manifestMap[url]).length;
+    const value = {
+      referenced: required.length,
+      mirrored,
+      coverage: required.length ? Number((mirrored / required.length).toFixed(4)) : 1,
+      strict: strictAssets,
+      missing: required.filter((url) => !manifestMap[url]).slice(0, 20),
+    };
+    coverageCache = { at: Date.now(), value };
+    return envelope(value);
+  });
+
+  app.post('/api/render', async (request, reply) => {
     const body = (request.body ?? {}) as {
       document?: KiumiDocument;
       tplId?: string;
@@ -211,7 +244,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       throw new ApiError('INVALID_BODY', 'provide document, tplId or matrix');
     }
 
-    if (body.localAssets) html = rewriteAssetUrls(html, await manifest());
+    if (body.localAssets) {
+      const rewritten = rewriteAssetUrlsStrict(html, await manifest(), { strict: strictAssets });
+      if (rewritten.missing.length) reply.header('x-kiumi-missing-assets', String(rewritten.missing.length));
+      html = rewritten.html;
+    }
 
     const issues = validateHtml(html);
     return envelope({ html, bytes: Buffer.byteLength(html, 'utf8'), warnings, issues });
@@ -323,6 +360,20 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     reply.header('cache-control', 'public, max-age=31536000, immutable');
     return reply.send(body);
   };
+
+  // Served from code, so it survives a fresh clone with no mirrored files.
+  app.get('/assets/__missing.svg', async (_request, reply) => {
+    const svg = [
+      '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120">',
+      '<rect width="320" height="120" fill="#eef0f4"/>',
+      '<path d="M0 120 L120 0 M80 120 L200 0 M160 120 L280 0" stroke="#dde2ea" stroke-width="10"/>',
+      '<text x="160" y="66" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#8a93a3">素材已失效</text>',
+      '</svg>',
+    ].join('');
+    reply.header('content-type', 'image/svg+xml; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=86400');
+    return svg;
+  });
 
   app.get('/assets/*', async (request, reply) => {
     const relative = (request.params as { '*': string })['*'];
