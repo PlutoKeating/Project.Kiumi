@@ -50,6 +50,26 @@ export const ROOM_GROUPS: RoomGroup[] = [
   { key: 'hot', label: '热门', rooms: ['paper-cp:recent'] },
 ];
 
+const FAVORITES_KEY = 'kiumi:favorites';
+const CLIPBOARD_KEY = 'kiumi:clipboard';
+
+function readLocal<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocal(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // storage full or blocked: favourites/clipboard are a convenience, not state
+  }
+}
+
 function emptyDoc(): api.Document {
   const now = new Date().toISOString();
   return {
@@ -78,6 +98,8 @@ interface State {
   previews: Record<string, string>;
   issues: api.Issue[];
   message: string;
+  favorites: string[];
+  clipboard: api.Block[];
 
   boot: () => Promise<void>;
   setGroup: (key: string) => void;
@@ -99,6 +121,10 @@ interface State {
   undo: () => void;
   redo: () => void;
   commit: (next: api.Document) => void;
+  toggleFavorite: (atomTplId: string) => void;
+  copyBlock: (index: number) => void;
+  insertClipboard: (clipIndex: number, at?: number) => void;
+  clearClipboard: () => void;
 }
 
 export const useStore = create<State>((set, get) => ({
@@ -116,8 +142,14 @@ export const useStore = create<State>((set, get) => ({
   previews: {},
   issues: [],
   message: '',
+  favorites: [],
+  clipboard: [],
 
   async boot() {
+    set({
+      favorites: readLocal<string[]>(FAVORITES_KEY, []),
+      clipboard: readLocal<api.Block[]>(CLIPBOARD_KEY, []),
+    });
     try {
       const rooms = await api.fetchRooms();
       set({ rooms, ready: true });
@@ -316,6 +348,46 @@ export const useStore = create<State>((set, get) => ({
     } catch (error) {
       set({ message: `保存失败：${(error as Error).message}` });
     }
+  },
+
+  toggleFavorite(atomTplId) {
+    const favorites = get().favorites.includes(atomTplId)
+      ? get().favorites.filter((id) => id !== atomTplId)
+      : [atomTplId, ...get().favorites];
+    writeLocal(FAVORITES_KEY, favorites);
+    set({
+      favorites,
+      message: favorites.includes(atomTplId) ? '已收藏' : '已取消收藏',
+    });
+  },
+
+  copyBlock(index) {
+    const block = get().doc.blocks[index];
+    if (!block) return;
+    const clipboard = [structuredClone(block), ...get().clipboard].slice(0, 30);
+    writeLocal(CLIPBOARD_KEY, clipboard);
+    set({ clipboard, message: '已复制到剪贴板' });
+  },
+
+  insertClipboard(clipIndex, at) {
+    const source = get().clipboard[clipIndex];
+    if (!source) return;
+    const doc = get().doc;
+    const clone: api.Block = {
+      ...structuredClone(source),
+      id: `blk-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
+    };
+    const blocks = [...doc.blocks];
+    const index = at === undefined ? blocks.length : at;
+    blocks.splice(index, 0, clone);
+    get().commit({ ...doc, blocks });
+    set({ selected: index, message: '已粘贴' });
+    void get().refresh();
+  },
+
+  clearClipboard() {
+    writeLocal(CLIPBOARD_KEY, []);
+    set({ clipboard: [], message: '剪贴板已清空' });
   },
 
   newDoc() {

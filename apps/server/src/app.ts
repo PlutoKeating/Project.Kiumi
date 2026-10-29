@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
@@ -332,6 +332,20 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.get('/uploads/*', async (request, reply) => {
     const relative = (request.params as { '*': string })['*'];
     return serveFile(reply, safeJoin(uploadsDir, relative));
+  });
+
+  app.get('/api/uploads', async () => {
+    const dir = uploadsDir;
+    const entries = await readdir(dir).catch(() => [] as string[]);
+    const items = [];
+    for (const name of entries) {
+      if (name.startsWith('.')) continue;
+      const info = await stat(path.join(dir, name)).catch(() => null);
+      if (!info?.isFile()) continue;
+      items.push({ name, bytes: info.size, mtime: info.mtimeMs, url: `/uploads/${name}` });
+    }
+    items.sort((a, b) => b.mtime - a.mtime);
+    return envelope(items);
   });
 
   app.post('/api/assets/upload', async (request) => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { copyRichHtml, renderDocument, uploadImage } from './api.ts';
 import { AssetsPanel } from './components/AssetsPanel.tsx';
+import { ClipboardPanel, FavoritesPanel, GalleryPanel } from './components/SidePanels.tsx';
 import { Canvas } from './components/Canvas.tsx';
 import { Inspector } from './components/Inspector.tsx';
 import { LeftRail } from './components/LeftRail.tsx';
@@ -182,17 +183,12 @@ export function App() {
           <TemplateBrowser />
         ) : rail === 'assets' ? (
           <AssetsPanel />
+        ) : rail === 'favorites' ? (
+          <FavoritesPanel />
+        ) : rail === 'clipboard' ? (
+          <ClipboardPanel />
         ) : (
-          <section className="w-[360px] shrink-0 bg-ink-700 text-mist-200/60 flex flex-col items-center justify-center gap-2">
-            <span className="text-3xl">◫</span>
-            <p className="text-[12px]">
-              {rail === 'favorites'
-                  ? '收藏功能待接入'
-                  : rail === 'clipboard'
-                    ? '剪贴板待接入'
-                    : '我的图库待接入'}
-            </p>
-          </section>
+          <GalleryPanel />
         )}
         <Canvas />
         <Inspector />

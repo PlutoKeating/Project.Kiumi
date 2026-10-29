@@ -11,6 +11,9 @@ export function Inspector() {
   const moveBlock = useStore((state) => state.moveBlock);
   const updateSlot = useStore((state) => state.updateSlot);
   const updateNative = useStore((state) => state.updateNative);
+  const copyBlock = useStore((state) => state.copyBlock);
+  const favorites = useStore((state) => state.favorites);
+  const toggleFavorite = useStore((state) => state.toggleFavorite);
 
   const block = selected === null ? null : doc.blocks[selected];
   const slots = block?.kind === 'library' ? listSlots(block.matrix) : [];
@@ -63,6 +66,16 @@ export function Inspector() {
               ↓
             </button>
             <button
+              className="text-ink-600/40 hover:text-ink-800 px-1"
+              onClick={(event) => {
+                event.stopPropagation();
+                copyBlock(index);
+              }}
+              title="复制到剪贴板"
+            >
+              ⧉
+            </button>
+            <button
               className="text-ink-600/40 hover:text-red-500 px-1"
               onClick={(event) => {
                 event.stopPropagation();
@@ -82,7 +95,19 @@ export function Inspector() {
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {block?.kind === 'library' && (
           <>
-            <h3 className="text-[12px] font-medium text-ink-800 mb-2">槽位</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-[12px] font-medium text-ink-800">槽位</h3>
+              <button
+                onClick={() => toggleFavorite(block.tplId)}
+                className={`text-[11px] px-2 py-0.5 rounded border ${
+                  favorites.includes(block.tplId)
+                    ? 'border-accent-500 text-accent-500'
+                    : 'border-mist-200 text-ink-600/60'
+                }`}
+              >
+                {favorites.includes(block.tplId) ? '已收藏' : '收藏模板'}
+              </button>
+            </div>
             <div className="space-y-3">
               {slots.map((slot, index) => (
                 <SlotEditor
