@@ -354,6 +354,96 @@ program
   });
 
 program
+  .command('audit')
+  .description('render every template and report fidelity and validation health')
+  .option('--limit <n>', 'only audit the first N templates', '0')
+  .option('--json', 'machine readable')
+  .action(async (flags) => {
+    const kiumi = client();
+    const skeletons = await kiumi.skeletons();
+    const limit = Number(flags.limit ?? 0);
+    const { items } = await kiumi.list({ limit: limit > 0 ? limit : 100000 });
+
+    const byHouse: Record<
+      string,
+      { total: number; failed: number; errors: number; warnings: number; bytes: number; upstream: number }
+    > = {};
+    const errorRules: Record<string, number> = {};
+    const warnCodes: Record<string, number> = {};
+    let failed = 0;
+
+    for (const entry of items) {
+      const house = entry.atomTplId.split(':')[0] ?? 'unknown';
+      const bucket = (byHouse[house] ??= {
+        total: 0,
+        failed: 0,
+        errors: 0,
+        warnings: 0,
+        bytes: 0,
+        upstream: 0,
+      });
+      bucket.total++;
+      const record = await kiumi.get(entry.atomTplId);
+      if (!record) {
+        bucket.failed++;
+        failed++;
+        continue;
+      }
+      let rendered;
+      try {
+        rendered = await kiumi.render(record.matrix, skeletons);
+      } catch {
+        bucket.failed++;
+        failed++;
+        continue;
+      }
+      if (!rendered.html) {
+        bucket.failed++;
+        failed++;
+        continue;
+      }
+      for (const warning of rendered.warnings) {
+        warnCodes[warning.code] = (warnCodes[warning.code] ?? 0) + 1;
+        bucket.warnings++;
+      }
+      for (const issue of validateHtml(rendered.html)) {
+        if (issue.level === 'error') {
+          errorRules[issue.rule] = (errorRules[issue.rule] ?? 0) + 1;
+          bucket.errors++;
+        }
+      }
+      bucket.bytes += rendered.bytes;
+      bucket.upstream += record.byteSize;
+    }
+
+    const summary = { templates: items.length, failed, byHouse, errorRules, warnCodes };
+    if (flags.json) {
+      console.log(JSON.stringify(summary, null, 2));
+    } else {
+      console.log(`${items.length} templates, ${failed} failed to render\n`);
+      console.log('house          total  errors  warnings  bytes/upstream');
+      for (const [house, bucket] of Object.entries(byHouse)) {
+        const ratio = bucket.upstream ? (bucket.bytes / bucket.upstream).toFixed(3) : '-';
+        console.log(
+          `${house.padEnd(14)} ${String(bucket.total).padStart(6)} ${String(bucket.errors).padStart(7)} ${String(
+            bucket.warnings,
+          ).padStart(9)}  ${ratio}`,
+        );
+      }
+      if (Object.keys(errorRules).length) {
+        console.log('\nvalidation errors');
+        for (const [rule, count] of Object.entries(errorRules)) console.log(`  ${rule.padEnd(20)} ${count}`);
+      }
+      if (Object.keys(warnCodes).length) {
+        console.log('\nrender warnings');
+        for (const [code, count] of Object.entries(warnCodes)) console.log(`  ${code.padEnd(20)} ${count}`);
+      }
+      console.log('\nnote: booklet-pg are H5 pages, their unexpanded mounts are expected.');
+    }
+    if (failed > 0) process.exitCode = 1;
+  });
+
+program
   .command('md <file>')
   .description('convert a markdown file into a document json')
   .option('--title <title>', 'override the document title')
