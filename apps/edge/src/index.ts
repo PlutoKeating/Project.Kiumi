@@ -1,5 +1,6 @@
 import {
   fillMatrix,
+  sanitizeHtml,
   normalizeMatrix,
   renderDocument,
   validateHtml,
@@ -7,6 +8,8 @@ import {
   type TemplateRecord,
 } from '@kiumi/core';
 import { currentUser, handleAuth } from './auth.js';
+import { workspaceRoutes, privateUpload, exportImages, ApiError } from './workspace.js';
+import { dataFetch } from './data.js';
 
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
@@ -57,17 +60,7 @@ const slug = (id: string): string => id.replace(/[^a-zA-Z0-9._-]+/g, '__');
 
 /** Fetch one object from the ECS data service (the primary store). */
 async function fetchFromEcs(env: Env, key: string): Promise<Response | null> {
-  if (env.KIUMI_DATA) {
-    const response = await env.KIUMI_DATA.fetch(`http://kiumi-data/${key}`, {
-      headers: { 'x-data-key': env.KIUMI_DATA_KEY ?? '' },
-    });
-    if (response.ok) return response;
-  }
-  if (!env.KIUMI_DATA_ORIGIN) return null;
-  const response = await fetch(`${env.KIUMI_DATA_ORIGIN.replace(/\/$/, '')}/${key}`, {
-    headers: { 'x-data-key': env.KIUMI_DATA_KEY ?? '' },
-    cf: { cacheTtl: 300, cacheEverything: true },
-  });
+  const response = await dataFetch(env, key);
   return response.ok ? response : null;
 }
 
@@ -146,28 +139,6 @@ async function manifest(env: Env): Promise<Record<string, { path: string }>> {
 // WeChat
 // ---------------------------------------------------------------------------
 
-interface TokenCache {
-  value: string;
-  expiresAt: number;
-}
-let tokenCache: TokenCache | null = null;
-
-async function wechatToken(env: Env): Promise<string> {
-  if (tokenCache && tokenCache.expiresAt > Date.now() + 60_000) return tokenCache.value;
-  const url =
-    'https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential' +
-    `&appid=${encodeURIComponent(env.WECHAT_APP_ID ?? '')}` +
-    `&secret=${encodeURIComponent(env.WECHAT_APP_SECRET ?? '')}`;
-  const body = (await (await fetch(url)).json()) as {
-    access_token?: string;
-    expires_in?: number;
-    errmsg?: string;
-  };
-  if (!body.access_token) throw new Error(body.errmsg ?? 'access_token failed');
-  tokenCache = { value: body.access_token, expiresAt: Date.now() + (body.expires_in ?? 7200) * 1000 };
-  return tokenCache.value;
-}
-
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -187,6 +158,13 @@ export default {
         const handled = await handleAuth(request, env);
         if (handled) return handled;
       }
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+        const origin = request.headers.get('origin');
+        if (origin && origin !== url.origin) return fail('FORBIDDEN', '不允许跨站写入', 403);
+      }
+      const workspace = await workspaceRoutes(request, env);
+      if (workspace) return workspace;
+      if (path.startsWith('/uploads/')) return await privateUpload(request, env);
       if (path === '/api/rooms') return rooms(env);
       if (path === '/api/templates') return templates(env, url);
       if (path === '/api/template') return template(env, url);
@@ -198,20 +176,18 @@ export default {
       if (path === '/api/fill' && request.method === 'POST') return fill(env, request);
       if (path === '/api/assets') return assetsList(env, url);
       if (path === '/api/assets/coverage') return coverage(env);
-      if (path === '/api/documents') return documents(env, request, await ownerOf(request, env));
-      if (path.startsWith('/api/documents/'))
-        return documentItem(env, request, path, await ownerOf(request, env));
       if (path === '/api/wechat/config')
         return json({ configured: Boolean(env.WECHAT_APP_ID && env.WECHAT_APP_SECRET) });
-      if (path === '/api/wechat/draft' && request.method === 'POST') return wechatDraft(env, request);
+      if (path === '/api/wechat/draft' && request.method === 'POST') return fail('ACCOUNT_REQUIRED', '请先在团队中绑定公众号', 409);
       if (path.startsWith('/assets/')) return serveR2(env, `assets/${path.slice('/assets/'.length)}`);
       if (path === '/assets/__missing.svg') return missingPlaceholder();
-      if (path.startsWith('/uploads/')) return serveR2(env, `uploads/${path.slice('/uploads/'.length)}`);
-      if (path === '/api/assets/upload' && request.method === 'POST') return upload(env, request);
 
+      if (path.startsWith('/api/')) return fail('NOT_FOUND', '接口不存在', 404);
       return env.ASSETS.fetch(request);
     } catch (error) {
-      return fail('INTERNAL_ERROR', (error as Error).message, 500);
+      if (error instanceof ApiError) return fail(error.code, error.message, error.status);
+      console.error('request failed', path, (error as Error).message);
+      return fail('INTERNAL_ERROR', '服务暂时不可用，请稍后重试', 500);
     }
   },
 };
@@ -264,8 +240,8 @@ async function templates(env: Env, url: URL): Promise<Response> {
   const room = url.searchParams.get('room') ?? undefined;
   const q = url.searchParams.get('q')?.toLowerCase();
   const hasSvg = url.searchParams.get('hasSvg');
-  const limit = Number(url.searchParams.get('limit') ?? 50);
-  const offset = Number(url.searchParams.get('offset') ?? 0);
+  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 50) || 50));
+  const offset = Math.max(0, Number(url.searchParams.get('offset') ?? 0) || 0);
 
   const pool = room?.startsWith('modern:') ? await loadModern(env) : await loadIndex(env);
   const filtered = pool.filter((entry) => {
@@ -308,7 +284,7 @@ async function preview(env: Env, url: URL): Promise<Response> {
   if (!id) return fail('INVALID_BODY', 'missing ?id=');
   const record = await getRecord(env, id);
   if (!record) return fail('TEMPLATE_NOT_FOUND', `no template ${id}`, 404);
-  const body = localizeAssets(record.html, await manifest(env));
+  const body = localizeAssets(sanitizeHtml(record.html), await manifest(env));
   return new Response(
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">${PREVIEW_STYLE}</head><body>${body}</body></html>`,
     { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } },
@@ -364,7 +340,13 @@ async function render(env: Env, request: Request): Promise<Response> {
   let warnings: unknown[] = [];
 
   if (body.document) {
-    const result = renderDocument(body.document, skeletonsMap);
+    const recorded = new Map<string,string>();
+    await Promise.all(body.document.blocks.filter(b => b.kind === 'library' && !b.html).map(async b => {
+      if (b.kind !== 'library') return;
+      const record = await getRecord(env,b.tplId);
+      if (record && JSON.stringify(record.matrix) === JSON.stringify(b.matrix)) recorded.set(b.tplId,record.html);
+    }));
+    const result = renderDocument(body.document, skeletonsMap, { recordedHtml: id => recorded.get(id) });
     html = result.html;
     warnings = result.warnings;
   } else if (body.tplId) {
@@ -405,6 +387,7 @@ async function render(env: Env, request: Request): Promise<Response> {
   }
 
   if (body.localAssets) html = localizeAssets(html, map);
+  else html = await exportImages(html, request, env);
   return json({ html, bytes: html.length, warnings, issues: validateHtml(html) });
 }
 
@@ -429,84 +412,6 @@ async function fill(env: Env, request: Request): Promise<Response> {
 // ---------------------------------------------------------------------------
 // Documents (D1)
 // ---------------------------------------------------------------------------
-
-/** Documents belong to the signed-in user; without a configured issuer they fall back to one shared space. */
-async function ownerOf(request: Request, env: Env): Promise<string | null> {
-  if (!env.ID_ISSUER_URL || !env.ID_CLIENT_ID) return 'anonymous';
-  const user = await currentUser(request, env);
-  return user?.sub ?? null;
-}
-
-async function documents(env: Env, request: Request, owner: string | null): Promise<Response> {
-  if (!owner) return fail('LOGIN_REQUIRED', 'sign in to keep documents', 401);
-  if (request.method === 'GET') {
-    const rows = await env.DB.prepare(
-      'SELECT id, title, updated_at, length(blocks) AS size FROM documents WHERE owner_sub = ? ORDER BY updated_at DESC',
-    )
-      .bind(owner)
-      .all();
-    return json(rows.results ?? []);
-  }
-  if (request.method === 'POST') {
-    const { title } = (await request.json()) as { title?: string };
-    if (!title) return fail('INVALID_BODY', 'title is required');
-    const id = `doc_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-    const now = new Date().toISOString();
-    const doc: KiumiDocument = {
-      version: 1,
-      id,
-      title,
-      blocks: [],
-      meta: { createdAt: now, updatedAt: now },
-    };
-    await env.DB.prepare('INSERT INTO documents (id, title, blocks, updated_at, owner_sub) VALUES (?, ?, ?, ?, ?)')
-      .bind(id, title, JSON.stringify(doc.blocks), now, owner)
-      .run();
-    return json(doc);
-  }
-  return fail('METHOD_NOT_ALLOWED', request.method, 405);
-}
-
-async function documentItem(
-  env: Env,
-  request: Request,
-  path: string,
-  owner: string | null,
-): Promise<Response> {
-  if (!owner) return fail('LOGIN_REQUIRED', 'sign in to keep documents', 401);
-  const id = decodeURIComponent(path.slice('/api/documents/'.length));
-  const row = await env.DB.prepare(
-    'SELECT id, title, blocks, updated_at FROM documents WHERE id = ? AND owner_sub = ?',
-  )
-    .bind(id, owner)
-    .first<{ id: string; title: string; blocks: string; updated_at: string }>();
-  if (!row) return fail('DOCUMENT_NOT_FOUND', `no document ${id}`, 404);
-
-  if (request.method === 'GET') {
-    return json({
-      version: 1,
-      id: row.id,
-      title: row.title,
-      blocks: JSON.parse(row.blocks),
-      meta: { createdAt: row.updated_at, updatedAt: row.updated_at },
-    });
-  }
-  if (request.method === 'PATCH') {
-    const patch = (await request.json()) as { title?: string; blocks?: unknown[] };
-    const title = patch.title ?? row.title;
-    const blocks = patch.blocks ? JSON.stringify(patch.blocks) : row.blocks;
-    const now = new Date().toISOString();
-    await env.DB.prepare('UPDATE documents SET title = ?, blocks = ?, updated_at = ? WHERE id = ?')
-      .bind(title, blocks, now, id)
-      .run();
-    return json({ ok: true, id, title, updatedAt: now });
-  }
-  if (request.method === 'DELETE') {
-    await env.DB.prepare('DELETE FROM documents WHERE id = ?').bind(id).run();
-    return json({ deleted: id });
-  }
-  return fail('METHOD_NOT_ALLOWED', request.method, 405);
-}
 
 // ---------------------------------------------------------------------------
 // Assets
@@ -584,69 +489,4 @@ function missingPlaceholder(): Response {
   return new Response(svg, {
     headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'public, max-age=86400' },
   });
-}
-
-async function upload(env: Env, request: Request): Promise<Response> {
-  if (!env.DATA) return fail('R2_NOT_ENABLED', 'R2 bucket is not configured yet', 503);
-  const form = await request.formData();
-  const file = form.get('file');
-  if (!(file instanceof File)) return fail('INVALID_BODY', 'multipart field "file" is required');
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))]
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  const ext = file.name.includes('.') ? `.${file.name.split('.').pop()}` : '.bin';
-  const key = `uploads/${digest}${ext}`;
-  await env.DATA.put(key, bytes, { httpMetadata: { contentType: file.type || 'application/octet-stream' } });
-  return json({ sha256: digest, bytes: bytes.length, url: `/${key}` });
-}
-
-// ---------------------------------------------------------------------------
-// WeChat
-// ---------------------------------------------------------------------------
-
-async function wechatDraft(env: Env, request: Request): Promise<Response> {
-  if (!env.WECHAT_APP_ID || !env.WECHAT_APP_SECRET) {
-    return fail('WECHAT_NOT_CONFIGURED', 'set WECHAT_APP_ID / WECHAT_APP_SECRET', 501);
-  }
-  const body = (await request.json()) as { documentId?: string; thumbMediaId?: string; author?: string };
-  if (!body.documentId) return fail('INVALID_BODY', 'documentId is required');
-  const row = await env.DB.prepare('SELECT id, title, blocks FROM documents WHERE id = ?')
-    .bind(body.documentId)
-    .first<{ id: string; title: string; blocks: string }>();
-  if (!row) return fail('DOCUMENT_NOT_FOUND', `no document ${body.documentId}`, 404);
-
-  const doc: KiumiDocument = {
-    version: 1,
-    id: row.id,
-    title: row.title,
-    blocks: JSON.parse(row.blocks),
-    meta: { createdAt: '', updatedAt: '' },
-  };
-  const result = renderDocument(doc, await skeletons(env));
-  const thumb = body.thumbMediaId ?? env.WECHAT_DEFAULT_THUMB_MEDIA_ID;
-  if (!thumb) return fail('WECHAT_NOT_CONFIGURED', 'thumb_media_id is required', 501);
-
-  const token = await wechatToken(env);
-  const response = await fetch(`https://api.weixin.qq.com/cgi-bin/draft/add?access_token=${token}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      articles: [
-        {
-          title: row.title,
-          author: body.author ?? '',
-          digest: '',
-          content: result.html,
-          content_source_url: '',
-          thumb_media_id: thumb,
-          need_open_comment: 0,
-          only_fans_can_comment: 0,
-        },
-      ],
-    }),
-  });
-  const payload = (await response.json()) as { media_id?: string; errmsg?: string };
-  if (!payload.media_id) return fail('WECHAT_API_ERROR', payload.errmsg ?? 'draft/add failed', 502);
-  return json({ mediaId: payload.media_id, bytes: result.bytes });
 }

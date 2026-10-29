@@ -1,3 +1,4 @@
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 // OIDC login for the editor. The Worker runs the authorization-code flow with
 // PKCE and keeps a signed session cookie, so the browser never holds tokens.
 
@@ -30,7 +31,8 @@ const fromB64url = (text: string): Uint8Array<ArrayBuffer> => {
 const encoder = new TextEncoder();
 
 async function hmacKey(env: AuthEnv): Promise<CryptoKey> {
-  const secret = env.KIUMI_DATA_KEY ?? 'kiumi-dev-only-secret';
+  const secret = env.KIUMI_DATA_KEY;
+  if (!secret) throw new Error('session signing key is missing');
   return crypto.subtle.importKey('raw', encoder.encode(`session:${secret}`), { name: 'HMAC', hash: 'SHA-256' }, false, [
     'sign',
     'verify',
@@ -73,59 +75,23 @@ function config(env: AuthEnv) {
 }
 
 export async function currentUser(request: Request, env: AuthEnv): Promise<SessionUser | null> {
-  const raw = await unsign(env, readCookie(request, SESSION_COOKIE));
-  if (!raw) return null;
   try {
+    const raw = await unsign(env, readCookie(request, SESSION_COOKIE));
+    if (!raw) return null;
     const session = JSON.parse(raw) as SessionUser & { exp: number };
-    if (!session.exp || session.exp < Math.floor(Date.now() / 1000)) return null;
+    if (!session.sub || !session.exp || session.exp < Math.floor(Date.now() / 1000)) return null;
     return { sub: session.sub, name: session.name, email: session.email };
   } catch {
     return null;
   }
 }
 
+const keySets = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 async function verifyIdToken(token: string, env: AuthEnv, issuer: string, clientId: string): Promise<SessionUser> {
-  const [headerPart, payloadPart, signaturePart] = token.split('.');
-  if (!headerPart || !payloadPart || !signaturePart) throw new Error('malformed id_token');
-  const header = JSON.parse(new TextDecoder().decode(fromB64url(headerPart))) as { alg: string; kid?: string };
-  const payload = JSON.parse(new TextDecoder().decode(fromB64url(payloadPart))) as Record<string, unknown>;
-
-  const jwks = (await (await fetch(`${issuer}/.well-known/jwks.json`)).json()) as {
-    keys: (JsonWebKey & { kid?: string })[];
-  };
-  const jwk = jwks.keys.find((key) => key.kid === header.kid) ?? jwks.keys[0];
-  if (!jwk) throw new Error('no signing key');
-  const key = await crypto.subtle.importKey(
-    'jwk',
-    { ...jwk, alg: header.alg, ext: true },
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['verify'],
-  );
-  const valid = await crypto.subtle.verify(
-    'RSASSA-PKCS1-v1_5',
-    key,
-    fromB64url(signaturePart),
-    encoder.encode(`${headerPart}.${payloadPart}`),
-  );
-  if (!valid) throw new Error('bad id_token signature');
-
-  const now = Math.floor(Date.now() / 1000);
-  if (typeof payload.exp === 'number' && payload.exp < now) throw new Error('id_token expired');
-  const claimIssuer = String(payload.iss ?? '').replace(/\/$/, '');
-  if (claimIssuer && claimIssuer !== issuer) throw new Error('issuer mismatch');
-  // aud may be a single value or a list, depending on what the issuer grants.
-  const audience = payload.aud;
-  const audiences = Array.isArray(audience) ? audience.map(String) : audience ? [String(audience)] : [];
-  if (audiences.length && !audiences.includes(clientId)) {
-    throw new Error(`audience mismatch: ${audiences.join(',')} vs ${clientId}`);
-  }
-
-  return {
-    sub: String(payload.sub),
-    name: (payload.name ?? payload.email ?? payload.sub) as string,
-    email: payload.email as string | undefined,
-  };
+  let keys=keySets.get(issuer);
+  if(!keys) { keys=createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));keySets.set(issuer,keys); }
+  const {payload}=await jwtVerify(token,keys,{issuer:[issuer,`${issuer}/`],audience:clientId,algorithms:['RS256'],requiredClaims:['exp','iss','aud','sub']});
+  return {sub:payload.sub!,name:typeof payload.name==='string'?payload.name:undefined,email:typeof payload.email==='string'?payload.email:undefined};
 }
 
 /** Routes /auth/*; returns null when the path is not an auth route. */
@@ -145,7 +111,8 @@ export async function handleAuth(request: Request, env: AuthEnv): Promise<Respon
     const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
     const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(verifier))));
     const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
-    const next = url.searchParams.get('next') ?? '/';
+    const candidate = url.searchParams.get('next') ?? '/';
+    const next = candidate.startsWith('/') && !candidate.startsWith('//') && !candidate.includes('\\') ? candidate : '/';
     const redirectUri = new URL('/auth/callback', url).toString();
 
     const authorize = new URL(`${cfg.issuer}/oauth2/auth`);

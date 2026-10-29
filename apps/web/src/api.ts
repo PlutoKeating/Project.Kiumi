@@ -44,6 +44,7 @@ export interface LibraryBlock {
   id: string;
   tplId: string;
   matrix: unknown;
+  html?: string;
 }
 
 export interface NativeBlock {
@@ -82,11 +83,17 @@ interface Envelope<T> {
   error?: { code: string; message: string };
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+let activeTeam = '';
+let activeUser = 'guest';
+export const workspaceKey = () => `kiumi.draft.${activeUser}.${activeTeam || 'local'}`;
+export const teamId = () => activeTeam;
+export function setWorkspace(user: string, team: string) { activeUser=user; activeTeam=team; }
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
     headers: {
       ...(init?.body instanceof FormData ? {} : { 'content-type': 'application/json' }),
+      ...(activeTeam ? { 'x-team-id': activeTeam } : {}),
       ...init?.headers,
     },
   });
@@ -173,17 +180,17 @@ export function renderBlock(block: Block, doc: Document): Promise<RenderResponse
   });
 }
 
-export function createDocument(title: string): Promise<Document> {
+export function createDocument(title: string, blocks: Block[] = [], meta?: Document['meta']): Promise<Document> {
   return request<Document>('/api/documents', {
     method: 'POST',
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, blocks, meta }),
   });
 }
 
 export function saveDocument(doc: Document): Promise<Document> {
   return request<Document>(`/api/documents/${doc.id}`, {
     method: 'PATCH',
-    body: JSON.stringify({ title: doc.title, blocks: doc.blocks }),
+    body: JSON.stringify({ title: doc.title, blocks: doc.blocks, meta: doc.meta }),
   });
 }
 
@@ -213,3 +220,10 @@ export async function copyRichHtml(html: string): Promise<void> {
   }
   await navigator.clipboard.writeText(html);
 }
+
+export interface Team { id: string; name: string; role: 'owner' | 'member' }
+export const listTeams = () => request<Team[]>('/api/teams');
+export const createTeam = (name:string) => request<Team>('/api/teams',{method:'POST',body:JSON.stringify({name})});
+export const joinTeam = (code:string) => request<{id:string}>('/api/teams/join',{method:'POST',body:JSON.stringify({code})});
+export const deleteDocument = (id:string) => request(`/api/documents/${id}`,{method:'DELETE'});
+export const listUploads = () => request<{id:string;name:string;bytes:number;mtime:number;url:string}[]>('/api/uploads');

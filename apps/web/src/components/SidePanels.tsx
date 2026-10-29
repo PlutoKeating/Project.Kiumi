@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { previewUrl } from '../api.ts';
+import { listUploads, previewUrl } from '../api.ts';
 import { useStore } from '../store.ts';
 
 function PanelShell({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
@@ -107,11 +107,8 @@ export function GalleryPanel() {
 
   useEffect(() => {
     let alive = true;
-    fetch('/api/uploads')
-      .then((response) => response.json())
-      .then((payload) => {
-        if (alive) setItems(payload.data ?? []);
-      })
+    listUploads()
+      .then((items) => { if (alive) setItems(items); })
       .catch(() => undefined)
       .finally(() => alive && setLoading(false));
     return () => {

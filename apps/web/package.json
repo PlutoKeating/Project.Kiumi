@@ -12,6 +12,9 @@
     "deploy:dry": "npm run build && wrangler deploy --dry-run --outdir .wrangler-dry"
   },
   "dependencies": {
+    "@kiumi/core": "workspace:*",
+    "dompurify": "^3.4.17",
+    "marked": "^18.1.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zustand": "^5.0.2"

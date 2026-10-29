@@ -20,6 +20,9 @@ const account = process.env.CLOUDFLARE_ACCOUNT_ID;
 const dataOrigin = process.env.KIUMI_DATA_ORIGIN;
 const r2 = process.env.R2_BUCKET_NAME;
 
+let previous = '';
+try { previous = readFileSync(path.join(root, 'apps/edge/wrangler.generated.jsonc'), 'utf8'); } catch {}
+const previousId = (key) => previous.match(new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`))?.[1];
 const missing = [];
 if (!account) missing.push('CLOUDFLARE_ACCOUNT_ID');
 if (missing.length) {
@@ -43,6 +46,7 @@ async function api(pathname) {
 
 async function resolveD1() {
   if (process.env.D1_DATABASE_ID) return process.env.D1_DATABASE_ID;
+  if (!token && previousId('database_id')) return previousId('database_id');
   const list = await api(`/accounts/${account}/d1/database`);
   return Array.isArray(list) ? list.find((entry) => entry.name === 'kiumi')?.uuid ?? null : null;
 }
@@ -72,7 +76,7 @@ if (!out.includes(account)) {
 if (r2) out = out.replace('"REPLACE_WITH_BUCKET"', JSON.stringify(r2));
 else out = out.replace(/^.*"r2_buckets".*$/m, '  // r2 disabled for this deployment');
 
-if (dataOrigin) out = out.replace('"REPLACE_WITH_DATA_ORIGIN"', JSON.stringify(dataOrigin));
+out = out.replace('"REPLACE_WITH_DATA_ORIGIN"', JSON.stringify(dataOrigin ?? ''));
 
 if (vpc) out = out.replace('"REPLACE_WITH_VPC_SERVICE_ID"', JSON.stringify(vpc));
 else out = out.replace(/^\s*"vpc_services": \[[\s\S]*?\],\n/m, '');

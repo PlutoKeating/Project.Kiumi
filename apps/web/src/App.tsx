@@ -6,6 +6,7 @@ import { Canvas } from './components/Canvas.tsx';
 import { Inspector } from './components/Inspector.tsx';
 import { LeftRail } from './components/LeftRail.tsx';
 import { TemplateBrowser } from './components/TemplateBrowser.tsx';
+import { Workspace } from './components/Workspace.tsx';
 import { useStore } from './store.ts';
 
 const THEME_SWATCHES = ['#3F6FE0', '#2EA36B', '#E8843C', '#D9534F', '#7A5AF8', '#2B3440'];
@@ -47,6 +48,7 @@ export function App() {
   const brushFormat = useStore((state) => state.brushFormat);
   const clearFormat = useStore((state) => state.clearFormat);
 
+  const [workspaceVersion, setWorkspaceVersion] = useState(0);
   const [rail, setRail] = useState('templates');
   const [collapsed, setCollapsed] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -250,6 +252,7 @@ export function App() {
           >
             重做
           </button>
+          <Workspace session={session} onChange={() => setWorkspaceVersion(v => v + 1)} />
           <button onClick={newDoc} className="text-[12px] px-3 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-50">
             新建
           </button>
@@ -321,7 +324,7 @@ export function App() {
         ) : rail === 'clipboard' ? (
           <ClipboardPanel />
         ) : (
-          <GalleryPanel />
+          <GalleryPanel key={workspaceVersion} />
         )}
         <Canvas />
         <Inspector />
@@ -346,6 +349,7 @@ export function App() {
               className="w-full flex-1 min-h-[600px]"
               referrerPolicy="no-referrer"
               title="preview"
+              sandbox=""
               srcDoc={`<body style="margin:0;padding:16px;max-width:677px;font-family:-apple-system,'PingFang SC',sans-serif">${preview}</body>`}
             />
           </div>

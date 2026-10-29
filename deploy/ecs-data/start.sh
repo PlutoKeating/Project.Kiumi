@@ -12,7 +12,7 @@ if ! grep -q '^KIUMI_DATA_KEY=.\{32,\}' .env; then
   echo "● 已生成服务密钥（./start.sh --key 查看）"
 fi
 if [[ ${1:-} == --key ]]; then sed -n 's/^KIUMI_DATA_KEY=//p' .env; exit 0; fi
-mkdir -p data
+mkdir -p data/uploads
 docker compose up -d --build
 port=$(sed -n 's/^KIUMI_DATA_LOCAL_PORT=//p' .env); port=${port:-8792}
 key=$(sed -n 's/^KIUMI_DATA_KEY=//p' .env)

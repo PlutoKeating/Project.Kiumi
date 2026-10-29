@@ -2,7 +2,8 @@
 // No dependencies: runs on node:alpine, binds 0.0.0.0 inside the container and
 // is published only to 127.0.0.1 on the host.
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { stat, mkdir, writeFile, rename, unlink } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import path from 'node:path';
 
@@ -49,6 +50,28 @@ const server = createServer(async (req, res) => {
   if (target !== ROOT && !target.startsWith(`${ROOT}${path.sep}`)) {
     return send(res, 403, { ok: false, error: 'forbidden' });
   }
+
+  if (req.method === 'PUT') {
+    if (!/^uploads\/team_[a-f0-9-]+\/img_[a-f0-9-]+\.(png|jpeg|gif|webp)$/.test(relative)) {
+      return send(res, 403, { ok: false, error: 'uploads only' });
+    }
+    const chunks = []; let size = 0;
+    try {
+      for await (const chunk of req) {
+        size += chunk.length;
+        if (size > 10 * 1024 * 1024) return send(res, 413, { ok: false, error: 'too large' });
+        chunks.push(chunk);
+      }
+      await mkdir(path.dirname(target), { recursive: true });
+      const temporary = `${target}.${randomUUID()}.tmp`;
+      try {
+        await writeFile(temporary, Buffer.concat(chunks), { flag: 'wx' });
+        await rename(temporary, target);
+      } finally { await unlink(temporary).catch(() => {}); }
+      return send(res, 201, { ok: true, bytes: size });
+    } catch { return send(res, 500, { ok: false, error: 'write failed' }); }
+  }
+  if (!['GET', 'HEAD'].includes(req.method)) return send(res, 405, { ok: false, error: 'method not allowed' });
 
   try {
     const info = await stat(target);

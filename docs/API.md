@@ -1,5 +1,24 @@
 # API 契约
 
+## 生产团队 API（优先于下方本地服务契约）
+
+生产 Worker 使用 HttpOnly 会话。团队资源请求附带 `X-Team-Id`，服务端验证成员身份。
+
+| 方法 | 路径 | 行为 |
+|---|---|---|
+| GET/POST | `/api/teams` | 我的团队 / 创建团队 |
+| POST | `/api/teams/join` | `{code}` 加入团队 |
+| GET/DELETE | `/api/teams/members` | 成员列表 / 创建者移除 `{userId}` |
+| POST | `/api/teams/invite` | 创建者生成 7 天邀请码，旧码失效 |
+| GET/POST | `/api/documents` | 团队文稿列表 / 创建（title、blocks、meta） |
+| GET/PATCH/DELETE | `/api/documents/:id` | 团队文稿读取、更新、删除 |
+| GET | `/api/uploads` | 团队图库 |
+| POST | `/api/assets/upload` | multipart 图片，PNG/JPEG/GIF/WebP，最多 10 MB |
+| GET | `/uploads/:id` | 成员读取；导出签名链接允许外部读取 |
+
+未知 `/api/*` 返回 JSON 404，不回落到网页。团队隔离错误为 403，未登录为 401，未选团队为 409。模板目录公开可读；本地 Fastify 保持单用户开发模式。
+
+
 四层接口共享同一套语义：**CLI 命令名 ≈ SDK 方法名 ≈ MCP 工具名 ≈ HTTP 路径**。
 命名统一用「资源 + 动作」，避免三套词汇。
 

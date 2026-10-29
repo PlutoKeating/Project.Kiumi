@@ -157,6 +157,8 @@ export interface LibraryBlock {
   id: string;
   tplId: string;
   matrix: unknown;
+  /** Editable recorded markup retains SVG animation and complex layout. */
+  html?: string;
 }
 
 export interface NativeBlock {
@@ -176,6 +178,7 @@ export interface KiumiDocument {
     createdAt: string;
     updatedAt: string;
     author?: string;
+    digest?: string;
   };
 }
 

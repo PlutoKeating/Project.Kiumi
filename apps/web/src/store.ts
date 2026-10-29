@@ -1,3 +1,4 @@
+import { patchRecordedHtml } from '@kiumi/core';
 import { create } from 'zustand';
 import * as api from './api.ts';
 import { patchSlot } from './lib/slots.ts';
@@ -134,6 +135,9 @@ interface State {
   refresh: () => Promise<void>;
   save: () => Promise<void>;
   newDoc: () => void;
+  loadDoc: (doc: api.Document) => void;
+  restoreScope: () => void;
+  updateHtml: (index: number, html: string) => void;
   undo: () => void;
   redo: () => void;
   commit: (next: api.Document) => void;
@@ -143,6 +147,8 @@ interface State {
   insertClipboard: (clipIndex: number, at?: number) => void;
   clearClipboard: () => void;
 }
+
+let saving: Promise<void> | null = null;
 
 export const useStore = create<State>((set, get) => ({
   ready: false,
@@ -262,7 +268,7 @@ export const useStore = create<State>((set, get) => ({
     if (!first?._comp) return;
     first._comp.style = { ...(first._comp.style ?? {}), ...brush };
     const blocks = [...doc.blocks];
-    blocks[index] = { ...block, matrix };
+    blocks[index] = { ...block, matrix, html: block.html ? patchRecordedHtml(block.html, block.matrix, matrix) : undefined };
     get().commit({ ...doc, blocks });
     set({ message: '已刷格式' });
     void get().refresh();
@@ -325,6 +331,7 @@ export const useStore = create<State>((set, get) => ({
         id: `blk-${Date.now().toString(36)}`,
         tplId: record.atomTplId,
         matrix: record.matrix,
+        html: record.html,
       };
       const current = get().selected;
       const index = current === null ? doc.blocks.length : current + 1;
@@ -385,7 +392,7 @@ export const useStore = create<State>((set, get) => ({
     if (!block || block.kind !== 'library') return;
     const matrix = patchSlot(block.matrix, path, value, compIndex);
     const blocks = [...doc.blocks];
-    blocks[index] = { ...block, matrix };
+    blocks[index] = { ...block, matrix, html: block.html ? patchRecordedHtml(block.html, block.matrix, matrix) : undefined };
     get().commit({ ...doc, blocks });
     void get().refresh();
   },
@@ -472,20 +479,36 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async save() {
-    const doc = get().doc;
-    try {
-      if (doc.id.startsWith('local-')) {
-        const created = await api.createDocument(doc.title);
-        const merged: api.Document = { ...doc, id: created.id, meta: created.meta };
-        await api.saveDocument(merged);
-        set({ doc: merged, message: '已保存' });
-      } else {
-        const saved = await api.saveDocument(doc);
-        set({ doc: { ...doc, meta: saved.meta }, message: '已保存' });
-      }
-    } catch (error) {
-      set({ message: `保存失败：${(error as Error).message}` });
-    }
+    if (saving) return saving;
+    const doc = structuredClone(get().doc), scope = api.workspaceKey();
+    if (!api.teamId()) { set({message:'已保存在本机；登录并选择团队后可保存到云端'}); return; }
+    saving = (async () => {
+      try {
+        const saved = doc.id.startsWith('local-')
+          ? await api.createDocument(doc.title, doc.blocks, doc.meta)
+          : await api.saveDocument(doc);
+        if (scope === api.workspaceKey() && get().doc.id === doc.id) {
+          set({doc:{...get().doc,id:saved.id,meta:{...get().doc.meta,createdAt:saved.meta.createdAt}},message:'已保存到团队'});
+        }
+      } catch (error) { if(scope === api.workspaceKey()) set({message:`保存失败：${(error as Error).message}`}); }
+      finally { saving = null; }
+    })();
+    return saving;
+  },
+
+  loadDoc(doc) {
+    set({doc,selected:null,past:[],future:[],previews:{},message:'已打开文稿'});
+    void get().refresh();
+  },
+  restoreScope() {
+    get().loadDoc(readLocal<api.Document>(api.workspaceKey(), emptyDoc()));
+  },
+  updateHtml(index, html) {
+    const doc=get().doc, block=doc.blocks[index];
+    if(!block) return;
+    const blocks=[...doc.blocks];
+    blocks[index]=block.kind==='library' ? {...block,html} : {...block,node:{...block.node,html}};
+    get().commit({...doc,blocks}); void get().refresh();
   },
 
   toggleFavorite(atomTplId) {
@@ -556,3 +579,7 @@ export const useStore = create<State>((set, get) => ({
     });
   },
 }));
+
+useStore.subscribe((state, previous) => {
+  if (state.doc !== previous.doc) writeLocal(api.workspaceKey(), state.doc);
+});

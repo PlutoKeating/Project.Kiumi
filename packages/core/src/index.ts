@@ -50,3 +50,4 @@ export { renderNative, DEFAULT_THEME, type NativeTheme } from './blocks.ts';
 export { validateHtml, summarizeIssues, type ValidateOptions } from './validate.ts';
 export { renderMatrix, renderDocument } from './render.ts';
 export { fillMatrix } from './fill.ts';
+export { sanitizeHtml, patchRecordedHtml } from './html.ts';
