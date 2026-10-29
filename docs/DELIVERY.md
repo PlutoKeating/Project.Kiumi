@@ -44,8 +44,16 @@ pnpm -r typecheck          # 全仓类型检查
 pnpm test                  # 14 个用例：core / server / mcp
 
 pnpm kiumi audit           # 全库保真指标（见下）
-pnpm serve                 # API :8787
-pnpm --filter @kiumi/web dev   # 工作台 :5180
+pnpm dev                   # API :8787 + 工作台 :5180
+```
+
+容器化部署（已实测构建并运行）：
+
+```bash
+docker compose up -d --build
+# API  http://127.0.0.1:8787
+# 工作台 http://127.0.0.1:5180
+docker compose down
 ```
 
 `pnpm kiumi audit` 的基线（实测）：
