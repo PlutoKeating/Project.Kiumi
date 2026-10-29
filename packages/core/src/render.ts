@@ -45,11 +45,14 @@ export function renderDocument(
       const result = renderMatrix(block.matrix, skeletons, options);
       let html = result.html;
       const recorded = options.recordedHtml?.(block.tplId);
-      if (recorded && recorded.includes('<svg') && !html.includes('<svg')) {
+      const noSkeleton = result.warnings.some((w) => w.code === 'SKELETON_MISSING');
+      if (recorded && (noSkeleton || (recorded.includes('<svg') && !html.includes('<svg')))) {
         html = recorded;
         warnings.push({
-          code: 'SVG_ENGINE_FALLBACK',
-          message: `served recorded HTML for ${block.tplId} (SVG is synthesised upstream)`,
+          code: noSkeleton ? 'RECORDED_HTML_FALLBACK' : 'SVG_ENGINE_FALLBACK',
+          message: noSkeleton
+            ? `served recorded HTML for ${block.tplId} (no skeleton for its components)`
+            : `served recorded HTML for ${block.tplId} (SVG is synthesised upstream)`,
         });
       }
       if (html) parts.push(html);
