@@ -16,10 +16,41 @@ export function Canvas() {
   const [menu, setMenu] = useState<{ x: number; y: number; block: number } | null>(null);
   const addNative = useStore((state) => state.addNative);
   const removeBlock = useStore((state) => state.removeBlock);
+  const moveBlock = useStore((state) => state.moveBlock);
   const copyBlock = useStore((state) => state.copyBlock);
   const duplicateBlock = useStore((state) => state.duplicateBlock);
   const blockRefs = useRef(new Map<number, HTMLDivElement>());
   const previewRef = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<{ from: number; over: number | null } | null>(null);
+
+  // Keyboard matches the editor people already know: Delete removes the selected
+  // block, arrows walk the document, Escape drops the selection.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      if (selected === null) return;
+      if (event.key === 'Escape') {
+        select(null);
+        return;
+      }
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        removeBlock(selected);
+        return;
+      }
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        const next = selected + (event.key === 'ArrowUp' ? -1 : 1);
+        if (next >= 0 && next < doc.blocks.length) {
+          select(next);
+          blockRefs.current.get(next)?.scrollIntoView({ block: 'nearest' });
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selected, doc.blocks.length, select, removeBlock]);
 
   // Upstream drops some template assets; show a neutral box instead of a
   // broken-image glyph. Export and copy keep the original markup.
@@ -138,10 +169,84 @@ export function Canvas() {
                     finishInlineEdit(index, editing.slot);
                   }
                 }}
-                className={`relative cursor-pointer transition rounded ${
+                draggable={!editing}
+                onDragStart={(event) => {
+                  setDrag({ from: index, over: null });
+                  event.dataTransfer.effectAllowed = 'move';
+                  event.dataTransfer.setData('text/plain', String(index));
+                }}
+                onDragOver={(event) => {
+                  if (!drag || drag.from === index) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                  if (drag.over !== index) setDrag({ ...drag, over: index });
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (!drag) return;
+                  moveBlock(drag.from, index);
+                  select(index);
+                  setDrag(null);
+                }}
+                onDragEnd={() => setDrag(null)}
+                className={`group relative cursor-pointer transition rounded ${
                   selected === index ? 'block-selected' : 'hover:outline hover:outline-1 hover:outline-accent-400/40'
+                } ${drag?.over === index ? 'outline outline-2 outline-accent-500' : ''} ${
+                  drag?.from === index ? 'opacity-40' : ''
                 }`}
               >
+                <div
+                  className={`absolute -top-3 right-0 z-10 hidden group-hover:flex items-center gap-0.5 bg-white border border-mist-200 rounded shadow-sm px-1 py-0.5 ${
+                    editing ? '!hidden' : ''
+                  }`}
+                >
+                  <button
+                    title="上移"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (index > 0) {
+                        moveBlock(index, index - 1);
+                        select(index - 1);
+                      }
+                    }}
+                    className="px-1 text-[11px] text-ink-600 hover:text-ink-900"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    title="下移"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (index < doc.blocks.length - 1) {
+                        moveBlock(index, index + 1);
+                        select(index + 1);
+                      }
+                    }}
+                    className="px-1 text-[11px] text-ink-600 hover:text-ink-900"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    title="复制"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      duplicateBlock(index);
+                    }}
+                    className="px-1 text-[11px] text-ink-600 hover:text-ink-900"
+                  >
+                    ⧉
+                  </button>
+                  <button
+                    title="删除"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      removeBlock(index);
+                    }}
+                    className="px-1 text-[11px] text-ink-600 hover:text-red-600"
+                  >
+                    ✕
+                  </button>
+                </div>
                 <div
                   className={editing?.block === index ? '' : 'pointer-events-none'}
                   dangerouslySetInnerHTML={{ __html: previews[block.id] ?? '' }}

@@ -71,10 +71,24 @@ async function fetchFromEcs(env: Env, key: string): Promise<Response | null> {
   return response.ok ? response : null;
 }
 
+const CACHE_TTL = 300;
+
 /** R2 stays supported, but the ECS mirror is the source of truth. */
 async function readObject(env: Env, key: string): Promise<Response | null> {
+  // Catalog JSON is large and changes rarely: keep a colo copy so a cold tunnel
+  // round trip is paid once, not per request.
+  const cache = (caches as unknown as { default: Cache }).default;
+  const cacheKey = new Request(`https://kiumi.internal/objects/${key}`);
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
   const fromEcs = await fetchFromEcs(env, key);
-  if (fromEcs) return fromEcs;
+  if (fromEcs) {
+    const copy = new Response(fromEcs.body, { status: 200, headers: fromEcs.headers });
+    copy.headers.set('cache-control', `public, max-age=${CACHE_TTL}`);
+    await cache.put(cacheKey, copy.clone());
+    return copy;
+  }
   if (!env.DATA) return null;
   const object = await env.DATA.get(key);
   if (!object) return null;
@@ -211,15 +225,13 @@ async function rooms(env: Env): Promise<Response> {
     env,
     'catalog/rooms.json',
   )) ?? [];
-  const modern = await loadModern(env);
-  const groups = new Map<string, number>();
-  for (const entry of modern) {
-    const group = entry.room.replace(/^modern:/, '');
-    groups.set(group, (groups.get(group) ?? 0) + 1);
-  }
-  const modernRooms = [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([group, count], index) => ({
+
+  // The tunnel is the slow path: prefer the pre-counted groups, and only walk
+  // the full modern index when that file is missing.
+  const counts = await readJson<{ group: string; count: number }[]>(env, 'catalog/modern-rooms.json');
+  let modernRooms: { tag: string; name: string; order: number; house: string; floor: string; count: number }[];
+  if (counts) {
+    modernRooms = counts.map(({ group, count }, index) => ({
       tag: `modern:${group}`,
       name: group,
       order: 900 + index,
@@ -227,6 +239,24 @@ async function rooms(env: Env): Promise<Response> {
       floor: 'modern',
       count,
     }));
+  } else {
+    const modern = await loadModern(env);
+    const groups = new Map<string, number>();
+    for (const entry of modern) {
+      const group = entry.room.replace(/^modern:/, '');
+      groups.set(group, (groups.get(group) ?? 0) + 1);
+    }
+    modernRooms = [...groups.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([group, count], index) => ({
+        tag: `modern:${group}`,
+        name: group,
+        order: 900 + index,
+        house: 'paper',
+        floor: 'modern',
+        count,
+      }));
+  }
   return json([...legacy, ...modernRooms]);
 }
 
@@ -477,6 +507,14 @@ async function assetsList(env: Env, url: URL): Promise<Response> {
 }
 
 async function coverage(env: Env): Promise<Response> {
+  const strict = env.KIUMI_STRICT_ASSETS !== '0';
+  // Pre-computed counters keep this off the tunnel; the manifest is megabytes.
+  const precomputed = await readJson<{ referenced: number; mirrored: number; gone: number; coverage: number }>(
+    env,
+    'catalog/assets-coverage.json',
+  );
+  if (precomputed) return json({ ...precomputed, strict });
+
   const required = (await readJson<string[]>(env, 'catalog/assets-required.json')) ?? [];
   const map = await manifest(env);
   const probed = await readJson<{ urls?: string[] }>(env, 'catalog/assets-missing.json');
@@ -490,7 +528,7 @@ async function coverage(env: Env): Promise<Response> {
     /** Upstream no longer serves these; a local copy cannot exist. */
     gone: goneCount,
     coverage: reachable ? Number((mirrored / reachable).toFixed(4)) : 1,
-    strict: env.KIUMI_STRICT_ASSETS !== '0',
+    strict,
   });
 }
 
