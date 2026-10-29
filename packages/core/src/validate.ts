@@ -43,13 +43,21 @@ function describe(node: AnyNode): string {
   return bits.join('');
 }
 
+/**
+ * WeChat allows `height:0` inside an SVG interaction container to build the
+ * click-to-expand trick, so any element that contains or sits inside an SVG
+ * subtree is exempt.
+ */
 function insideSvg(node: AnyNode): boolean {
+  if ((node.tagName ?? '').toLowerCase() === 'svg') return true;
+  if (node.querySelector?.('svg')) return true;
   let current: AnyNode | null = node.parentNode as AnyNode | null;
   while (current) {
     if ((current.tagName ?? '').toLowerCase() === 'svg') return true;
+    if (current.querySelector?.('svg')) return true;
     current = current.parentNode as AnyNode | null;
   }
-  return (node.tagName ?? '').toLowerCase() === 'svg';
+  return false;
 }
 
 /**

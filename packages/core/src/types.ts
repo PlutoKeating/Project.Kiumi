@@ -99,6 +99,10 @@ export interface TemplateRecord {
   assetUrls: string[];
   source: string;
   fetchedAt: string;
+  /** Tag paths from the live taxonomy, e.g. ['SVG / 点击展开']. */
+  tags?: string[];
+  /** Cover thumbnail advertised by the API. */
+  thumbUri?: string;
 }
 
 export interface TemplateIndexEntry {

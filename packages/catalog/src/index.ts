@@ -46,6 +46,16 @@ export {
   type SourceReport,
 } from './crawl.ts';
 export {
+  crawlTagCorpus,
+  fetchTagTree,
+  flattenTags,
+  loadModernIndex,
+  type TagNode,
+  type TagLeaf,
+  type TagCrawlOptions,
+  type TagCrawlReport,
+} from './tags.ts';
+export {
   mirrorAssets,
   rewriteAssetUrls,
   collectUrls,

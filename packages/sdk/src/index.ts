@@ -1,5 +1,6 @@
 import {
   loadCatalog,
+  loadModernIndex,
   localPathFor,
   type LoadedCatalog,
 } from '@kiumi/catalog';
@@ -180,6 +181,7 @@ export class KiumiClient {
   private loadedPromise?: Promise<LoadedCatalog>;
   private deepRecords?: Map<string, TemplateRecord>;
   private svgCache = new Map<string, string | undefined>();
+  private modernIndex?: TemplateIndexEntry[];
 
   constructor(options: KiumiClientOptions = {}) {
     this.dataDir = path.resolve(options.dataDir ?? process.env.KIUMI_DATA_DIR ?? './data');
@@ -190,19 +192,56 @@ export class KiumiClient {
     return this.loadedPromise;
   }
 
+  /** Modern tag-corpus groups, exposed as pseudo rooms (`modern:SVG`). */
+  private async modern(): Promise<TemplateIndexEntry[]> {
+    if (this.modernIndex) return this.modernIndex;
+    const entries = await loadModernIndex(this.dataDir);
+    this.modernIndex = entries.map((entry) => ({
+      atomTplId: String(entry.atomTplId),
+      displayName: String(entry.displayName ?? entry.atomTplId),
+      room: `modern:${String(entry.room ?? 'other')}`,
+      accessibility: String(entry.accessibility ?? 'Public'),
+      hasSvg: Boolean(entry.hasSvg),
+      hasAnimation: Boolean(entry.hasAnimation),
+      byteSize: Number(entry.byteSize ?? 0),
+      updatedAt: entry.updatedAt ? String(entry.updatedAt) : undefined,
+    }));
+    return this.modernIndex;
+  }
+
   async rooms(filter: { house?: string; floor?: string } = {}): Promise<RoomInfo[]> {
     const catalog = await this.loaded();
-    return catalog.rooms.filter(
+    const legacy = catalog.rooms.filter(
       (room) =>
         (!filter.house || room.house === filter.house) &&
         (!filter.floor || room.floor === filter.floor),
     );
+    const modern = await this.modern();
+    const groups = new Map<string, number>();
+    for (const entry of modern) {
+      const group = entry.room.replace(/^modern:/, '');
+      groups.set(group, (groups.get(group) ?? 0) + 1);
+    }
+    const modernRooms: RoomInfo[] = [...groups.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([group, count], index) => ({
+        tag: `modern:${group}`,
+        name: group,
+        order: 900 + index,
+        house: 'paper',
+        floor: 'modern',
+        count,
+      }));
+    return [...legacy, ...modernRooms];
   }
 
   async list(query: ListQuery = {}): Promise<{ items: TemplateIndexEntry[]; total: number }> {
     const catalog = await this.loaded();
     const needle = query.q?.trim().toLowerCase();
-    const filtered = catalog.index.filter((entry) => {
+    const pool = query.room?.startsWith('modern:')
+      ? await this.modern()
+      : catalog.index;
+    const filtered = pool.filter((entry) => {
       if (query.room && entry.room !== query.room) return false;
       if (query.accessibility && entry.accessibility !== query.accessibility) return false;
       if (query.hasSvg !== undefined && entry.hasSvg !== query.hasSvg) return false;
@@ -219,13 +258,16 @@ export class KiumiClient {
 
   async get(atomTplId: string): Promise<TemplateRecord | null> {
     const catalog = await this.loaded();
-    const file = path.join(catalog.paths.templates, `${slugOf(atomTplId)}.json`);
-    try {
-      return JSON.parse(await readFile(file, 'utf8')) as TemplateRecord;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
-      throw error;
+    const legacyFile = path.join(catalog.paths.templates, `${slugOf(atomTplId)}.json`);
+    const modernFile = path.join(catalog.paths.catalog, 'modern', `${slugOf(atomTplId)}.json`);
+    for (const file of [legacyFile, modernFile]) {
+      try {
+        return JSON.parse(await readFile(file, 'utf8')) as TemplateRecord;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
     }
+    return null;
   }
 
   private async allRecords(): Promise<Map<string, TemplateRecord>> {
@@ -244,8 +286,13 @@ export class KiumiClient {
   async search(text: string, limit = 20): Promise<TemplateIndexEntry[]> {
     const needle = text.trim();
     if (!needle) return [];
+    const modern = await this.modern();
+    const loweredNeedle = needle.toLowerCase();
+    const modernHits = modern.filter((entry) =>
+      `${entry.displayName} ${entry.atomTplId}`.toLowerCase().includes(loweredNeedle),
+    );
     const records = await this.allRecords();
-    const hits: TemplateIndexEntry[] = [];
+    const hits: TemplateIndexEntry[] = [...modernHits.slice(0, limit)];
     const lowered = needle.toLowerCase();
     for (const record of records.values()) {
       if (hits.length >= limit) break;
@@ -321,11 +368,41 @@ export class KiumiClient {
     );
   }
 
+  /**
+   * Render a stored template. Some modern templates (SVG animation) synthesise
+   * their markup inside xiumi's engine; the matrix alone cannot reproduce it,
+   * so fall back to the recorded HTML rather than silently dropping the effect.
+   */
+  async renderRecord(record: TemplateRecord): Promise<RenderResult> {
+    const result = await this.render(record.matrix);
+    if (record.html.includes('<svg') && !result.html.includes('<svg')) {
+      return {
+        html: record.html,
+        bytes: Buffer.byteLength(record.html, 'utf8'),
+        warnings: [
+          ...result.warnings,
+          {
+            code: 'SVG_ENGINE_FALLBACK',
+            message:
+              'template synthesises SVG at render time; served the recorded HTML instead of the matrix render',
+          },
+        ],
+      };
+    }
+    return result;
+  }
+
   async fill(atomTplId: string, set: Record<string, string>): Promise<FillResult> {
     const record = await this.get(atomTplId);
     if (!record) throw new Error(`TEMPLATE_NOT_FOUND: ${atomTplId}`);
     const matrix = fillMatrix(record.matrix, set);
-    const result = await this.render(matrix);
+    const result = await this.renderRecord(record);
+    if (Object.keys(set).length && result.warnings.some((w) => w.code === 'SVG_ENGINE_FALLBACK')) {
+      result.warnings.push({
+        code: 'SLOT_OVERRIDE_IGNORED',
+        message: 'slot overrides cannot be applied to a recorded-HTML fallback',
+      });
+    }
     if (record.room.startsWith('booklet-pg')) {
       result.warnings.push({
         code: 'H5_PAGE_UNSUPPORTED',
@@ -430,5 +507,14 @@ export function createKiumi(options: KiumiClientOptions = {}): KiumiClient {
 }
 
 export { markdownToNodes, type MarkdownParseOptions } from './markdown.ts';
+export {
+  WeChatClient,
+  WeChatError,
+  ensureCoverMediaId,
+  generateCoverPng,
+  type WeChatConfig,
+  type WeChatDraftArticle,
+  type EnsureCoverOptions,
+} from './wechat.ts';
 export { DocumentBuilder as Document };
 export type { KiumiDocument, RenderResult, TemplateRecord, RoomInfo, TemplateIndexEntry, Issue };

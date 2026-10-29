@@ -1,3 +1,8 @@
+import { createHash } from 'node:crypto';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import zlib from 'node:zlib';
+
 export interface WeChatConfig {
   appId: string;
   appSecret: string;
@@ -130,4 +135,92 @@ export class WeChatClient {
     }
     return { mediaId: body.media_id, url: body.url ?? '' };
   }
+}
+
+
+// ---------------------------------------------------------------------------
+// Default cover
+// ---------------------------------------------------------------------------
+
+function crc32(buffer: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) {
+      crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length, 0);
+  const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body), 0);
+  return Buffer.concat([length, body, crc]);
+}
+
+/** Minimal solid-colour PNG so a draft always has a cover. */
+export function generateCoverPng(width = 900, height = 500): Buffer {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8; // bit depth
+  header[9] = 2; // truecolour
+  header[10] = 0;
+  header[11] = 0;
+  header[12] = 0;
+
+  const rowLength = 1 + width * 3;
+  const raw = Buffer.alloc(rowLength * height);
+  for (let y = 0; y < height; y++) {
+    const offset = y * rowLength;
+    raw[offset] = 0;
+    for (let x = 0; x < width; x++) {
+      const p = offset + 1 + x * 3;
+      // A soft vertical gradient reads better than a flat block.
+      const tone = 232 - Math.round((y / height) * 28);
+      raw[p] = tone;
+      raw[p + 1] = tone + 2;
+      raw[p + 2] = tone + 8;
+    }
+  }
+
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  return Buffer.concat([
+    signature,
+    pngChunk('IHDR', header),
+    pngChunk('IDAT', zlib.deflateSync(raw, { level: 9 })),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+export interface EnsureCoverOptions {
+  cacheFile: string;
+  explicit?: string;
+}
+
+/**
+ * Resolve a thumb media id: env/config first, otherwise upload a generated
+ * cover once and cache the id.
+ */
+export async function ensureCoverMediaId(
+  client: WeChatClient,
+  options: EnsureCoverOptions,
+): Promise<string> {
+  if (options.explicit) return options.explicit;
+  try {
+    const cached = JSON.parse(await readFile(options.cacheFile, 'utf8')) as { mediaId?: string };
+    if (cached.mediaId) return cached.mediaId;
+  } catch {
+    // no cache yet
+  }
+  const png = generateCoverPng();
+  const digest = createHash('sha256').update(png).digest('hex').slice(0, 12);
+  const { mediaId } = await client.addImageMaterial(png, `kiumi-cover-${digest}.png`);
+  await mkdir(path.dirname(options.cacheFile), { recursive: true });
+  await writeFile(options.cacheFile, `${JSON.stringify({ mediaId, digest }, null, 2)}\n`, 'utf8');
+  return mediaId;
 }

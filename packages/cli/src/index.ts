@@ -6,11 +6,19 @@ import {
   crawlAssets,
   crawlCatalog,
   loadCatalog,
+  crawlTagCorpus,
   probeMemberEndpoints,
   type HouseFloor,
 } from '@kiumi/catalog';
 import { summarizeIssues, validateHtml, type Issue } from '@kiumi/core';
-import { DocumentBuilder, KiumiClient, markdownToNodes } from '@kiumi/sdk';
+import {
+  DocumentBuilder,
+  FileDocumentStore,
+  KiumiClient,
+  markdownToNodes,
+  WeChatClient,
+  ensureCoverMediaId,
+} from '@kiumi/sdk';
 
 const program = new Command();
 
@@ -26,6 +34,11 @@ function dataDir(): string {
 
 function client(): KiumiClient {
   return new KiumiClient({ dataDir: dataDir() });
+}
+
+/** Alias kept for readability inside the export command. */
+function client_(): KiumiClient {
+  return client();
 }
 
 function parseSets(raw: string[] | undefined): Record<string, string> {
@@ -139,6 +152,35 @@ crawl
       console.log(`${mark}${item.url}${item.rooms !== undefined ? `  rooms=${item.rooms}` : ''}`);
     }
     console.log(`\n${ok.length} of ${results.length} endpoints reachable`);
+  });
+
+crawl
+  .command('tags')
+  .description('crawl the live tag taxonomy (标题/卡片/SVG/... full library)')
+  .option('--category <name>', 'tag category', 'paper-cp')
+  .option('--group <name...>', 'only these top-level groups, e.g. SVG')
+  .option('--page-size <n>', 'items per request', '100')
+  .option('--max-items <n>', 'stop after N unique templates (0 = all)', '0')
+  .option('--rps <n>', 'requests per second', '3')
+  .option('--cookie <cookie>', 'cookie header (or XIUMI_COOKIE)')
+  .action(async (flags) => {
+    const cookie = flags.cookie ?? process.env.XIUMI_COOKIE;
+    if (!cookie) {
+      console.error('crawl tags needs a logged-in cookie: pass --cookie or set XIUMI_COOKIE');
+      process.exitCode = 1;
+      return;
+    }
+    const report = await crawlTagCorpus({
+      dataDir: dataDir(),
+      cookie,
+      category: flags.category,
+      groups: flags.group,
+      pageSize: Number(flags.pageSize),
+      maxItems: Number(flags.maxItems) || 0,
+      rps: Number(flags.rps),
+      log: (line) => console.error(line),
+    });
+    console.log(JSON.stringify(report, null, 2));
   });
 
 crawl
@@ -378,6 +420,82 @@ program
     } else {
       process.stdout.write(`${json}\n`);
     }
+  });
+
+const wechat = program.command('wechat').description('WeChat official account helpers');
+
+wechat
+  .command('status')
+  .description('verify credentials by fetching an access token')
+  .action(async () => {
+    const client = WeChatClient.fromEnv();
+    if (!client) {
+      console.error('WECHAT_APP_ID / WECHAT_APP_SECRET are not set (see .env.example)');
+      process.exitCode = 1;
+      return;
+    }
+    try {
+      const token = await client.accessToken();
+      console.log(JSON.stringify({ configured: true, tokenLength: token.length }, null, 2));
+    } catch (error) {
+      console.error(`WECHAT_API_ERROR: ${(error as Error).message}`);
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('export [file]')
+  .description('render a document and push it to the WeChat draft box')
+  .option('--document <id>', 'use a stored document id instead of a file')
+  .option('--wechat', 'push to the draft box (required for this command)')
+  .option('--thumb <mediaId>', 'cover thumb_media_id (auto-generated when omitted)')
+  .option('--author <name>', 'article author')
+  .option('--digest <text>', 'article digest')
+  .action(async (file, flags) => {
+    const client = WeChatClient.fromEnv();
+    if (!client) {
+      console.error('WECHAT_APP_ID / WECHAT_APP_SECRET are not set');
+      process.exitCode = 1;
+      return;
+    }
+    if (!flags.wechat) {
+      console.error('add --wechat to confirm you want to create a draft');
+      process.exitCode = 1;
+      return;
+    }
+
+    const kiumi = client_();
+    let doc;
+    if (flags.document) {
+      const store = new FileDocumentStore(dataDir());
+      doc = await store.get(flags.document);
+      if (!doc) {
+        console.error(`DOCUMENT_NOT_FOUND: ${flags.document}`);
+        process.exitCode = 1;
+        return;
+      }
+    } else {
+      if (!file) {
+        console.error('export needs a document file or --document <id>');
+        process.exitCode = 1;
+        return;
+      }
+      doc = JSON.parse(await readFile(file, 'utf8'));
+    }
+
+    const rendered = await kiumi.renderDocument(doc);
+    const thumb = await ensureCoverMediaId(client, {
+      cacheFile: path.join(dataDir(), 'wechat-cover.json'),
+      explicit: flags.thumb ?? process.env.WECHAT_DEFAULT_THUMB_MEDIA_ID ?? undefined,
+    });
+    const mediaId = await client.addDraft({
+      title: doc.title ?? '未命名图文',
+      author: flags.author,
+      digest: flags.digest,
+      content: rendered.html,
+      thumbMediaId: thumb,
+    });
+    console.log(JSON.stringify({ documentId: doc.id, mediaId, bytes: rendered.bytes }, null, 2));
   });
 
 program
