@@ -86,3 +86,5 @@ curl https://<你的域名>/api/assets/coverage  # 素材本地化比例
 - **接口 500 且提示数据服务不可达**：检查隧道是否在线、VPC 服务的地址与端口是否对得上。
 
 本地优先版本没有新增依赖、密钥或数据库迁移。Vite 将 `apps/web/public/catalog-assets-sw.js` 复制到静态产物根目录，部署时需随网页一起发布；上线检查该地址返回 JavaScript、目录 ETag/304 生效。公共缓存版本与私有团队数据隔离，构建产物继续由现有流水线发布。
+
+工作台视觉/浮动编辑工具栏版本无新增运行时依赖和 D1 迁移；继续采用原构建与部署命令。发布前增加 `pnpm --filter @kiumi/web test:editor`，验证格式、撤销、元数据恢复和浮层边界。Impeccable 全局技能和本机 hooks 不需要安装到 Cloudflare 构建环境。

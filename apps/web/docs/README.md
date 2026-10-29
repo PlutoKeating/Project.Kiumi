@@ -27,3 +27,9 @@ React + Zustand。顶栏「团队与文稿」提供创建/加入/切换团队、
 模板卡片的缩略图通过本地记录生成 srcDoc，点击插入复用记录。选中内容块后点击「应用样式」，`template-style.ts` 保留语义内容并替换卡片外观，可撤销；无文字区域的模板明确提示不能应用。占位文字转换为空编辑槽，只在编辑器用 CSS 显示提示；画布粘贴插入纯文字，继承模板样式。顶栏分为信息与操作两行，窄桌面操作栏横向滚动；块操作按钮至少 32×32。
 
 运行 `pnpm --filter @kiumi/web test:e2e` 检查 Word、缓存离线读取/更新、无网络渲染、布局、样式移植、占位与粘贴。没有新增依赖；原有 `test:import` 命令继续可用。详细边界见 [本地优先说明](../../../docs/LOCAL_FIRST.md)。
+
+## 视觉系统与块工具栏
+
+`BlockToolbar.tsx` 使用 portal 跟随选中内容，支持固定、两排操作和按可用高度滚动的下拉面板。`lib/block-edit.ts` 从源 HTML 执行文本/样式/图片操作，通过 store commit 保留撤销；原生块 DOM 编辑后转为保留 ID 的 HTML 块。`ArticleSettings.tsx` 管理封面、摘要、作者、标签；公众号草稿默认采用头部封面。
+
+`Modal.tsx` 统一导入、团队、公众号和预览的 portal、焦点循环、Escape 与焦点恢复；具体业务保留 busy 关闭约束。界面 tokens 在 `styles.css`，正文不继承界面主题。规范见 [DESIGN.md](../DESIGN.md)，功能和平台限制见 [编辑工作台](../../../docs/EDITOR_DESIGN.md)。运行 `pnpm --filter @kiumi/web test:editor` 验证新增交互；全量仍用 `test:e2e`。没有新增运行时依赖或构建环境变量。

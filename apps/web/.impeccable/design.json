@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-29T17:14:41.242557+00:00",
+  "title": "Design System: Kiumi",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "鼠尾草",
+        "tonalRamp": [
+          "oklch(15% 0.0150 160)",
+          "oklch(25% 0.0300 160)",
+          "oklch(35% 0.0480 160)",
+          "oklch(47% 0.0600 160)",
+          "oklch(60% 0.0600 160)",
+          "oklch(73% 0.0480 160)",
+          "oklch(85% 0.0300 160)",
+          "oklch(95% 0.0120 160)"
+        ]
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "焦点绿",
+        "tonalRamp": [
+          "oklch(15% 0.0125 160)",
+          "oklch(25% 0.0250 160)",
+          "oklch(35% 0.0400 160)",
+          "oklch(47% 0.0500 160)",
+          "oklch(60% 0.0500 160)",
+          "oklch(73% 0.0400 160)",
+          "oklch(85% 0.0250 160)",
+          "oklch(95% 0.0100 160)"
+        ]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "工作区底色",
+        "tonalRamp": [
+          "oklch(15% 0.0037 145)",
+          "oklch(25% 0.0075 145)",
+          "oklch(35% 0.0120 145)",
+          "oklch(47% 0.0150 145)",
+          "oklch(60% 0.0150 145)",
+          "oklch(73% 0.0120 145)",
+          "oklch(85% 0.0075 145)",
+          "oklch(95% 0.0030 145)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "深墨",
+        "tonalRamp": [
+          "oklch(15% 0.0063 170)",
+          "oklch(25% 0.0125 170)",
+          "oklch(35% 0.0200 170)",
+          "oklch(47% 0.0250 170)",
+          "oklch(60% 0.0250 170)",
+          "oklch(73% 0.0200 170)",
+          "oklch(85% 0.0125 170)",
+          "oklch(95% 0.0050 170)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "次级文字",
+        "tonalRamp": [
+          "oklch(15% 0.0063 160)",
+          "oklch(25% 0.0125 160)",
+          "oklch(35% 0.0200 160)",
+          "oklch(47% 0.0250 160)",
+          "oklch(60% 0.0250 160)",
+          "oklch(73% 0.0200 160)",
+          "oklch(85% 0.0125 160)",
+          "oklch(95% 0.0050 160)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "柔和边框",
+        "tonalRamp": [
+          "oklch(15% 0.0050 150)",
+          "oklch(25% 0.0100 150)",
+          "oklch(35% 0.0160 150)",
+          "oklch(47% 0.0200 150)",
+          "oklch(60% 0.0200 150)",
+          "oklch(73% 0.0160 150)",
+          "oklch(85% 0.0100 150)",
+          "oklch(95% 0.0040 150)"
+        ]
+      },
+      "mist": {
+        "role": "neutral",
+        "displayName": "浅雾",
+        "tonalRamp": [
+          "oklch(15% 0.0037 145)",
+          "oklch(25% 0.0075 145)",
+          "oklch(35% 0.0120 145)",
+          "oklch(47% 0.0150 145)",
+          "oklch(60% 0.0150 145)",
+          "oklch(73% 0.0120 145)",
+          "oklch(85% 0.0075 145)",
+          "oklch(95% 0.0030 145)"
+        ]
+      },
+      "lavender": {
+        "role": "secondary",
+        "displayName": "薰衣草",
+        "tonalRamp": [
+          "oklch(15% 0.0088 305)",
+          "oklch(25% 0.0175 305)",
+          "oklch(35% 0.0280 305)",
+          "oklch(47% 0.0350 305)",
+          "oklch(60% 0.0350 305)",
+          "oklch(73% 0.0280 305)",
+          "oklch(85% 0.0175 305)",
+          "oklch(95% 0.0070 305)"
+        ]
+      },
+      "peach": {
+        "role": "secondary",
+        "displayName": "蜜桃",
+        "tonalRamp": [
+          "oklch(15% 0.0088 55)",
+          "oklch(25% 0.0175 55)",
+          "oklch(35% 0.0280 55)",
+          "oklch(47% 0.0350 55)",
+          "oklch(60% 0.0350 55)",
+          "oklch(73% 0.0280 55)",
+          "oklch(85% 0.0175 55)",
+          "oklch(95% 0.0070 55)"
+        ]
+      },
+      "sage": {
+        "role": "secondary",
+        "displayName": "浅鼠尾草",
+        "tonalRamp": [
+          "oklch(15% 0.0063 150)",
+          "oklch(25% 0.0125 150)",
+          "oklch(35% 0.0200 150)",
+          "oklch(47% 0.0250 150)",
+          "oklch(60% 0.0250 150)",
+          "oklch(73% 0.0200 150)",
+          "oklch(85% 0.0125 150)",
+          "oklch(95% 0.0050 150)"
+        ]
+      },
+      "glass": {
+        "role": "neutral",
+        "displayName": "玻璃表面",
+        "tonalRamp": [
+          "oklch(15% 0.0030 130)",
+          "oklch(25% 0.0060 130)",
+          "oklch(35% 0.0096 130)",
+          "oklch(47% 0.0120 130)",
+          "oklch(60% 0.0120 130)",
+          "oklch(73% 0.0096 130)",
+          "oklch(85% 0.0060 130)",
+          "oklch(95% 0.0024 130)"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "纸张白",
+        "tonalRamp": [
+          "oklch(15% 0.0000 0)",
+          "oklch(25% 0.0000 0)",
+          "oklch(35% 0.0000 0)",
+          "oklch(47% 0.0000 0)",
+          "oklch(60% 0.0000 0)",
+          "oklch(73% 0.0000 0)",
+          "oklch(85% 0.0000 0)",
+          "oklch(95% 0.0000 0)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "弹窗标题",
+        "purpose": "主要弹窗标题"
+      },
+      "field": {
+        "displayName": "字段文字",
+        "purpose": "摘要等表单内容"
+      },
+      "label": {
+        "displayName": "辅助标签",
+        "purpose": "紧凑字段与导航标签"
+      }
+    },
+    "shadows": [
+      {
+        "name": "float",
+        "value": "0 12px 36px -10px rgba(44, 65, 56, .23)",
+        "purpose": "工具栏与菜单"
+      },
+      {
+        "name": "modal",
+        "value": "0 30px 100px -25px rgba(37, 60, 50, .28)",
+        "purpose": "模态窗口"
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": "150ms ease",
+        "purpose": "背景色、边框色、阴影过渡；减少动态效果时关闭 CSS 动画与过渡"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-desktop",
+        "value": "1250px"
+      },
+      {
+        "name": "medium-desktop",
+        "value": "1440px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "主要操作",
+      "kind": "button",
+      "description": "顶栏主要操作，样例展示视觉状态。",
+      "html": "<button class=\"ds-primary\">复制到公众号</button>",
+      "css": ".ds-primary{background:var(--color-accent-500,#426c5f);color:#fff;border:0;border-radius:8px;min-height:34px;padding:6px 12px;font:13px system-ui;cursor:pointer;transition:background-color 150ms ease}.ds-primary:hover{background:var(--color-accent-400,#64867b)}.ds-primary:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}",
+      "refersTo": "button-primary"
+    },
+    {
+      "name": "工具栏按钮",
+      "kind": "button",
+      "description": "按下状态与悬停状态区分。",
+      "html": "<button class=\"ds-tool\" aria-pressed=\"true\"><b>B</b></button>",
+      "css": ".ds-tool{border:0;border-radius:7px;min-width:32px;min-height:32px;padding:5px 8px;background:transparent;color:#354c40;cursor:pointer}.ds-tool:hover{background:#e9eee6}.ds-tool[aria-pressed=\"true\"]{background:#dce9dd;color:#2a513a}.ds-tool:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}"
+    },
+    {
+      "name": "摘要字段",
+      "kind": "input",
+      "description": "图文设置中的带标签摘要输入。",
+      "html": "<label class=\"ds-field\">分享摘要<textarea rows=\"2\" placeholder=\"用一句话介绍这篇文章…\"></textarea></label>",
+      "css": ".ds-field{display:grid;gap:5px;font:11px system-ui;color:#5c6a60}.ds-field textarea{background:#f8f9f5;border:1px solid #e2e7dc;border-radius:8px;padding:8px 10px;color:#35433a;font:13px/1.6 system-ui;resize:vertical}.ds-field textarea::placeholder{color:#738072}.ds-field textarea:hover{border-color:var(--color-accent-400,#64867b)}.ds-field textarea:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}",
+      "refersTo": "field"
+    },
+    {
+      "name": "侧栏导航",
+      "kind": "nav",
+      "description": "导航示例省略图标，保留文字及当前项状态。",
+      "html": "<nav class=\"ds-nav\"><button aria-current=\"page\">模板</button><button>素材</button></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 0;background:#e5ede7;width:76px}.ds-nav button{width:64px;min-height:54px;border:0;border-radius:8px;background:transparent;color:#526b5b;font:11px system-ui;cursor:pointer}.ds-nav button:hover{background:#dbe5dd;color:#2e4f40}.ds-nav button[aria-current]{background:#fffaf4;color:#345445;box-shadow:0 4px 12px -7px #456351}.ds-nav button:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}"
+    },
+    {
+      "name": "模板筛选",
+      "kind": "chip",
+      "description": "紧凑文字筛选按钮。",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"true\">全部</button>",
+      "css": ".ds-chip{border:0;border-radius:4px;padding:2px 6px;font:11px system-ui;color:var(--color-ink-600,#536760);background:transparent;cursor:pointer}.ds-chip[aria-pressed=\"true\"]{background:rgb(66 108 95 / 10%);color:var(--color-accent-500,#426c5f)}.ds-chip:hover{color:var(--color-ink-900,#293b38)}.ds-chip:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}"
+    },
+    {
+      "name": "模板卡片",
+      "kind": "card",
+      "description": "预览区为示意文字；实际模板使用独立 iframe。",
+      "html": "<div class=\"ds-card\" role=\"button\" tabindex=\"0\"><div class=\"ds-preview\">模板预览</div><div class=\"ds-caption\">模板名称</div><button class=\"ds-apply\">应用样式</button></div>",
+      "css": ".ds-card{display:flex;flex-direction:column;height:204px;width:160px;background:#fff;border:1px solid #e0e8df;border-radius:12px;overflow:hidden;cursor:pointer}.ds-card:hover{border-color:var(--color-accent-400,#64867b);box-shadow:0 1px 3px #0000001a}.ds-card:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}.ds-preview{height:132px;flex-shrink:0;background:var(--color-mist-50,#f8faf8);display:grid;place-items:center;color:#536760;font:12px system-ui}.ds-caption{height:32px;padding:0 8px;font:11px/32px system-ui;color:#536760}.ds-apply{align-self:flex-end;min-height:32px;margin:0 8px 8px;padding:0 8px;border:1px solid #dce5df;border-radius:4px;background:#fff;color:var(--color-accent-500,#426c5f);font:11px system-ui}.ds-apply:hover{background:var(--color-mist-100,#eef3ef)}.ds-apply:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}"
+    },
+    {
+      "name": "磨砂工具栏",
+      "kind": "custom",
+      "description": "展示材料和按钮状态；默认跟随、可固定。收藏完整块内容与样式后可从图文收藏复用；实际交互依赖 React 组件。",
+      "html": "<div class=\"ds-toolbar\" role=\"toolbar\" aria-label=\"内容块工具栏\"><button>复制</button><button>插入空行</button><button aria-pressed=\"true\"><b>B</b></button></div>",
+      "css": ".ds-toolbar{display:flex;gap:2px;padding:6px;border-radius:14px;background:rgba(250,252,248,.94);backdrop-filter:blur(20px) saturate(120%);box-shadow:var(--shadow-float,0 12px 36px -10px rgba(44,65,56,.23));color:#354c40}.ds-toolbar button{border:0;border-radius:7px;min-width:32px;min-height:32px;padding:5px 8px;background:transparent;font:12px system-ui;color:inherit;cursor:pointer}.ds-toolbar button:hover{background:#e9eee6}.ds-toolbar button[aria-pressed=\"true\"]{background:#dce9dd;color:#2a513a}.ds-toolbar button:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}",
+      "refersTo": "toolbar"
+    }
+  ],
+  "narrative": {
+    "northStar": "明亮的磨砂编辑台",
+    "overview": "以用户确认的优雅、清爽、对齐、整洁为准：浅色工作区承载低饱和马卡龙分区，磨砂浮层提供操作层次。保持桌面编辑器的紧凑信息密度，用柔和底色、留白与清楚的状态降低视觉压力。\n\n本文记录现有实现。界面字体、配色和圆角服务于编辑器外壳；文章正文、模板与导出内容保留各自排版。以 `src/styles.css` 的主题 tokens、工作台规则及组件源码为准。",
+    "keyCharacteristics": [
+      "明亮底色与低饱和鼠尾草、薰衣草、蜜桃点缀。",
+      "半透明浮层、柔和阴影和清楚的键盘焦点。",
+      "桌面多栏布局，正文与编辑器外壳隔离。"
+    ],
+    "rules": [
+      {
+        "name": "正文隔离",
+        "body": "界面主题不得覆盖文章 HTML 的文字、背景和模板样式，也不得进入导出正文。",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "**Do** 复用浅色表面、鼠尾草强调色和现有圆角层级。",
+      "**Do** 为控件保留可见标签、焦点和明确的禁用状态。",
+      "**Do** 保持默认跟随、可固定的工具栏行为。"
+    ],
+    "donts": [
+      "**Don't** 将工作台主题写入文章正文或导出 HTML。",
+      "**Don't** 将旧蓝色主题重新引入当前工作台。",
+      "**Don't** 将桌面工作台擅自改为移动端编辑器。"
+    ]
+  }
+}

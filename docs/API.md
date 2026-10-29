@@ -214,3 +214,7 @@ DOCX/图片 ZIP 在浏览器解析，不新增 Word 转换 API，也不上传原
 - `GET /api/template?id=...&localAssets=true` 返回镜像素材地址的 HTML；不传参数保留原契约。缩略图和插入共用此记录。
 - 编辑模式 `/api/render` 的 `localAssets:true` 接受内部 `/assets/`、`/uploads/` 地址；普通相对图片地址仍报错。复制/导出依旧生成绝对和签名链接。
 - 图片上传按「团队 + 图片 SHA-256」生成稳定 ID，同一团队重复提交相同字节复用记录（保留第一次文件名）；不同团队不会共享资源权限，旧 UUID 图片继续可读。存储连接失败返回 503 `UPLOAD_UNAVAILABLE`，图库登记失败返回 503 `UPLOAD_INDEX_UNAVAILABLE`，上游拒绝写入返回 502 `UPLOAD_FAILED`。不需要数据库迁移。
+
+## 图文设置元数据
+
+现有团队文稿 create/PATCH 的 `meta` 可保存可选 `cover: string`（上传返回的封面地址）、`tags: string[]`，并继续使用 `author`、`digest`。不新增接口或迁移。公众号草稿调用仍通过现有独立 `cover` 字段传封面，UI 默认从文稿 meta 读取；标签不传给公众号。编辑工具栏保存普通 HTML/CSS 块，服务端继续使用原有清理、签名和校验流程。
