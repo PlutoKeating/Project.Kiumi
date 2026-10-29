@@ -64,7 +64,8 @@ docker compose down
 ```bash
 pnpm kiumi crawl assets --source all --concurrency 2 --rps 2   # 可反复续跑
 curl -s localhost:8787/api/assets/coverage                      # 覆盖率与缺失清单
-KIUMI_STRICT_ASSETS=1 pnpm serve                                # 严格模式
+pnpm serve                                                      # 默认严格模式（不回源）
+KIUMI_STRICT_ASSETS=0 pnpm serve                                # 镜像未齐时允许回源
 ```
 
 严格模式下一个远端 URL 都不会出现：未镜像的素材会被替换成本地占位图，

@@ -76,7 +76,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     return manifestCache;
   };
 
-  const strictAssets = process.env.KIUMI_STRICT_ASSETS === '1';
+  // Product rule: the app never reaches the upstream CDN at runtime. Anything
+  // not mirrored is replaced by a local placeholder and reported. Set
+  // KIUMI_STRICT_ASSETS=0 to allow the remote fallback while mirroring.
+  const strictAssets = process.env.KIUMI_STRICT_ASSETS !== '0';
 
   const app = Fastify({ logger: options.logger ?? false, bodyLimit: 32 * 1024 * 1024 });
 
