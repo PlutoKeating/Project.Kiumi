@@ -64,15 +64,16 @@
 
 - [x] `model` / `dsl` / `style` / `pack` / `hydrate` / `blocks` / `validate`
 - [x] 全库 3,927 条压测：0 崩溃；`paper-cp` 3,228 条 0 校验错误，字节量为上游 85%
+- [x] SVG 贴纸内联为 `<svg>`（与上游一致），保证换色与动效可用
 - [x] `booklet-pg` 553 条标记为 H5 整页、不参与正文渲染（见逆向报告 6.1）
 - [x] 6 个单测（水合、嵌套展开、确定性、校验规则、原生块、真实样本）
 
-### M4 · CLI + SDK + MCP — ✅ 完成（Markdown 导入待补）
+### M4 · CLI + SDK + MCP — ✅ 完成
 
 - [x] `kiumi crawl|stats|list|show|render|fill|validate`
 - [x] `@kiumi/sdk` 统一门面 + 文件文档仓库
 - [x] MCP 13 个工具，stdio 冒烟测试通过
-- [ ] `kiumi md`（Markdown → 块模型），待接线
+- [x] `kiumi md`（Markdown → 文档 JSON），零依赖解析标题/列表/引用/代码/图片
 
 ### M5 · 服务端 — ✅ 完成
 
