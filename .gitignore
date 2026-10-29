@@ -14,6 +14,8 @@ data/catalog/assets-manifest.json
 # 21k modern payloads stay on disk; the committed index describes them
 data/catalog/modern/
 data/documents/
+# account-specific media id cache
+data/wechat-cover.json
 data/kiumi.db
 data/kiumi.db-*
 
