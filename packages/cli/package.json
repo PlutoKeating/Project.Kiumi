@@ -1,0 +1,25 @@
+{
+  "name": "@kiumi/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "kiumi command line",
+  "bin": {
+    "kiumi": "./src/index.ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@kiumi/catalog": "workspace:*",
+    "@kiumi/core": "workspace:*",
+    "@kiumi/sdk": "workspace:*",
+    "commander": "^15.0.0"
+  }
+}

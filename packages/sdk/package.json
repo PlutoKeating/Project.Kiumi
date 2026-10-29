@@ -1,0 +1,20 @@
+{
+  "name": "@kiumi/sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Unified facade over catalog, documents and rendering",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@kiumi/catalog": "workspace:*",
+    "@kiumi/core": "workspace:*"
+  }
+}
