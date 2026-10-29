@@ -88,7 +88,7 @@ export function Inspector() {
                 <SlotEditor
                   key={`${slot.path}-${index}`}
                   slot={slot}
-                  onCommit={(value) => updateSlot(selected!, slot.path, value)}
+                  onCommit={(value) => updateSlot(selected!, slot.path, value, slot.compIndex)}
                 />
               ))}
               {slots.length === 0 && (
@@ -162,9 +162,7 @@ function SlotEditor({ slot, onCommit }: { slot: SlotInfo; onCommit: (value: stri
   return (
     <label className="block">
       <span className="text-[11px] text-ink-600/60 flex items-center gap-1">
-        <span className="px-1 py-0.5 rounded bg-mist-100 text-[10px] text-ink-600">
-          {slot.slot} · #{slot.tplId.split('#')[1] ?? '0'}
-        </span>
+        <span className="px-1 py-0.5 rounded bg-mist-100 text-[10px] text-ink-600">{slot.label}</span>
         {slot.prop === 'text' ? '文字' : '图片'}
       </span>
       {slot.prop === 'text' ? (

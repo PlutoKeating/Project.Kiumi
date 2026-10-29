@@ -5,7 +5,10 @@ export interface SlotInfo {
   prop: 'text' | 'src';
   type: string;
   value: string;
-  /** Component that owns the slot. */
+  /** Stable DFS index of the owning component. */
+  compIndex: number;
+  /** `tplId#compIndex`, shown in the inspector. */
+  label: string;
   tplId: string;
 }
 
@@ -44,17 +47,20 @@ export function listSlots(matrix: unknown): SlotInfo[] {
   let order = 0;
   walk(matrix, (comp) => {
     const tplId = comp._comp?.tplId ?? '';
+    const compIndex = order++;
     for (const [slot, cell] of Object.entries(comp)) {
       if (slot === '_comp' || !isRecord(cell)) continue;
       const type = String(cell.type ?? '');
       if (type === 'text') {
         out.push({
-          path: `${slot}`,
+          path: slot,
           slot,
           prop: 'text',
           type,
           value: String(cell.text ?? ''),
-          tplId: `${tplId}#${order}`,
+          compIndex,
+          label: `${slot} · #${compIndex}`,
+          tplId,
         });
       } else if (type === 'image' || type === 'crop-image') {
         out.push({
@@ -63,11 +69,12 @@ export function listSlots(matrix: unknown): SlotInfo[] {
           prop: 'src',
           type,
           value: String(cell.src ?? ''),
-          tplId: `${tplId}#${order}`,
+          compIndex,
+          label: `${slot} · #${compIndex}`,
+          tplId,
         });
       }
     }
-    order++;
   });
   return out;
 }
@@ -77,15 +84,19 @@ export function patchSlot(
   matrix: unknown,
   path: string,
   value: string,
+  compIndex?: number,
 ): unknown {
   const clone = structuredClone(matrix) as unknown;
   const dot = path.indexOf('.');
   const slot = dot > 0 ? path.slice(0, dot) : path;
   const prop = dot > 0 ? path.slice(dot + 1) : 'text';
 
+  let order = 0;
   let applied = false;
   walk(clone, (comp) => {
+    const index = order++;
     if (applied) return;
+    if (compIndex !== undefined && index !== compIndex) return;
     const cell = comp[slot];
     if (!isRecord(cell)) return;
     cell[prop] = value;

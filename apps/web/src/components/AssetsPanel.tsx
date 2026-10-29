@@ -46,11 +46,16 @@ export function AssetsPanel() {
       </div>
       <div className="flex-1 overflow-y-auto px-3 pb-4 grid grid-cols-3 gap-2 content-start">
         {items.map((item) => (
-          <button
+          <div
             key={item.url}
+            role="button"
+            tabIndex={0}
             onClick={() => addImageBlock(item.url)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') addImageBlock(item.url);
+            }}
             title={item.url}
-            className="aspect-square rounded border border-white/10 bg-white/5 overflow-hidden hover:border-accent-400"
+            className="h-[100px] rounded border border-white/10 bg-white/5 overflow-hidden hover:border-accent-400 cursor-pointer"
           >
             <img
               src={`/assets/${item.path}`}
@@ -58,7 +63,7 @@ export function AssetsPanel() {
               loading="lazy"
               className="w-full h-full object-cover"
             />
-          </button>
+          </div>
         ))}
         {!loading && items.length === 0 && (
           <p className="col-span-3 text-[12px] text-mist-200/40 py-6 text-center">

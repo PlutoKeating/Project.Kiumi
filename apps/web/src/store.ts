@@ -86,7 +86,7 @@ interface State {
   addNative: (kind: api.NativeNode['kind']) => void;
   select: (index: number | null) => void;
   setTitle: (title: string) => void;
-  updateSlot: (index: number, path: string, value: string) => void;
+  updateSlot: (index: number, path: string, value: string, compIndex?: number) => void;
   updateNative: (index: number, patch: Partial<api.NativeNode>) => void;
   addImageBlock: (src: string) => void;
   removeBlock: (index: number) => void;
@@ -200,11 +200,11 @@ export const useStore = create<State>((set, get) => ({
     set({ doc: { ...get().doc, title } });
   },
 
-  updateSlot(index, path, value) {
+  updateSlot(index, path, value, compIndex) {
     const doc = get().doc;
     const block = doc.blocks[index];
     if (!block || block.kind !== 'library') return;
-    const matrix = patchSlot(block.matrix, path, value);
+    const matrix = patchSlot(block.matrix, path, value, compIndex);
     const blocks = [...doc.blocks];
     blocks[index] = { ...block, matrix };
     set({ doc: { ...doc, blocks } });
