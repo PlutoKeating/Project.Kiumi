@@ -281,10 +281,10 @@ export function App() {
             {session.user ? (
               <>
                 <span className="w-6 h-6 rounded-full bg-ink-900 text-white grid place-items-center text-[11px]">
-                  {(session.user.name ?? session.user.sub).slice(0, 1).toUpperCase()}
+                  {userLabel(session.user).slice(0, 1).toUpperCase()}
                 </span>
-                <span className="text-[12px] text-ink-600 max-w-[120px] truncate">
-                  {session.user.name ?? session.user.sub}
+                <span className="text-[12px] text-ink-600 max-w-[140px] truncate">
+                  {userLabel(session.user)}
                 </span>
                 <a href="/auth/logout" className="text-[12px] text-ink-600/60 hover:text-ink-900">
                   退出
@@ -359,6 +359,12 @@ export function App() {
       )}
     </div>
   );
+}
+
+function userLabel(user: { sub: string; name?: string; email?: string }): string {
+  if (user.name && user.name !== user.sub) return user.name;
+  if (user.email) return user.email;
+  return '已登录';
 }
 
 function escapeHtml(text: string): string {
