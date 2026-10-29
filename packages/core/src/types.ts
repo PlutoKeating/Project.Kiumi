@@ -76,10 +76,12 @@ export interface TemplateRecord {
   displayName: string;
   room: string;
   category?: string;
+  /** Upstream lifecycle flag only. This project never gates content by tier. */
   accessibility: 'Public' | 'Obsolete' | string;
   visibility?: string;
   creatorId?: number;
   version?: number;
+  /** Kept for provenance; not used to hide anything (all resources are open). */
   level?: string;
   featureRequires?: string[];
   orderNum?: number;

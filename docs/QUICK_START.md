@@ -37,7 +37,7 @@ pnpm kiumi crawl assets --limit 50     # 先试 50 个
 pnpm kiumi crawl assets                # 全量（约 300 MB）
 ```
 
-会员库（可选，需要你的登录 Cookie）：
+线上完整库（可选，需要你的登录 Cookie）：
 
 ```bash
 # 1) 先探测这把 Cookie 能读到哪些端点
@@ -48,7 +48,7 @@ XIUMI_COOKIE='<cookie 头>' pnpm kiumi crawl templates
 ```
 
 `probe` 会逐个打 49 个候选端点并打印状态码；公开的 4 个总是 200
-（`paper/comp`、`paper/page`、`booklet/comp`、`booklet/page`），会员端点需要有效 Cookie。
+（`paper/comp`、`paper/page`、`booklet/comp`、`booklet/page`），需登录端点需要有效 Cookie。
 
 Cookie 只从环境变量或 `--cookie` 读取，不写盘、不进日志。
 
@@ -159,4 +159,4 @@ data/
 
 **`SLOT_NOT_FOUND`** — 上游数据里该模板的 matrix 带了骨架不认识的 slot（多为历史版本差异），该 slot 会被跳过。
 
-**抓取报 `Auth:Failed_NotLogin`** — 说明访问到了会员库接口；需要设置 `XIUMI_COOKIE`，或忽略（公开库已足够）。
+**抓取报 `Auth:Failed_NotLogin`** — 说明访问到了线上完整库接口；需要设置 `XIUMI_COOKIE`，或忽略（公开库已足够）。

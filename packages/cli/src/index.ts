@@ -87,7 +87,7 @@ interface CrawlFlags {
   concurrency?: string;
   limit?: string;
   cookie?: string;
-  publicOnly?: boolean;
+  skipObsolete?: boolean;
   noSkeletons?: boolean;
   assets?: boolean;
 }
@@ -98,7 +98,7 @@ function crawlOptions(flags: CrawlFlags) {
     dataDir: dataDir(),
     rps: flags.rps ? Number(flags.rps) : 3,
     cookie: cookie || undefined,
-    includeObsolete: !flags.publicOnly,
+    includeObsolete: !flags.skipObsolete,
     fetchMissingSkeletons: !flags.noSkeletons,
     log: (line: string) => console.error(line),
   };
@@ -109,7 +109,7 @@ crawl
   .description('fetch the catalog (rooms, items, skeletons)')
   .option('--rps <n>', 'requests per second')
   .option('--cookie <cookie>', 'cookie header for member-only houses (or XIUMI_COOKIE)')
-  .option('--public-only', 'skip entries marked Obsolete')
+  .option('--skip-obsolete', 'skip entries the upstream marks as Obsolete')
   .option('--no-skeletons', 'do not fill missing skeletons from the CDN')
   .option('--house <house>', 'restrict to one house')
   .action(async (flags) => {
@@ -189,11 +189,13 @@ crawl
   .option('--concurrency <n>', 'parallel downloads', '4')
   .option('--rps <n>', 'requests per second')
   .option('--limit <n>', 'stop after N assets (0 = all)')
+  .option('--source <kind>', 'all | legacy | modern', 'all')
   .action(async (flags) => {
     const result = await crawlAssets({
       dataDir: dataDir(),
       concurrency: Number(flags.concurrency ?? 4),
       rps: flags.rps ? Number(flags.rps) : 4,
+      source: flags.source,
       limit: flags.limit ? Number(flags.limit) : 0,
       cookie: process.env.XIUMI_COOKIE || undefined,
       log: (line) => console.error(line),
@@ -208,7 +210,7 @@ crawl
   .option('--concurrency <n>', 'parallel asset downloads', '4')
   .option('--limit <n>', 'stop after N assets (0 = all)')
   .option('--cookie <cookie>', 'cookie header (or XIUMI_COOKIE)')
-  .option('--public-only', 'skip entries marked Obsolete')
+  .option('--skip-obsolete', 'skip entries the upstream marks as Obsolete')
   .option('--no-skeletons', 'do not fill missing skeletons from the CDN')
   .action(async (flags) => {
     const report = await crawlCatalog(crawlOptions(flags));

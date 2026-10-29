@@ -218,6 +218,8 @@ export interface CrawlAssetsOptions {
   rps?: number;
   limit?: number;
   cookie?: string;
+  /** Which catalogs to collect assets from. */
+  source?: 'all' | 'legacy' | 'modern';
   log?: (line: string) => void;
 }
 
@@ -266,25 +268,53 @@ export async function probeMemberEndpoints(options: {
   return out;
 }
 
-export async function crawlAssets(options: CrawlAssetsOptions): Promise<{
+export interface AssetCrawlReport {
   total: number;
+  mirrored: number;
+  coverage: number;
   downloaded: number;
   skipped: number;
   failed: number;
-}> {
-  const paths = catalogPaths(options.dataDir);
-  const index = await readJson<TemplateIndexEntry[]>(paths.index);
-  if (!index) throw new Error('catalog not found; run "kiumi crawl templates" first');
+  missing: string[];
+}
 
+export async function crawlAssets(options: CrawlAssetsOptions): Promise<AssetCrawlReport> {
+  const paths = catalogPaths(options.dataDir);
+  const source = options.source ?? 'all';
   const records: TemplateRecord[] = [];
-  for (const entry of index) {
-    const record = await readJson<TemplateRecord>(
-      path.join(paths.templates, `${slugOf(entry.atomTplId)}.json`),
-    );
-    if (record) records.push(record);
+
+  if (source !== 'modern') {
+    const index = await readJson<TemplateIndexEntry[]>(paths.index);
+    if (index) {
+      for (const entry of index) {
+        const record = await readJson<TemplateRecord>(
+          path.join(paths.templates, `${slugOf(entry.atomTplId)}.json`),
+        );
+        if (record) records.push(record);
+      }
+    }
   }
 
-  const urls = collectUrls(records).slice(0, options.limit && options.limit > 0 ? options.limit : undefined);
+  if (source !== 'legacy') {
+    const modernIndex = await readJson<Record<string, unknown>[]>(
+      path.join(paths.catalog, 'modern-index.json'),
+    );
+    for (const entry of modernIndex ?? []) {
+      const id = String(entry.atomTplId ?? '');
+      if (!id) continue;
+      const file = `${slugOf(id)}.json`;
+      const record =
+        (await readJson<TemplateRecord>(path.join(paths.catalog, 'modern', file))) ??
+        (await readJson<TemplateRecord>(path.join(paths.catalog, 'svg-anim', file)));
+      if (record) records.push(record);
+    }
+  }
+
+  if (!records.length) throw new Error('no catalog records found; run "kiumi crawl templates" first');
+
+  const allUrls = collectUrls(records);
+  await writeJson(path.join(paths.catalog, 'assets-required.json'), allUrls, false);
+  const urls = allUrls.slice(0, options.limit && options.limit > 0 ? options.limit : undefined);
   const rawExisting = (await readJson<AssetManifest>(paths.assetsManifest)) ?? {};
   // Collapse http/https variants (and their redirect cost) into one key.
   const existing: AssetManifest = {};
@@ -296,8 +326,8 @@ export async function crawlAssets(options: CrawlAssetsOptions): Promise<{
     rps: options.rps ?? 4,
     existing,
     cookie: options.cookie,
-    breakerThreshold: 12,
-    breakerCooldownMs: 45_000,
+    breakerThreshold: 8,
+    breakerCooldownMs: 60_000,
     onProgress: (done, total, _url, snapshot) => {
       if (done % 25 === 0 || done === total) options.log?.(`assets ${done}/${total}`);
       // Flush periodically so an interrupted mirror still leaves a usable manifest.
@@ -310,10 +340,18 @@ export async function crawlAssets(options: CrawlAssetsOptions): Promise<{
     },
   });
   await writeJson(paths.assetsManifest, result.manifest);
+  // Coverage: every referenced asset should have a mirrored file, so the app
+  // never needs to reach the xiumi CDN at runtime.
+  const mirrored = new Set(Object.keys(result.manifest));
+  const missing = urls.filter((url) => !mirrored.has(url));
+  const coverage = urls.length ? (urls.length - missing.length) / urls.length : 1;
   return {
     total: urls.length,
+    mirrored: urls.length - missing.length,
+    coverage: Number(coverage.toFixed(4)),
     downloaded: result.downloaded,
     skipped: result.skipped,
     failed: result.failed.length,
+    missing: missing.slice(0, 50),
   };
 }

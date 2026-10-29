@@ -143,9 +143,9 @@ GET /api/templates/items?atom_tpl_id=<id>[&atom_tpl_id=...]
 | `GET /api/fragments/v5/{a}/{b}/tags` | 片段/模板标签 | 401 `Auth:Failed_NotLogin` |
 | `GET /api/templates/items?atom_tpl_id=…` | 模板条目详情 | 可用 |
 | `POST /api/assets/image/svgContent` | SVG 上传/托管 | 401 |
-| `GET /api/templates/{house}/{floor}/rooms`（会员 house） | 会员库 | 400 InvalidParam |
+| `GET /api/templates/{house}/{floor}/rooms`（登录可见的 house） | 线上完整库 | 400 InvalidParam |
 
-截图 SVG 菜单的 28 类动效（点击展开 / 路径动画 / 转场 / 抽签 …）属于会员侧，
+截图 SVG 菜单的 28 类动效（点击展开 / 路径动画 / 转场 / 抽签 …）属于登录后可见，
 公开库中的 `paper-cp:SVG` 仅为「可换色矢量贴纸」。抓取策略见 `docs/DEVELOPMENT_PLAN.md` 的 M2。
 
 ## 3. 块模型（`matrix`）
@@ -217,7 +217,7 @@ interface Cell {
 | 模板结构与成品 HTML | ✅ 双投影齐全，可做保真渲染 |
 | 素材镜像 | ✅ 公开 CDN |
 | 编辑器交互复刻 | ⚠️ 需自建；无开源先例可抄 |
-| 高级 SVG 动效 | ⚠️ 会员侧，需 Cookie；动效语义需自研 DSL |
+| 高级 SVG 动效 | ⚠️ 登录后可见，需 Cookie；动效语义需自研 DSL |
 | 微信草稿箱同步 | ⚠️ 需公众号 AppID/AppSecret 与 IP 白名单 |
 | 账号/团队/评论 | ⚠️ 需自建 |
 

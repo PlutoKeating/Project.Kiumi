@@ -11,7 +11,7 @@
 
 | # | 决策 | 选择 |
 |---|---|---|
-| D-01 | 抓取范围 | **全量镜像含归档**，并**加登录态抓会员库**：能拿到的全部下载存档 |
+| D-01 | 抓取范围 | **全量镜像含归档**，并**加登录态抓线上完整库**：能拿到的全部下载存档 |
 | D-02 | 技术栈 | **TypeScript Monorepo**（pnpm workspaces） |
 | D-03 | 产品边界 | **内容生产闭环 + 微信直连**（草稿箱同步） |
 | D-04 | 前端口径 | **功能复刻，自有视觉**（不抄像素，交互对等） |
@@ -33,6 +33,7 @@
 | D-15 | 字体 | 秀米的 `tnYzkFontUsageId`（有字库 webfont）在微信不可用；默认降级系统字体，提供可选「文字转图」开关 |
 | D-16 | 编辑器交互 | **点击插入为主**（对齐秀米心智），拖拽用于排序与跨容器移动 |
 | D-17 | H5/booklet 范围 | 本期只做图文（`paper`）；`booklet` 仅抓取存档，编辑器不支持翻页稿 |
+| D-19 | 内容分级 | **不做 VIP/分级，所有功能与资源全部开放**；上游的 `accessibility`/`level` 只作来源标注，不参与任何门禁 |
 | D-18 | 抓取合规 | 限速 2 req/s、指数退避、保留 `source/fetched_at/creator_id` 来源标注、不提供公开再分发端点 |
 
 ---
@@ -54,7 +55,7 @@
 - [x] 素材清单 + 镜像（限速/重试/哈希/可续跑）
 - [x] 实测结果：**3,927 模板 / 43 分类 / 1,360 骨架 / 0 失败**
 
-### M2 · 会员库抓取 — ✅ 完成（凭真实登录态）
+### M2 · 线上完整库抓取 — ✅ 完成（凭真实登录态）
 
 - [x] `--cookie` / `XIUMI_COOKIE` 注入通道，临时浏览器自动捕获登录 Cookie
 - [x] `crawl probe` 探测端点可用性，避免盲抓
@@ -123,7 +124,7 @@
 | 风险 | 影响 | 对策 |
 |---|---|---|
 | 源站接口变更 | 抓取失效 | 抓取器按 `house/floor/room` 解耦；失败写报告；catalog 已落盘可离线工作 |
-| 会员库无凭证 | 高级 SVG 动效缺失 | 公开库 214 个含 SVG 模板可用；自研 SVG 动效 DSL 作为兜底（M3 之后追加） |
+| 线上完整库无凭证 | 高级 SVG 动效缺失 | 公开库 214 个含 SVG 模板可用；自研 SVG 动效 DSL 作为兜底（M3 之后追加） |
 | 模板矩阵存在未覆盖 slot | 渲染出坏 HTML | 水合失败即丢弃 slot + `warnings`，绝不静默；校验器兜底拦截 |
 | 内联 SVG 撑大正文 | 超微信字数限制 | 校验器统计字节数；提供「SVG 转图」降级开关 |
 | 微信样式清洗策略变化 | 粘贴掉样式 | 校验器规则集中可调；保持 `renderer_accelerate` 原始输出可对比 |
@@ -140,7 +141,7 @@ pnpm -r typecheck
 pnpm -r build
 
 pnpm kiumi crawl all          # 全量抓取（templates + assets）
-pnpm kiumi crawl probe        # 有 Cookie 时探测会员端点
+pnpm kiumi crawl probe        # 有 Cookie 时探测需登录端点
 pnpm kiumi stats              # 统计
 pnpm kiumi list --room paper-cp:header --q 标题
 pnpm kiumi render --tpl demo:header/t-a-01 -o out.html

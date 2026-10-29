@@ -43,6 +43,7 @@ export {
   type CrawlOptions,
   type CrawlReport,
   type CrawlAssetsOptions,
+  type AssetCrawlReport,
   type SourceReport,
 } from './crawl.ts';
 export {
@@ -58,6 +59,8 @@ export {
 export {
   mirrorAssets,
   rewriteAssetUrls,
+  rewriteAssetUrlsStrict,
+  type StrictRewriteResult,
   collectUrls,
   localPathFor,
   type AssetManifest,

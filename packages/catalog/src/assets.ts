@@ -146,6 +146,35 @@ export function rewriteAssetUrls(
   return out;
 }
 
+export interface StrictRewriteResult {
+  html: string;
+  missing: string[];
+}
+
+/**
+ * Rewrite every remote asset to the local mirror. In strict mode anything that
+ * is not mirrored is replaced by a local placeholder and reported, so the page
+ * can never reach the upstream CDN at runtime.
+ */
+export function rewriteAssetUrlsStrict(
+  html: string,
+  manifest: AssetManifest,
+  options: { prefix?: string; strict?: boolean; placeholder?: string } = {},
+): StrictRewriteResult {
+  const prefix = options.prefix ?? '/assets';
+  const placeholder = options.placeholder ?? `${prefix}/__missing.svg`;
+  const missing: string[] = [];
+  const pattern = /(?:https?:)?\/\/[^"'()\s]+\.(?:png|jpe?g|gif|svg|webp|bmp)(?:\?[^"'()\s]*)?/gi;
+  const out = html.replace(pattern, (raw) => {
+    const normalized = raw.startsWith('//') ? `https:${raw}` : raw.replace(/^http:\/\//, 'https://');
+    const entry = manifest[normalized] ?? manifest[raw];
+    if (entry) return `${prefix}/${entry.path}`;
+    missing.push(normalized);
+    return options.strict ? placeholder : raw;
+  });
+  return { html: out, missing: [...new Set(missing)] };
+}
+
 export function collectUrls(payloads: { assetUrls: string[] }[]): string[] {
   const set = new Set<string>();
   for (const record of payloads) {
