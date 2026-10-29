@@ -6,6 +6,7 @@ import {
   type KiumiDocument,
   type TemplateRecord,
 } from '@kiumi/core';
+import { currentUser, handleAuth } from './auth.js';
 
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
@@ -164,6 +165,14 @@ export default {
 
     try {
       if (path === '/api/health') return json({ ok: true, runtime: 'worker' });
+      if (path === '/api/me') {
+        const user = await currentUser(request, env);
+        return json({ user, loginEnabled: Boolean(env.ID_ISSUER_URL && env.ID_CLIENT_ID) });
+      }
+      if (path.startsWith('/auth/')) {
+        const handled = await handleAuth(request, env);
+        if (handled) return handled;
+      }
       if (path === '/api/rooms') return rooms(env);
       if (path === '/api/templates') return templates(env, url);
       if (path === '/api/template') return template(env, url);
@@ -175,8 +184,9 @@ export default {
       if (path === '/api/fill' && request.method === 'POST') return fill(env, request);
       if (path === '/api/assets') return assetsList(env, url);
       if (path === '/api/assets/coverage') return coverage(env);
-      if (path === '/api/documents') return documents(env, request);
-      if (path.startsWith('/api/documents/')) return documentItem(env, request, path);
+      if (path === '/api/documents') return documents(env, request, await ownerOf(request, env));
+      if (path.startsWith('/api/documents/'))
+        return documentItem(env, request, path, await ownerOf(request, env));
       if (path === '/api/wechat/config')
         return json({ configured: Boolean(env.WECHAT_APP_ID && env.WECHAT_APP_SECRET) });
       if (path === '/api/wechat/draft' && request.method === 'POST') return wechatDraft(env, request);
@@ -374,11 +384,21 @@ async function fill(env: Env, request: Request): Promise<Response> {
 // Documents (D1)
 // ---------------------------------------------------------------------------
 
-async function documents(env: Env, request: Request): Promise<Response> {
+/** Documents belong to the signed-in user; without a configured issuer they fall back to one shared space. */
+async function ownerOf(request: Request, env: Env): Promise<string | null> {
+  if (!env.ID_ISSUER_URL || !env.ID_CLIENT_ID) return 'anonymous';
+  const user = await currentUser(request, env);
+  return user?.sub ?? null;
+}
+
+async function documents(env: Env, request: Request, owner: string | null): Promise<Response> {
+  if (!owner) return fail('LOGIN_REQUIRED', 'sign in to keep documents', 401);
   if (request.method === 'GET') {
     const rows = await env.DB.prepare(
-      'SELECT id, title, updated_at, length(blocks) AS size FROM documents ORDER BY updated_at DESC',
-    ).all();
+      'SELECT id, title, updated_at, length(blocks) AS size FROM documents WHERE owner_sub = ? ORDER BY updated_at DESC',
+    )
+      .bind(owner)
+      .all();
     return json(rows.results ?? []);
   }
   if (request.method === 'POST') {
@@ -393,18 +413,26 @@ async function documents(env: Env, request: Request): Promise<Response> {
       blocks: [],
       meta: { createdAt: now, updatedAt: now },
     };
-    await env.DB.prepare('INSERT INTO documents (id, title, blocks, updated_at) VALUES (?, ?, ?, ?)')
-      .bind(id, title, JSON.stringify(doc.blocks), now)
+    await env.DB.prepare('INSERT INTO documents (id, title, blocks, updated_at, owner_sub) VALUES (?, ?, ?, ?, ?)')
+      .bind(id, title, JSON.stringify(doc.blocks), now, owner)
       .run();
     return json(doc);
   }
   return fail('METHOD_NOT_ALLOWED', request.method, 405);
 }
 
-async function documentItem(env: Env, request: Request, path: string): Promise<Response> {
+async function documentItem(
+  env: Env,
+  request: Request,
+  path: string,
+  owner: string | null,
+): Promise<Response> {
+  if (!owner) return fail('LOGIN_REQUIRED', 'sign in to keep documents', 401);
   const id = decodeURIComponent(path.slice('/api/documents/'.length));
-  const row = await env.DB.prepare('SELECT id, title, blocks, updated_at FROM documents WHERE id = ?')
-    .bind(id)
+  const row = await env.DB.prepare(
+    'SELECT id, title, blocks, updated_at FROM documents WHERE id = ? AND owner_sub = ?',
+  )
+    .bind(id, owner)
     .first<{ id: string; title: string; blocks: string; updated_at: string }>();
   if (!row) return fail('DOCUMENT_NOT_FOUND', `no document ${id}`, 404);
 
@@ -451,11 +479,17 @@ async function assetsList(env: Env, url: URL): Promise<Response> {
 async function coverage(env: Env): Promise<Response> {
   const required = (await readJson<string[]>(env, 'catalog/assets-required.json')) ?? [];
   const map = await manifest(env);
+  const probed = await readJson<{ urls?: string[] }>(env, 'catalog/assets-missing.json');
+  const gone = new Set(probed?.urls ?? []);
   const mirrored = required.filter((remote) => map[remote]).length;
+  const goneCount = required.filter((remote) => !map[remote] && gone.has(remote)).length;
+  const reachable = required.length - goneCount;
   return json({
     referenced: required.length,
     mirrored,
-    coverage: required.length ? Number((mirrored / required.length).toFixed(4)) : 1,
+    /** Upstream no longer serves these; a local copy cannot exist. */
+    gone: goneCount,
+    coverage: reachable ? Number((mirrored / reachable).toFixed(4)) : 1,
     strict: env.KIUMI_STRICT_ASSETS !== '0',
   });
 }
