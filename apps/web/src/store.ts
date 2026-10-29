@@ -123,6 +123,7 @@ interface State {
   commit: (next: api.Document) => void;
   toggleFavorite: (atomTplId: string) => void;
   copyBlock: (index: number) => void;
+  duplicateBlock: (index: number) => void;
   insertClipboard: (clipIndex: number, at?: number) => void;
   clearClipboard: () => void;
 }
@@ -359,6 +360,21 @@ export const useStore = create<State>((set, get) => ({
       favorites,
       message: favorites.includes(atomTplId) ? '已收藏' : '已取消收藏',
     });
+  },
+
+  duplicateBlock(index) {
+    const doc = get().doc;
+    const block = doc.blocks[index];
+    if (!block) return;
+    const clone: api.Block = {
+      ...structuredClone(block),
+      id: `blk-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
+    };
+    const blocks = [...doc.blocks];
+    blocks.splice(index + 1, 0, clone);
+    get().commit({ ...doc, blocks });
+    set({ selected: index + 1, message: '已原地复制' });
+    void get().refresh();
   },
 
   copyBlock(index) {

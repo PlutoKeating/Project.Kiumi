@@ -30,6 +30,10 @@ export function App() {
   const redo = useStore((state) => state.redo);
   const canUndo = useStore((state) => state.past.length > 0);
   const canRedo = useStore((state) => state.future.length > 0);
+  const selected = useStore((state) => state.selected);
+  const removeBlock = useStore((state) => state.removeBlock);
+  const duplicateBlock = useStore((state) => state.duplicateBlock);
+  const select = useStore((state) => state.select);
 
   const [rail, setRail] = useState('templates');
   const [preview, setPreview] = useState<string | null>(null);
@@ -40,21 +44,66 @@ export function App() {
   }, [boot]);
 
   useEffect(() => {
+    const editable = (target: EventTarget | null): boolean => {
+      const el = target as HTMLElement | null;
+      if (!el) return false;
+      const tag = el.tagName?.toLowerCase();
+      return tag === 'input' || tag === 'textarea' || el.isContentEditable;
+    };
+
     const onKey = (event: KeyboardEvent) => {
       const meta = event.metaKey || event.ctrlKey;
-      if (!meta) return;
-      if (event.key.toLowerCase() === 'z') {
+
+      // Save works even while typing.
+      if (meta && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        void save();
+        return;
+      }
+
+      if (editable(event.target)) return;
+
+      if (meta && event.key.toLowerCase() === 'z') {
         event.preventDefault();
         if (event.shiftKey) redo();
         else undo();
+        return;
+      }
+      // Redo on Windows/Linux, as xiumi does.
+      if (meta && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        redo();
+        return;
+      }
+      if (meta && event.key.toLowerCase() === 'd' && selected !== null) {
+        event.preventDefault();
+        duplicateBlock(selected);
+        return;
+      }
+      if (meta && event.altKey && event.key.toLowerCase() === 'p') {
+        event.preventDefault();
+        void onPreview();
+        return;
+      }
+      if (!meta && (event.key === 'Delete' || event.key === 'Backspace') && selected !== null) {
+        event.preventDefault();
+        removeBlock(selected);
+        return;
+      }
+      if (event.key === 'Escape') {
+        select(null);
       }
     };
+
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [undo, redo]);
+  }, [undo, redo, save, selected, removeBlock, duplicateBlock, select]);
 
+  // Read the document from the store so keyboard handlers never act on a stale
+  // render closure.
   const renderFull = async (): Promise<string> => {
-    const result = await renderDocument(doc);
+    const current = useStore.getState().doc;
+    const result = await renderDocument(current);
     return result.html;
   };
 
