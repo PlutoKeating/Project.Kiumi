@@ -292,14 +292,27 @@ async function template(env: Env, url: URL): Promise<Response> {
   return json(record);
 }
 
+// Template markup relies on the upstream stylesheet; reproduce the parts that
+// matter for a readable card and a faithful preview body.
+const PREVIEW_STYLE = `<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:6px;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;font-size:14px;line-height:1.6;color:#3f3f3f;background:#fff}
+img{max-width:100%;height:auto}
+svg{max-width:100%;height:auto}
+section,div,p{max-width:100%}
+p{margin:0}
+</style>`;
+
 async function preview(env: Env, url: URL): Promise<Response> {
   const id = url.searchParams.get('id');
   if (!id) return fail('INVALID_BODY', 'missing ?id=');
   const record = await getRecord(env, id);
   if (!record) return fail('TEMPLATE_NOT_FOUND', `no template ${id}`, 404);
-  return new Response(localizeAssets(record.html, await manifest(env)), {
-    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' },
-  });
+  const body = localizeAssets(record.html, await manifest(env));
+  return new Response(
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">${PREVIEW_STYLE}</head><body>${body}</body></html>`,
+    { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } },
+  );
 }
 
 async function slots(env: Env, url: URL): Promise<Response> {

@@ -1,8 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { previewUrl, type Room, type TemplateIndexEntry } from '../api.ts';
 import { ROOM_GROUPS, useStore } from '../store.ts';
 
 function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () => void }) {
+  const holder = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  // Dozens of previews on one screen: mount the frame only when the card comes
+  // close to the viewport, otherwise every scroll starts a request.
+  useEffect(() => {
+    const node = holder.current;
+    if (!node || visible) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '240px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [visible]);
+
   return (
     <div
       role="button"
@@ -14,15 +35,17 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
       className="group flex flex-col h-[164px] text-left rounded-lg border border-mist-200 bg-white overflow-hidden hover:border-accent-400 hover:shadow-sm transition cursor-pointer"
       title={item.atomTplId}
     >
-      <div className="h-[132px] shrink-0 overflow-hidden bg-white">
-        <iframe
-          className="preview-frame"
-          src={previewUrl(item.atomTplId)}
-          loading="lazy"
-          sandbox=""
-          referrerPolicy="no-referrer"
-          tabIndex={-1}
-        />
+      <div ref={holder} className="h-[132px] shrink-0 overflow-hidden bg-mist-50">
+        {visible && (
+          <iframe
+            className="preview-frame"
+            src={previewUrl(item.atomTplId)}
+            loading="lazy"
+            sandbox=""
+            referrerPolicy="no-referrer"
+            tabIndex={-1}
+          />
+        )}
       </div>
       <div className="h-[32px] px-2 text-[11px] text-ink-600 flex items-center justify-between gap-2">
         <span className="truncate">{item.displayName}</span>
