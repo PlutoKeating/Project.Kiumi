@@ -1,9 +1,0 @@
-node_modules
-**/node_modules
-data/raw
-data/assets
-data/uploads
-data/documents
-.git
-dist
-*.log
