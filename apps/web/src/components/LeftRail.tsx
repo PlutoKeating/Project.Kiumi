@@ -9,9 +9,13 @@ const RAIL_ITEMS = [
 export function LeftRail({
   active,
   onSelect,
+  collapsed,
+  onToggleCollapse,
 }: {
   active: string;
   onSelect: (key: string) => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }) {
   return (
     <nav className="w-[76px] shrink-0 bg-ink-800 text-mist-100 flex flex-col items-center py-3 gap-1">
@@ -29,6 +33,13 @@ export function LeftRail({
           <span>{item.label}</span>
         </button>
       ))}
+      <button
+        onClick={onToggleCollapse}
+        className="mt-auto w-[64px] py-2 text-[11px] text-mist-200/50 hover:text-white"
+        title={collapsed ? '展开' : '收起'}
+      >
+        {collapsed ? '»' : '« 收起'}
+      </button>
     </nav>
   );
 }

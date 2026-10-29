@@ -59,7 +59,7 @@ export interface Document {
   id: string;
   title: string;
   blocks: Block[];
-  meta: { createdAt: string; updatedAt: string; author?: string };
+  meta: { createdAt: string; updatedAt: string; author?: string; digest?: string };
 }
 
 export interface Issue {

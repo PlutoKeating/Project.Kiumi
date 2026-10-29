@@ -41,6 +41,10 @@ export function TemplateBrowser() {
   const query = useStore((state) => state.query);
   const templates = useStore((state) => state.templates);
   const loading = useStore((state) => state.loading);
+  const view = useStore((state) => state.view);
+  const recent = useStore((state) => state.recent);
+  const setView = useStore((state) => state.setView);
+  const shuffle = useStore((state) => state.shuffle);
   const setGroup = useStore((state) => state.setGroup);
   const setRoom = useStore((state) => state.setRoom);
   const setQuery = useStore((state) => state.setQuery);
@@ -108,6 +112,22 @@ export function TemplateBrowser() {
         )}
       </div>
 
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 text-[11px]">
+        {(['recommend', 'recent'] as const).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setView(mode)}
+            className={`px-1.5 py-0.5 rounded ${
+              view === mode ? 'bg-white/15 text-white' : 'text-mist-200/60 hover:text-white'
+            }`}
+          >
+            {mode === 'recommend' ? '推荐模板' : '最近使用'}
+          </button>
+        ))}
+        <span className="text-mist-200/25">样刊模板</span>
+        <span className="ml-auto text-mist-200/25">主题色</span>
+      </div>
+
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10">
         <input
           value={query}
@@ -115,6 +135,15 @@ export function TemplateBrowser() {
           placeholder="搜索模板名称"
           className="flex-1 bg-ink-800 border border-white/10 rounded px-2 py-1.5 text-[12px] text-mist-100 placeholder:text-mist-200/30 focus:outline-none focus:border-accent-400"
         />
+        {view === 'recommend' && (
+          <button
+            onClick={shuffle}
+            className="shrink-0 text-[11px] px-2 py-1.5 rounded border border-white/15 text-mist-100 hover:bg-white/10"
+            title="换一批"
+          >
+            换一换
+          </button>
+        )}
       </div>
 
       <div className="px-3 py-1.5 text-[11px] text-mist-200/50 flex items-center justify-between">
@@ -123,7 +152,26 @@ export function TemplateBrowser() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-4 grid grid-cols-2 gap-2 content-start">
-        {templates.map((item) => (
+        {view === 'recent' && recent.length === 0 && (
+          <p className="col-span-2 text-[12px] text-mist-200/40 py-6 text-center">还没有使用过模板</p>
+        )}
+        {view === 'recent' &&
+          recent.map((item) => (
+            <TemplateCard
+              key={item.id}
+              item={{
+                atomTplId: item.id,
+                displayName: item.name,
+                room: 'recent',
+                accessibility: 'Public',
+                hasSvg: false,
+                hasAnimation: false,
+                byteSize: 0,
+              }}
+              onPick={() => void insertTemplate(item.id)}
+            />
+          ))}
+        {view === 'recommend' && templates.map((item) => (
           <TemplateCard key={item.atomTplId} item={item} onPick={() => void insertTemplate(item.atomTplId)} />
         ))}
         {!loading && templates.length === 0 && (

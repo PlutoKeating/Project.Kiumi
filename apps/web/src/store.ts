@@ -51,6 +51,7 @@ export const ROOM_GROUPS: RoomGroup[] = [
 ];
 
 const FAVORITES_KEY = 'kiumi:favorites';
+const RECENT_KEY = 'kiumi:recent';
 const CLIPBOARD_KEY = 'kiumi:clipboard';
 
 function readLocal<T>(key: string, fallback: T): T {
@@ -91,6 +92,10 @@ interface State {
   activeRoom: string | null;
   query: string;
   loading: boolean;
+  offset: number;
+  view: 'recommend' | 'recent';
+  recent: { id: string; name: string }[];
+  zoom: number;
   doc: api.Document;
   past: api.Document[];
   future: api.Document[];
@@ -105,11 +110,15 @@ interface State {
   setGroup: (key: string) => void;
   setRoom: (tag: string | null) => void;
   setQuery: (value: string) => void;
+  setView: (view: 'recommend' | 'recent') => void;
+  shuffle: () => void;
+  setZoom: (zoom: number) => void;
   reloadTemplates: () => Promise<void>;
   insertTemplate: (atomTplId: string) => Promise<void>;
   addNative: (kind: api.NativeNode['kind']) => void;
   select: (index: number | null) => void;
   setTitle: (title: string) => void;
+  setDigest: (digest: string) => void;
   updateSlot: (index: number, path: string, value: string, compIndex?: number) => void;
   updateNative: (index: number, patch: Partial<api.NativeNode>) => void;
   addImageBlock: (src: string) => void;
@@ -136,6 +145,10 @@ export const useStore = create<State>((set, get) => ({
   activeRoom: 'paper-cp:header',
   query: '',
   loading: false,
+  offset: 0,
+  view: 'recommend',
+  recent: [],
+  zoom: 100,
   doc: emptyDoc(),
   past: [],
   future: [],
@@ -150,6 +163,7 @@ export const useStore = create<State>((set, get) => ({
     set({
       favorites: readLocal<string[]>(FAVORITES_KEY, []),
       clipboard: readLocal<api.Block[]>(CLIPBOARD_KEY, []),
+      recent: readLocal<{ id: string; name: string }[]>(RECENT_KEY, []),
     });
     try {
       const rooms = await api.fetchRooms();
@@ -173,19 +187,45 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setQuery(value) {
-    set({ query: value });
+    set({ query: value, offset: 0 });
     void get().reloadTemplates();
   },
 
+  setView(view) {
+    set({ view, offset: 0 });
+    if (view === 'recommend') void get().reloadTemplates();
+  },
+
+  shuffle() {
+    set({ offset: get().offset + 60 });
+    void get().reloadTemplates();
+  },
+
+  setZoom(zoom) {
+    set({ zoom: Math.min(140, Math.max(50, zoom)) });
+  },
+
   async reloadTemplates() {
-    const { activeRoom, query } = get();
+    const { activeRoom, query, offset, view, recent } = get();
+    if (view === 'recent') {
+      set({ loading: false });
+      return;
+    }
     set({ loading: true });
     try {
       const templates = await api.fetchTemplates({
         room: activeRoom ?? undefined,
         q: query || undefined,
         limit: 60,
+        offset,
       });
+      // A shuffle past the end wraps to the first page.
+      if (!templates.length && offset > 0) {
+        set({ offset: 0 });
+        void get().reloadTemplates();
+        return;
+      }
+      void recent;
       set({ templates, loading: false });
     } catch (error) {
       set({ loading: false, message: `模板加载失败：${(error as Error).message}` });
@@ -207,7 +247,12 @@ export const useStore = create<State>((set, get) => ({
       const blocks = [...doc.blocks];
       blocks.splice(index, 0, block);
       get().commit({ ...doc, blocks });
-      set({ selected: index, message: `已插入 ${record.displayName}` });
+      const recent = [
+        { id: record.atomTplId, name: record.displayName },
+        ...get().recent.filter((item) => item.id !== record.atomTplId),
+      ].slice(0, 24);
+      writeLocal(RECENT_KEY, recent);
+      set({ selected: index, recent, message: `已插入 ${record.displayName}` });
       await get().refresh();
     } catch (error) {
       set({ message: `插入失败：${(error as Error).message}` });
@@ -240,6 +285,11 @@ export const useStore = create<State>((set, get) => ({
 
   setTitle(title) {
     set({ doc: { ...get().doc, title } });
+  },
+
+  setDigest(digest) {
+    const doc = get().doc;
+    set({ doc: { ...doc, meta: { ...doc.meta, digest } } });
   },
 
   updateSlot(index, path, value, compIndex) {

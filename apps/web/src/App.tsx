@@ -36,6 +36,7 @@ export function App() {
   const select = useStore((state) => state.select);
 
   const [rail, setRail] = useState('templates');
+  const [collapsed, setCollapsed] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -227,8 +228,16 @@ export function App() {
       </header>
 
       <div className="flex-1 flex min-h-0">
-        <LeftRail active={rail} onSelect={setRail} />
-        {rail === 'templates' ? (
+        <LeftRail
+          active={rail}
+          onSelect={(key) => {
+            setRail(key);
+            setCollapsed(false);
+          }}
+          collapsed={collapsed}
+          onToggleCollapse={() => setCollapsed((value) => !value)}
+        />
+        {collapsed ? null : rail === 'templates' ? (
           <TemplateBrowser />
         ) : rail === 'assets' ? (
           <AssetsPanel />
