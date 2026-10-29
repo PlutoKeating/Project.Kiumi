@@ -1,6 +1,6 @@
 import { parse } from 'node-html-parser';
 import { ATTR } from './dsl.ts';
-import { hasZeroHeight } from './style.ts';
+import { hasZeroHeight, utf8Bytes } from './style.ts';
 import type { Issue } from './types.ts';
 
 export interface ValidateOptions {
@@ -139,7 +139,7 @@ export function validateHtml(html: string, options: ValidateOptions = {}): Issue
     if (node.getAttribute('class') && !style) stylelessClassCount++;
   }
 
-  const bytes = Buffer.byteLength(html, 'utf8');
+  const bytes = utf8Bytes(html);
   if (bytes > maxBytes) {
     issues.push({
       rule: 'byte-budget',

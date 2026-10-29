@@ -23,7 +23,7 @@ export type {
 } from './types.ts';
 
 export { ATTR, houseOf, tplIdToPath, parseAuxBindings, resolveAuxBindings, evalAuxExpr, isEmptyComp } from './dsl.ts';
-export { kebabCase, styleToCss, mergeStyle, parseCss, getCss, hasZeroHeight, normalizeCss } from './style.ts';
+export { kebabCase, utf8Bytes, styleToCss, mergeStyle, parseCss, getCss, hasZeroHeight, normalizeCss } from './style.ts';
 export {
   normalizeComp,
   normalizeMatrix,
@@ -49,3 +49,4 @@ export {
 export { renderNative, DEFAULT_THEME, type NativeTheme } from './blocks.ts';
 export { validateHtml, summarizeIssues, type ValidateOptions } from './validate.ts';
 export { renderMatrix, renderDocument } from './render.ts';
+export { fillMatrix } from './fill.ts';

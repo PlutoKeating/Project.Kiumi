@@ -11,6 +11,7 @@ import {
   type HouseFloor,
 } from '@kiumi/catalog';
 import { summarizeIssues, validateHtml, type Issue } from '@kiumi/core';
+import { syncToR2 } from './sync.ts';
 import {
   DocumentBuilder,
   FileDocumentStore,
@@ -632,6 +633,39 @@ async function readStdin(): Promise<string> {
   for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
   return Buffer.concat(chunks).toString('utf8');
 }
+
+
+const syncCmd = program.command('sync').description('push local data into Cloudflare');
+
+syncCmd
+  .command('r2')
+  .description('upload data/catalog and data/assets into the R2 bucket')
+  .option('--bucket <name>', 'R2 bucket', process.env.R2_BUCKET ?? 'kiumi-data')
+  .option('--account <id>', 'Cloudflare account id', process.env.R2_ACCOUNT_ID ?? '')
+  .option('--only <dirs...>', 'limit to subdirectories of data/')
+  .option('--concurrency <n>', 'parallel uploads', '8')
+  .option('--dry-run', 'list what would be uploaded')
+  .action(async (flags) => {
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+    if (!flags.account || !accessKeyId || !secretAccessKey) {
+      console.error('set R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY (or pass --account)');
+      process.exitCode = 1;
+      return;
+    }
+    const report = await syncToR2({
+      dataDir: dataDir(),
+      bucket: flags.bucket,
+      accountId: flags.account,
+      accessKeyId,
+      secretAccessKey,
+      only: flags.only,
+      concurrency: Number(flags.concurrency),
+      dryRun: Boolean(flags.dryRun),
+      log: (line) => console.error(line),
+    });
+    console.log(JSON.stringify({ ...report, failed: report.failed.length }, null, 2));
+  });
 
 program.parseAsync(process.argv).catch((error: unknown) => {
   console.error(`error: ${(error as Error).message}`);

@@ -20,6 +20,7 @@
     "@kiumi/catalog": "workspace:*",
     "@kiumi/core": "workspace:*",
     "@kiumi/sdk": "workspace:*",
+    "aws4fetch": "^1.0.20",
     "commander": "^15.0.0"
   }
 }

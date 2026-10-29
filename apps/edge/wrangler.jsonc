@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kiumi",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // One project serves both: the SPA comes from the web build.
+  "assets": {
+    "directory": "../web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "r2_buckets": [{ "binding": "DATA", "bucket_name": "kiumi-data" }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "kiumi", "database_id": "REPLACE_WITH_D1_ID" }
+  ],
+  "vars": {
+    "KIUMI_STRICT_ASSETS": "1"
+  },
+  "observability": { "enabled": true }
+}

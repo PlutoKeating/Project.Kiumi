@@ -1,5 +1,6 @@
 import { renderNative } from './blocks.ts';
 import { renderComps, type SkeletonMap } from './hydrate.ts';
+import { utf8Bytes } from './style.ts';
 import { normalizeMatrix } from './model.ts';
 import type { KiumiDocument, RenderResult, Warning } from './types.ts';
 
@@ -27,7 +28,7 @@ export function renderMatrix(
     warnings.push({ code: 'EMPTY_MATRIX', message: 'matrix produced no components' });
   }
   const html = renderComps(comps, { skeletons, warnings, inlineSvg: options.inlineSvg });
-  return { html, bytes: Buffer.byteLength(html, 'utf8'), warnings };
+  return { html, bytes: utf8Bytes(html), warnings };
 }
 
 /** Render a full document: library blocks (hydrated) and native blocks (generated). */
@@ -60,5 +61,5 @@ export function renderDocument(
   }
 
   const html = parts.join('\n');
-  return { html, bytes: Buffer.byteLength(html, 'utf8'), warnings };
+  return { html, bytes: utf8Bytes(html), warnings };
 }

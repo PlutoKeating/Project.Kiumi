@@ -121,3 +121,8 @@ export function hasZeroHeight(css: string | undefined): boolean {
   const first = value.split(/\s+/)[0] ?? '';
   return /^0(\.0+)?(px|em|rem|%|vh|vw|pt|pc|in|cm|mm)?$/.test(first);
 }
+
+/** UTF-8 byte length, portable across Node, browsers and Workers. */
+export function utf8Bytes(text: string): number {
+  return new TextEncoder().encode(text).length;
+}
