@@ -14,7 +14,7 @@
 | 分类（room） | **43** | `data/catalog/rooms.json` |
 | 模板骨架 | **1,360** | `data/catalog/pack.json` |
 | 素材 URL 清单 | **3,433** | 记在每条模板的 `assetUrls` |
-| 素材镜像 | 见 `find data/assets -type f \| wc -l` | `data/assets/`（gitignore） |
+| 素材镜像（已落盘） | **1186** 个 / 359M | `data/assets/`（gitignore） |
 
 每条模板同时保存：
 
