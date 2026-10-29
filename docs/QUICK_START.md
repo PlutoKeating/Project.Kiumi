@@ -30,11 +30,13 @@ pnpm kiumi crawl templates
 { "templates": 3927, "rooms": 43, "skeletons": 1360, "missingSkeletons": 0, "skippedRooms": 0 }
 ```
 
-素材（图片 / SVG）体积较大，按需镜像：
+素材（图片 / SVG）本地镜像，覆盖旧库与现代库共 9,508 个 URL：
 
 ```bash
-pnpm kiumi crawl assets --limit 50     # 先试 50 个
-pnpm kiumi crawl assets                # 全量（约 300 MB）
+pnpm kiumi crawl assets --limit 50              # 先试 50 个
+pnpm kiumi crawl assets --source all --rps 2    # 全量，可反复续跑（约 1.6 GB）
+curl -s localhost:8787/api/assets/coverage      # 看覆盖率与缺失
+KIUMI_STRICT_ASSETS=1 pnpm serve                # 严格模式：不回源 CDN
 ```
 
 线上完整库（可选，需要你的登录 Cookie）：

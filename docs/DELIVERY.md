@@ -59,6 +59,20 @@ docker compose up -d --build
 docker compose down
 ```
 
+### 素材本地化（运行时零 CDN 依赖）
+
+```bash
+pnpm kiumi crawl assets --source all --concurrency 2 --rps 2   # 可反复续跑
+curl -s localhost:8787/api/assets/coverage                      # 覆盖率与缺失清单
+KIUMI_STRICT_ASSETS=1 pnpm serve                                # 严格模式
+```
+
+严格模式下一个远端 URL 都不会出现：未镜像的素材会被替换成本地占位图，
+并在响应头 `x-kiumi-missing-assets` 与覆盖率接口里列出，便于补齐而不是静默回源。
+
+全量 9,508 个素材在 1.6 GB 量级，无法进 git；`data/assets` 保持 ignore，
+由上面的命令复现。
+
 现代库规模（`pnpm kiumi crawl tags` 实测）：
 
 | 分类 | 唯一模板 |
