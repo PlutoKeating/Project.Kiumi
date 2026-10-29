@@ -10,7 +10,7 @@ data/raw/
 data/assets/
 data/uploads/
 # derived from the (ignored) asset mirror
-data/catalog/assets-manifest.json
+data/catalog/
 # 21k modern payloads stay on disk; the committed index describes them
 data/catalog/modern/
 data/documents/
