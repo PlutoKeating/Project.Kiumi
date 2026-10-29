@@ -171,10 +171,10 @@ export function App() {
         <input
           value={doc.title}
           onChange={(event) => setTitle(event.target.value)}
-          className="w-[240px] text-[13px] px-2 py-1.5 rounded border border-transparent hover:border-mist-200 focus:border-accent-400 focus:outline-none"
+          className="w-[160px] min-w-[90px] shrink text-[13px] px-2 py-1.5 rounded border border-transparent hover:border-mist-200 focus:border-accent-400 focus:outline-none"
         />
 
-        <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-mist-200 text-[12px] text-ink-600">
+        <div className="hidden min-[1400px]:flex shrink-0 items-center gap-1.5 pl-2 border-l border-mist-200 text-[12px] text-ink-600 whitespace-nowrap">
           <span>主题色</span>
           {THEME_SWATCHES.map((color) => (
             <button
@@ -192,7 +192,7 @@ export function App() {
           ))}
         </div>
 
-        <div className="hidden md:flex items-center gap-1 pl-2 border-l border-mist-200">
+        <div className="hidden md:flex shrink-0 items-center gap-1 pl-2 border-l border-mist-200 whitespace-nowrap">
           {NATIVE_TOOLS.map((tool) => (
             <button
               key={tool.kind}
@@ -227,7 +227,7 @@ export function App() {
           />
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap">
           {formatBrush && (
             <span className="text-[11px] px-1.5 py-0.5 rounded bg-accent-500/10 text-accent-500">
               格式刷已就绪
@@ -277,13 +277,13 @@ export function App() {
         </div>
 
         {session && !session.unavailable && session.loginEnabled && (
-          <div className="ml-auto flex items-center gap-2 pl-3 border-l border-mist-200">
+          <div className="ml-auto flex shrink-0 items-center gap-2 pl-3 border-l border-mist-200 whitespace-nowrap">
             {session.user ? (
               <>
                 <span className="w-6 h-6 rounded-full bg-ink-900 text-white grid place-items-center text-[11px]">
                   {userLabel(session.user).slice(0, 1).toUpperCase()}
                 </span>
-                <span className="text-[12px] text-ink-600 max-w-[140px] truncate">
+                <span className="text-[12px] text-ink-600 max-w-[92px] truncate">
                   {userLabel(session.user)}
                 </span>
                 <a href="/auth/logout" className="text-[12px] text-ink-600/60 hover:text-ink-900">
