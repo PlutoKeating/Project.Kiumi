@@ -187,12 +187,39 @@ export function App() {
         </div>
 
         <input
+          aria-label="文稿名称"
           value={doc.title}
           onChange={(event) => setTitle(event.target.value)}
           className="w-[160px] min-w-[90px] shrink text-[13px] px-2 py-1.5 rounded border border-transparent hover:border-mist-200 focus:border-accent-400 focus:outline-none"
         />
 
           <span role="status" title={message} className="min-w-0 flex-1 truncate text-[11px] text-ink-600/60">{message}</span>
+        <div className="document-actions" aria-label="文稿操作">
+          <button onClick={newDoc} className="secondary-action">
+            新建
+          </button>
+          <button onClick={() => void save()} className="secondary-action">
+            保存
+          </button>
+          <button
+            onClick={() => void onPreview()}
+            className="secondary-action"
+          >
+            预览
+          </button>
+          <button
+            onClick={() => void onCopy().catch(error => useStore.setState({message: `复制失败：${error.message}`}))}
+            className="primary-action"
+          >
+            复制到公众号
+          </button>
+          <button
+            onClick={() => void onExport().catch(error => useStore.setState({message: `导出失败：${error.message}`}))}
+            className="secondary-action"
+          >
+            导出 HTML
+          </button>
+        </div>
         {session && !session.unavailable && session.loginEnabled && (
           <div className="ml-auto flex shrink-0 items-center gap-2 pl-3 border-l border-mist-200 whitespace-nowrap">
             {session.user ? (
@@ -298,30 +325,7 @@ export function App() {
           <ImportPanel />
           <WechatPanel key={workspaceVersion} />
           <Workspace session={session} onChange={() => setWorkspaceVersion(v => v + 1)} />
-          <button onClick={newDoc} className="text-[12px] px-3 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-50">
-            新建
-          </button>
-          <button onClick={() => void save()} className="text-[12px] px-3 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-50">
-            保存
-          </button>
-          <button
-            onClick={() => void onPreview()}
-            className="text-[12px] px-3 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-50"
-          >
-            预览
-          </button>
-          <button
-            onClick={() => void onCopy().catch(error => useStore.setState({message: `复制失败：${error.message}`}))}
-            className="text-[12px] px-3 py-1.5 rounded bg-accent-500 text-white hover:bg-accent-400"
-          >
-            复制到公众号
-          </button>
-          <button
-            onClick={() => void onExport().catch(error => useStore.setState({message: `导出失败：${error.message}`}))}
-            className="text-[12px] px-3 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-50"
-          >
-            导出 HTML
-          </button>
+
         </div>
         </div>
       </header>

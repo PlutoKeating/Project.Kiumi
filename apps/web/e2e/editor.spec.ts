@@ -118,3 +118,20 @@ test('1280px toolbar has exactly two rows and clears selected text', async ({ pa
   const bar = await toolbar(page).boundingBox(), block = await page.locator('[data-editor-block="one"]').boundingBox();
   expect(bar!.y + bar!.height).toBeLessThan(block!.y);
 });
+
+test('asset failures offer retry and image cards support keyboard insertion', async ({ page }) => {
+  await openEditor(page);
+  let fail = true;
+  await page.route('**/api/assets?**', route => route.fulfill(fail
+    ? { status: 503, json: { ok: false } }
+    : { json: { ok: true, data: [{ url: '/assets/sample.png', path: 'sample.png', bytes: 12 }], meta: { total: 1 } } }));
+  await page.getByRole('button', { name: '图片素材', exact: true }).click();
+  await expect(page.getByText('素材加载失败', { exact: true })).toBeVisible();
+  await expect(page.getByText('素材库还没有图片', { exact: true })).toHaveCount(0);
+  fail = false;
+  await page.getByRole('button', { name: '重新加载', exact: true }).click();
+  const card = page.getByRole('button', { name: '插入图片：sample.png' });
+  await expect(card).toBeVisible();
+  await card.focus(); await page.keyboard.press('Space');
+  await expect(page.locator('[data-editor-block]')).toHaveCount(3);
+});

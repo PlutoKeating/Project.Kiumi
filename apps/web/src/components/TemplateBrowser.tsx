@@ -44,18 +44,13 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onPick}
-      onKeyDown={(event) => {
-        if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) onPick();
-      }}
-      className="group flex flex-col h-[204px] text-left rounded-lg border border-mist-200 bg-white overflow-hidden hover:border-accent-400 hover:shadow-sm transition cursor-pointer"
+      className="template-card group flex flex-col h-[224px] text-left rounded-lg border border-mist-200 bg-white overflow-hidden hover:border-accent-400 hover:shadow-sm transition cursor-pointer"
       title={item.atomTplId}
     >
-      <div ref={holder} className="h-[132px] shrink-0 overflow-hidden bg-mist-50">
+      <div ref={holder} className="relative h-[144px] shrink-0 overflow-hidden bg-mist-50">
         {visible && html && (
           <iframe
+            title={`${item.displayName}预览`}
             className="preview-frame"
             srcDoc={`<!doctype html><html><head><meta charset="utf-8"><style>*{box-sizing:border-box}html,body{margin:0;padding:6px;font:14px/1.6 sans-serif;color:#3f3f3f;background:white}img,svg{max-width:100%;height:auto}section,div,p{max-width:100%}p{margin:0}</style></head><body>${html}</body></html>`}
             loading="lazy"
@@ -65,6 +60,7 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
           />
         )}
         {visible && !html && <span className="text-xs text-ink-600 p-2">{error || '加载模板…'}</span>}
+        <button className="template-insert" aria-label={`插入模板：${item.displayName}`} onClick={onPick} />
       </div>
       <div className="h-[32px] px-2 text-[11px] text-ink-600 flex items-center justify-between gap-2">
         <span className="truncate">{item.displayName}</span>
@@ -73,7 +69,7 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
         </span>
       </div>
       <div className="flex items-center px-2 pb-2 gap-2">
-        <span className="text-[10px] text-ink-600/60">点击插入</span>
+        <button className="template-insert-label" onClick={onPick}>插入</button>
         <button disabled={selected === null} onClick={event => { event.stopPropagation(); void applyStyle(item.atomTplId); }} onKeyDown={event => event.stopPropagation()} className="ml-auto min-h-8 px-2 text-[11px] border border-mist-200 rounded text-accent-500 disabled:opacity-40 hover:bg-mist-100" title="保留选中块内容，应用此模板的外观">应用样式</button>
       </div>
     </div>
@@ -114,8 +110,6 @@ export function TemplateBrowser() {
     return () => window.removeEventListener(CATALOG_UPDATED, updated);
   }, []);
 
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
-
   // The live tag corpus supersedes the archived rooms; mark the old ones so the
   // same name never appears twice without a qualifier.
   const modernGroups = rooms
@@ -145,15 +139,14 @@ export function TemplateBrowser() {
 
   return (
     <section className="library-panel template-browser w-[360px] shrink-0 bg-mist-50 text-ink-600 flex flex-col min-h-0">
-      <div className="flex items-stretch border-b border-mist-200 relative overflow-x-auto">
+      <div className="template-categories flex items-stretch border-b border-mist-200 relative overflow-x-auto">
         {groups.map((item) => {
           const available = item.rooms.some((tag) => rooms.some((room) => room.tag === tag));
           return (
             <button
               key={item.key}
               disabled={!available}
-              onMouseEnter={() => setOpenGroup(item.key)}
-              onMouseLeave={() => setOpenGroup((current) => (current === item.key ? null : current))}
+              aria-pressed={activeGroup === item.key}
               onClick={() => setGroup(item.key)}
               className={`flex-1 shrink-0 whitespace-nowrap px-2 py-2.5 text-[13px] transition ${
                 activeGroup === item.key
@@ -168,42 +161,13 @@ export function TemplateBrowser() {
           );
         })}
 
-        {openGroup && (
-          <div
-            className="absolute left-0 right-0 top-full z-20 bg-mist-50 border-t border-mist-200 shadow-xl"
-            onMouseEnter={() => setOpenGroup(openGroup)}
-            onMouseLeave={() => setOpenGroup(null)}
-          >
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1 p-3">
-              {(groups.find((item) => item.key === openGroup)?.rooms ?? []).map((tag) => {
-                const room = rooms.find((entry) => entry.tag === tag);
-                if (!room) return null;
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => {
-                      setGroup(openGroup);
-                      setRoom(tag);
-                      setOpenGroup(null);
-                    }}
-                    className={`text-left text-[12px] px-2 py-1 rounded hover:bg-mist-100 ${
-                      activeRoom === tag ? 'text-accent-400' : 'text-ink-600'
-                    }`}
-                  >
-                    {room.name}
-                    <span className="ml-1 text-[10px] text-ink-600">{room.count}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="flex items-center gap-2 px-3 py-2 border-b border-mist-200 text-[11px]">
         {(['recommend', 'recent'] as const).map((mode) => (
           <button
             key={mode}
+            aria-pressed={view === mode}
             onClick={() => setView(mode)}
             className={`px-1.5 py-0.5 rounded ${
               view === mode ? 'bg-accent-500/10 text-accent-500' : 'text-ink-600 hover:text-ink-900'
@@ -212,14 +176,14 @@ export function TemplateBrowser() {
             {mode === 'recommend' ? '推荐模板' : '最近使用'}
           </button>
         ))}
-        <span className="text-ink-600">样刊模板</span>
-        <span className="ml-auto text-ink-600">主题色</span>
+
       </div>
 
       <div className="flex items-center gap-2 px-3 py-2 border-b border-mist-200">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          aria-label="搜索模板名称"
           placeholder="搜索模板名称"
           className="flex-1 bg-white border border-mist-200 rounded px-2 py-1.5 text-[12px] text-ink-600 placeholder:text-ink-600 focus:outline-none focus:border-accent-400"
         />
@@ -235,7 +199,10 @@ export function TemplateBrowser() {
       </div>
 
       <div className="px-3 py-1.5 text-[11px] text-ink-600 flex items-center justify-between">
-        <span>{roomLabel(groupRooms, activeRoom)}</span>
+        <select aria-label="模板分类" className="category-select" value={activeRoom ?? ''} onChange={event => setRoom(event.target.value || null)}>
+          <option value="">全部分类</option>
+          {groupRooms.map(room => <option key={room.tag} value={room.tag}>{room.name} · {room.count}</option>)}
+        </select>
         <span>{loading ? '加载中…' : `${templates.length} 个`}</span>
       </div>
 
@@ -266,16 +233,10 @@ export function TemplateBrowser() {
         {view === 'recommend' && templates.map((item) => (
           <TemplateCard key={item.atomTplId} item={item} onPick={() => void insertTemplate(item.atomTplId)} />
         ))}
-        {!loading && templates.length === 0 && (
-          <p className="col-span-2 text-[12px] text-ink-600 py-6 text-center">没有匹配的模板</p>
+        {view === 'recommend' && !loading && templates.length === 0 && (
+          <p className="col-span-2 text-[12px] text-ink-600 py-6 text-center">没有匹配的模板。试试其他分类或关键词。</p>
         )}
       </div>
     </section>
   );
-}
-
-function roomLabel(rooms: Room[], activeRoom: string | null): string {
-  const room = rooms.find((entry) => entry.tag === activeRoom);
-  if (!room) return '全部';
-  return room.name;
 }

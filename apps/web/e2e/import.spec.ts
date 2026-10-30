@@ -389,7 +389,7 @@ test('template preview warms insertion; cached insertion and editing do not call
   await page.evaluate(async () => { (await import('/src/store.ts')).useStore.setState({templates:[{atomTplId:'local-template',displayName:'缓存标题',room:'demo:header',accessibility:'Public',hasSvg:false,hasAnimation:false,byteSize:1}]}); });
   await expect(page.locator('iframe').first()).toHaveAttribute('srcdoc', /模板本地内容/);
   await page.route('**/api/template?**', route => route.abort());
-  await page.getByRole('button', {name:'缓存标题'}).click();
+  await page.getByRole('button', {name:'插入模板：缓存标题'}).click();
   await expect(page.locator('[data-block-content] h2')).toHaveText('模板本地内容');
   expect(renders).toBe(0);
   void backend;

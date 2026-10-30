@@ -23,6 +23,7 @@ export function LeftRail({
       {RAIL_ITEMS.map((item) => (
         <button
           key={item.key}
+          data-section={item.key}
           aria-current={active === item.key ? "page" : undefined}
           onClick={() => onSelect(item.key)}
           className={`w-[64px] py-2 rounded-lg text-[11px] leading-tight flex flex-col items-center gap-1 transition ${
@@ -40,7 +41,7 @@ export function LeftRail({
         className="mt-auto w-[64px] py-2 text-[11px] text-mist-200/50 hover:text-white"
         title={collapsed ? '展开' : '收起'}
       >
-        {collapsed ? '»' : '« 收起'}
+        <Icon name="arrow" size={16} style={{ transform: collapsed ? "rotate(180deg)" : undefined }} /><span>{collapsed ? "展开" : "收起"}</span>
       </button>
     </nav>
   );

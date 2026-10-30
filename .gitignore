@@ -44,3 +44,8 @@ apps/web/playwright-report/
 .gemini/settings.json
 **/.impeccable/review/
 **/.impeccable/mocks/
+
+# Reproducible Impeccable installs (includes platform binaries)
+.cursor/skills/impeccable/
+.gemini/skills/impeccable/
+.cursor/agents/impeccable-*.md

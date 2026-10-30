@@ -1,3 +1,4 @@
+import { PanelState } from './PanelState.tsx';
 import { renderDocument } from '@kiumi/core';
 import { useEffect, useState } from 'react';
 import { listUploads, previewUrl } from '../api.ts';
@@ -6,8 +7,8 @@ import { useStore } from '../store.ts';
 function PanelShell({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
     <section className="library-panel w-[360px] shrink-0 bg-mist-50 text-ink-600 flex flex-col min-h-0">
-      <div className="px-3 py-2 border-b border-mist-200 text-[13px] flex items-center justify-between">
-        <span>{title}</span>
+      <div className="panel-heading flex items-center justify-between">
+        <h2>{title}</h2>
         {hint && <span className="text-[11px] text-ink-600">{hint}</span>}
       </div>
       <div className="flex-1 overflow-y-auto p-3">{children}</div>
@@ -66,7 +67,7 @@ export function ClipboardPanel() {
   return (
     <PanelShell title="剪贴板" hint={`${clipboard.length} 项`}>
       <div className="flex justify-end mb-2">
-        <button className="text-[11px] text-ink-600 hover:text-ink-900" onClick={clearClipboard}>
+        <button className="text-[11px] text-ink-600 hover:text-ink-900" disabled={clipboard.length === 0} onClick={clearClipboard}>
           清空
         </button>
       </div>
@@ -111,38 +112,39 @@ export function GalleryPanel() {
   const addImageBlock = useStore((state) => state.addImageBlock);
   const [items, setItems] = useState<UploadItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     let alive = true;
+    setLoading(true); setError('');
     listUploads()
       .then((items) => { if (alive) setItems(items); })
-      .catch(() => undefined)
+      .catch(() => { if (alive) setError('请先在「团队与文稿」登录并选择团队；已选择团队时可重试。'); })
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [retry]);
 
   return (
     <PanelShell title="我的图库" hint={loading ? '加载中…' : `${items.length} 张`}>
-      {!loading && items.length === 0 && (
+      {loading && <PanelState title="正在加载团队图库" loading />}
+      {error && <PanelState title="图库暂时无法读取" detail={error} action="重试" onAction={() => setRetry(v => v + 1)} />}
+      {!loading && !error && items.length === 0 && (
         <p className="text-[12px] text-ink-600">还没有上传过图片，用顶栏「上传图片」添加。</p>
       )}
       <div className="grid grid-cols-3 gap-2">
-        {items.map((item) => (
-          <div
-            key={item.name}
-            role="button"
-            tabIndex={0}
+        {!loading && !error && items.map((item) => (
+          <button
+            key={item.url}
+            aria-label={`插入图片：${item.name}`}
             title={item.name}
             onClick={() => addImageBlock(item.url)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') addImageBlock(item.url);
-            }}
             className="h-[100px] rounded border border-mist-200 bg-white/5 overflow-hidden hover:border-accent-400 cursor-pointer"
           >
             <img src={item.url} alt="" loading="lazy" className="w-full h-full object-cover" />
-          </div>
+          </button>
         ))}
       </div>
     </PanelShell>

@@ -1,6 +1,8 @@
 # 编辑工作台与浮动工具栏
 
-工作台采用均匀米白画布与素白导航、侧栏，去掉彩色晕染；鼠尾草和薰衣草仅作小面积点缀。白色半透明、28px 模糊、内缘高光和中性投影强化工具栏、下拉面板与弹窗的磨砂效果。文章正文、模板和导出 HTML 不受界面皮肤影响。设计依据为 Impeccable 4.8.0 的 Operate 模式与用户提供的参考图；设计 tokens 见 `apps/web/DESIGN.md`。
+当前进行蓝粉 iOS 液态磨砂重构，替代上一版素白/鼠尾草皮肤。工作台使用冷白背景、蓝色操作与选中反馈、粉色收藏点缀；28px 磨砂与高光内缘区分工具栏、下拉面板和弹窗。文稿操作移至第一行，插入与工具入口位于第二行。文章正文、模板和导出 HTML 不受皮肤影响。
+
+设计依据为用户当前要求和 Impeccable Operate 模式；方向合同见 `apps/web/.impeccable/surfaces/src-app-tsx.md`。目前为首批实现，最终设计系统替换与全界面视觉审查尚未完成。
 
 ## 选中块工具栏
 
@@ -31,4 +33,10 @@
 - `pnpm --filter @kiumi/web test:e2e`：以上与原 Word/缓存/样式移植回归。
 - `pnpm typecheck`、`pnpm test`、`pnpm build:web`。
 
-无新增运行时依赖、密钥或数据库迁移。Impeccable 为全局开发工具，其安装生成的本机 hook 配置和临时截图被忽略，不进入部署产物。
+无新增运行时依赖、密钥或数据库迁移。Impeccable 安装由 `npx impeccable skills install` 完成；本机技能包、二进制、hook 与临时截图被忽略，不进入部署产物。
+
+## 本轮阶段验证记录
+
+蓝粉基础层和资源面板首批：`pnpm --filter @kiumi/web verify:ui` 通过类型检查、29 项浏览器测试和生产构建；1 项外部 Word 样本测试因未配置样本跳过。构建提示主包超过 500 kB，未新增运行时依赖。当前截图仅覆盖空工作台、含内容工具栏和导入初始态，不能证明所有页面已经达到视觉验收标准。
+
+下一阶段：收敛重复 CSS 到语义 tokens；完整重做检查器、收藏/剪贴板和业务弹窗；检查低高度、长内容、未登录/团队/错误状态；按 impeccable 完成 detector、独立 finish reviewer 和 documenter，同步替换 DESIGN.md 与 design.json。

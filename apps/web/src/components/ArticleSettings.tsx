@@ -10,7 +10,7 @@ export function ArticleSettings() {
     const state = useStore.getState(); state.commit({ ...state.doc, meta: { ...state.doc.meta, ...patch } });
   };
   return <section className="article-settings" aria-label="图文设置">
-    <div className="settings-heading"><h2>图文设置</h2><span>让每一次分享都恰到好处</span></div>
+    <div className="settings-heading"><h2>图文设置</h2><span>封面与摘要用于分享</span></div>
     <div className="settings-main">
       <label className="cover-picker" title="上传分享封面">
         {doc.meta.cover ? <img src={doc.meta.cover} alt="分享封面" /> : <Icon name="image" size={28} />}

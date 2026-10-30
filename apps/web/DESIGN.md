@@ -65,6 +65,12 @@ components:
     padding: "{spacing.dialog}"
 ---
 
+# 当前重构状态
+
+本文件下方及 `.impeccable/design.json` 暂存上一版素白/鼠尾草系统，**不是当前蓝粉重构的视觉约束**。用户本轮明确指定蓝粉 iOS 液态玻璃，当前方向见 `.impeccable/surfaces/src-app-tsx.md`，实现以 `src/styles.css` 为准。最终组件打磨和独立审查之后统一生成新系统文档与 sidecar；尚未完成全界面验收。
+
+首批已落地：蓝色操作、粉色收藏、浅蓝导航、半透明浮层、文稿/插入两行操作、可键盘操作的模板分类与图片卡片、素材错误重试。当前主色 `#3e68ad`、文字 `#28364b`、背景 `#f0f4fa`、玻璃 `rgba(255,255,255,.72)` / `blur(28px) saturate(135%)`。
+
 # Design System: Kiumi
 
 ## Overview
