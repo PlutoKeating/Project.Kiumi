@@ -1,3 +1,4 @@
+import { Icon } from './Icon.tsx';
 import { ArticleSettings } from './ArticleSettings.tsx';
 import { BlockToolbar } from './BlockToolbar.tsx';
 import { isPlaceholder } from '../lib/template-style.ts';
@@ -46,6 +47,8 @@ export function Canvas() {
   // block, arrows walk the document, Escape drops the selection.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      if (event.key === 'Escape') setMenu(null);
       const target = event.target as HTMLElement | null;
       if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
       if (selected === null) return;
@@ -149,7 +152,7 @@ export function Canvas() {
 
             {doc.blocks.length === 0 && (
               <div className="h-[600px] flex flex-col items-center justify-center text-center gap-2 text-ink-600/40">
-                <span className="text-4xl">▤</span>
+                <Icon name="template" size={34} />
                 <p className="text-[13px]">从左侧点击模板，或使用顶部工具插入基础块</p>
               </div>
             )}
@@ -230,7 +233,7 @@ export function Canvas() {
                   }`}
                 >
                   <button
-                    title="上移"
+                    title="上移" disabled={index === 0}
                     onClick={(event) => {
                       event.stopPropagation();
                       if (index > 0) {
@@ -240,10 +243,10 @@ export function Canvas() {
                     }}
                     className="block-tool text-ink-600 hover:text-ink-900"
                   >
-                    ↑
+                    <Icon name="arrow" size={16} style={{ transform: 'rotate(90deg)' }} />
                   </button>
                   <button
-                    title="下移"
+                    title="下移" disabled={index === doc.blocks.length - 1}
                     onClick={(event) => {
                       event.stopPropagation();
                       if (index < doc.blocks.length - 1) {
@@ -253,7 +256,7 @@ export function Canvas() {
                     }}
                     className="block-tool text-ink-600 hover:text-ink-900"
                   >
-                    ↓
+                    <Icon name="arrow" size={16} style={{ transform: 'rotate(-90deg)' }} />
                   </button>
                   <button
                     title="复制"
@@ -263,7 +266,7 @@ export function Canvas() {
                     }}
                     className="block-tool text-ink-600 hover:text-ink-900"
                   >
-                    ⧉
+                    <Icon name="copy" size={16} />
                   </button>
                   <button
                     title="删除"
@@ -273,7 +276,7 @@ export function Canvas() {
                     }}
                     className="block-tool block-tool-delete text-ink-600 hover:text-red-600"
                   >
-                    ✕
+                    <Icon name="trash" size={16} />
                   </button>
                 </div>
                 <div
@@ -288,11 +291,11 @@ export function Canvas() {
           <div className="flex items-center justify-center gap-2 mt-3 text-[11px] text-ink-600/50">
             <span>{doc.blocks.length} 个块</span>
             <span className="text-ink-600/20">|</span>
-            <button onClick={() => setZoom(zoom - 10)} className="px-1 hover:text-ink-900">
+            <button aria-label="缩小画布" onClick={() => setZoom(zoom - 10)} className="px-1 hover:text-ink-900">
               −
             </button>
             <span className="w-10 text-center">{zoom}%</span>
-            <button onClick={() => setZoom(zoom + 10)} className="px-1 hover:text-ink-900">
+            <button aria-label="放大画布" onClick={() => setZoom(zoom + 10)} className="px-1 hover:text-ink-900">
               +
             </button>
             <button onClick={() => setZoom(100)} className="px-1 hover:text-ink-900" title="复位">
@@ -305,15 +308,15 @@ export function Canvas() {
       <BlockToolbar />
       {menu && (
         <div
-          className="fixed z-40 w-[164px] py-1 rounded-lg border border-mist-200 bg-white shadow-xl text-[12px] text-ink-800"
-          style={{ left: menu.x, top: menu.y }}
+          className="canvas-context-menu fixed z-40 w-[164px] py-1 rounded-lg border border-mist-200 bg-white shadow-xl text-[12px] text-ink-800"
+          style={{ left: Math.max(8, Math.min(menu.x, window.innerWidth - 180)), top: Math.max(8, Math.min(menu.y, window.innerHeight - 210)) }}
           onClick={(event) => event.stopPropagation()}
         >
           {[
-            { label: '复制到剪贴板', hint: '⧉', run: () => copyBlock(menu.block) },
+            { label: '复制到剪贴板', hint: 'Ctrl/Cmd+C', run: () => copyBlock(menu.block) },
             { label: '原地复一份', hint: 'Ctrl+D', run: () => duplicateBlock(menu.block) },
-            { label: '前插空行', hint: 'Esc b', run: () => addNative('text', menu.block) },
-            { label: '后插空行', hint: 'Esc a', run: () => addNative('text', menu.block + 1) },
+            { label: '前插空行', hint: '', run: () => addNative('text', menu.block) },
+            { label: '后插空行', hint: '', run: () => addNative('text', menu.block + 1) },
             { label: '删除', hint: 'Del', run: () => removeBlock(menu.block), danger: true },
           ].map((item) => (
             <button

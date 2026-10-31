@@ -293,7 +293,7 @@ export function App() {
                 const uploaded = await uploadImage(file);
                 addImageBlock(uploaded.url);
               } catch (error) {
-                alert(`上传失败：${(error as Error).message}`);
+                useStore.setState({ message: `上传失败：${(error as Error).message}。请重新选择图片重试。` });
               }
             }}
           />
@@ -368,11 +368,11 @@ export function App() {
               </button>
             </div>
             <iframe
-              className="w-full flex-1 min-h-[600px]"
+              className="article-preview-frame w-full flex-1 min-h-[600px]"
               referrerPolicy="no-referrer"
               title="preview"
               sandbox=""
-              srcDoc={`<body style="margin:0;padding:16px;max-width:677px;font-family:-apple-system,'PingFang SC',sans-serif">${preview}</body>`}
+              srcDoc={`<body style="background:#fff;margin:0;padding:16px;max-width:677px;font-family:-apple-system,'PingFang SC',sans-serif">${preview}</body>`}
             />
           </div>
         </Modal>

@@ -11,6 +11,7 @@ export function Modal({ children, onClose }: { children: ReactNode; onClose: () 
     const focusable = () => [...element.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex="0"],[contenteditable="true"]')].filter(el => el.getClientRects().length);
     focusable()[0]?.focus();
     const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && (event.target as HTMLElement).closest('[data-confirmation]')) return;
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close.current(); }
       if (event.key === 'Tab') {
         const items = focusable(), first = items[0], last = items.at(-1);
@@ -19,8 +20,8 @@ export function Modal({ children, onClose }: { children: ReactNode; onClose: () 
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
       }
     };
-    element.addEventListener('keydown', onKey);
-    return () => { element.removeEventListener('keydown', onKey); previous?.focus(); };
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); previous?.focus(); };
   }, []);
   return createPortal(<div ref={root} className="modal-backdrop" onClick={onClose}>{children}</div>, document.body);
 }

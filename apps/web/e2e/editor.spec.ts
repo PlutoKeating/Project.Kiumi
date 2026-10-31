@@ -188,4 +188,34 @@ test('team and publishing forms expose labels, cover selection and narrow-height
   await draft.screenshot({ path: 'test-results/wechat-dialog.png' });
   await draft.getByLabel('AppSecret', { exact: true }).focus();
   await draft.screenshot({ path: 'test-results/wechat-account-fields.png' });
+  await draft.getByRole('button', { name: '解除绑定', exact: true }).click();
+  await expect(draft.getByRole('button', { name: '确认解除绑定' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(draft).toBeVisible();
+  await expect(draft.getByRole('button', { name: '确认解除绑定' })).toHaveCount(0);
+  await expect(draft.getByRole('button', { name: '解除绑定', exact: true })).toBeFocused();
+});
+
+test('canvas context menu stays visible and Escape dismisses it', async ({ page }) => {
+  await openEditor(page);
+  await page.locator('[data-editor-block="one"]').evaluate(el => el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 1278, clientY: 718 })));
+  const menu = page.locator('.canvas-context-menu');
+  await expect(menu).toBeVisible();
+  const box = await menu.boundingBox();
+  const viewport = page.viewportSize()!;
+  expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+});
+
+test('dialog Escape still works after an asynchronous control loses focus', async ({ page }) => {
+  await openEditor(page);
+  await page.getByRole('button', { name: '导入内容', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '导入内容' });
+  await expect(dialog).toBeVisible();
+  await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '导入内容', exact: true })).toBeFocused();
 });

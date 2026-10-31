@@ -1,3 +1,4 @@
+import { ConfirmAction } from './ConfirmAction.tsx';
 import { PanelState } from './PanelState.tsx';
 import { Modal } from './Modal.tsx';
 import { useEffect, useState } from 'react';
@@ -44,7 +45,7 @@ export function WechatPanel() {
         {result&&<div className="rounded bg-green-50 text-green-800 p-4 mb-4 text-sm"><p>草稿已创建{result.verified?'，回读确认成功':'；请在公众号后台确认内容'}。</p><p className="mt-2 break-all">草稿编号：{result.mediaId}</p><button className={button+' mt-3'} onClick={()=>{setResult(null);setRequestId(crypto.randomUUID());}}>准备下一次同步</button></div>}
       </fieldset>}
       {!loading && owner&&<div className="border-t border-mist-200 pt-4"><button disabled={busy} aria-expanded={adding} className={button} onClick={()=>setAdding(v=>!v)}>管理团队公众号</button>{adding&&<>
-        {accounts.map(a=><div key={a.id} className="flex justify-between text-sm my-3"><span>{a.name}</span><button disabled={busy} onClick={()=>{if(confirm(`解除「${a.name}」与团队的绑定？`))void run(async()=>{await api.request('/api/accounts/'+a.id,{method:'DELETE'});await reload();});}}>解除绑定</button></div>)}
+        {accounts.map(a=><div key={a.id} className="flex justify-between text-sm my-3"><span>{a.name}</span><ConfirmAction label="解除绑定" question={`解除「${a.name}」与团队的绑定？之后将无法从此团队同步到该公众号。`} busy={busy} onConfirm={()=>run(async()=>{await api.request('/api/accounts/'+a.id,{method:'DELETE'});await reload();})} /></div>)}
         <form className="space-y-3 mt-4" onSubmit={e=>{e.preventDefault();void run(async()=>{await api.request('/api/accounts',{method:'POST',body:JSON.stringify({name,appId,secret})});setSecret('');setName('');setAppId('');await reload();setNotice('公众号已连接');});}}>
           <label className="dialog-field">公众号名称<input disabled={busy} className={field} placeholder="例如：周末编辑室" required value={name} onChange={e=>setName(e.target.value)}/></label><label className="dialog-field">AppID<input disabled={busy} className={field} placeholder="公众号 AppID" required value={appId} onChange={e=>setAppId(e.target.value)}/></label><label className="dialog-field">AppSecret<input disabled={busy} type="password" autoComplete="new-password" className={field} placeholder="AppSecret（仅用于服务端连接，不回显）" required value={secret} onChange={e=>setSecret(e.target.value)}/></label><button disabled={busy} className={button}>验证并绑定</button>
         </form>

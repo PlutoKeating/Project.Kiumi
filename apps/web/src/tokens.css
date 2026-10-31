@@ -1,0 +1,48 @@
+/* Workbench-only palette and material tokens. Article HTML owns its styles. */
+@theme {
+  --color-ink-900: #28364b;
+  --color-ink-800: #374962;
+  --color-ink-700: #4d5e75;
+  --color-ink-600: #617087;
+  --color-mist-50: #f7f9fd;
+  --color-mist-100: #eff3fa;
+  --color-mist-200: #dce3ef;
+  --color-accent-400: #6087c5;
+  --color-accent-500: #3e68ad;
+}
+
+:root {
+  --surface-glass: rgba(255, 255, 255, .72);
+  --glass-filter: blur(28px) saturate(135%);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(255, 255, 255, .6);
+  --surface-lilac: #eeeafa;
+  --surface-peach: #fae9f0;
+  --surface-sage: #e4eefb;
+  --shadow-float: var(--glass-highlight), 0 16px 40px -12px rgba(58, 82, 128, .18);
+  --shadow-modal: var(--glass-highlight), 0 32px 100px -24px rgba(48, 68, 112, .22);
+}
+
+:root {
+  --surface-action: #e6eefb;
+  --surface-collection: #fae9f0;
+  --color-collection: #8d5276;
+  --ease-reveal: cubic-bezier(.16, 1, .3, 1);
+  --radius-control: 10px;
+}
+
+:root {
+  --surface-field: #f7f9fd;
+  --surface-white: #ffffff;
+  --surface-ground: #f0f4fa;
+  --color-placeholder: #65748a;
+  --color-danger: #963a56;
+  --color-action-hover: #335c9e;
+  --color-selected: #dce9fc;
+  --color-selected-ink: #254674;
+  --surface-hover: #e8effb;
+  --radius-field: 8px;
+  --radius-card: 12px;
+  --radius-overlay: 16px;
+  --duration-control: 150ms;
+  --duration-reveal: 200ms;
+}
