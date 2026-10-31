@@ -1,6 +1,7 @@
 import { Icon } from './Icon.tsx';
 import { BlockToolbar } from './BlockToolbar.tsx';
 import { Dock } from './Dock.tsx';
+import { InlineCaret } from './InlineCaret.tsx';
 import { isPlaceholder } from '../lib/template-style.ts';
 import { useEffect, useRef, useState } from 'react';
 import { uploadImage } from '../api.ts';
@@ -283,6 +284,7 @@ export function Canvas() {
               </div>
               );
             })}
+            <InlineCaret target={editing ? inlineTarget.current?.element ?? null : null} zoom={zoom} />
           </div>
         </div>
 

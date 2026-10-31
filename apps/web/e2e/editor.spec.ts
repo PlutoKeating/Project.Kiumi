@@ -278,3 +278,175 @@ test('publishing checklist never reports ready on a blank document', async ({ pa
   await expect(check).toContainText('发布前还有');
   await expect(check).toContainText('添加正文内容');
 });
+
+test.describe('inline text editing', () => {
+  const load = (page: import('@playwright/test').Page, html: string) => page.evaluate(async html => {
+    const { useStore } = await import('/src/store.ts');
+    const state = useStore.getState();
+    state.loadDoc({ ...state.doc, blocks: [{ kind: 'library', id: 'edit', tplId: 'fixture', matrix: [], html }] });
+  }, html);
+  const editable = (page: import('@playwright/test').Page) => page.locator('[data-editor-block="edit"] [data-block-content]');
+  const caret = (page: import('@playwright/test').Page) => page.locator('.inline-caret');
+  /** Reads in the page: the bar remounts on every move, so a held element handle can go stale. */
+  const bar = (page: import('@playwright/test').Page) => page.evaluate(() => {
+    const rect = document.querySelector('.inline-caret')!.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  });
+  /** Puts the selection at `offset` in the first text node, as a click would. */
+  const placeAt = async (page: import('@playwright/test').Page, offset: number) => {
+    await page.waitForSelector('[contenteditable="true"]');
+    await page.evaluate(offset => {
+      const node = document.querySelector('[contenteditable="true"]')!.firstChild!;
+      document.getSelection()!.collapse(node, offset);
+    }, offset);
+  };
+  /** Screen distance from the caret bar's centre to where the browser says the caret is. */
+  const drift = (page: import('@playwright/test').Page) => page.evaluate(() => {
+    const bar = document.querySelector('.inline-caret')?.getBoundingClientRect();
+    const rect = document.getSelection()!.getRangeAt(0).getClientRects()[0];
+    if (!bar || !rect) return { x: Infinity, y: Infinity };
+    return { x: Math.abs((bar.left + bar.right) / 2 - rect.left), y: Math.abs((bar.top + bar.bottom) / 2 - (rect.top + rect.bottom) / 2) };
+  });
+  const expectAligned = async (page: import('@playwright/test').Page) => {
+    await expect.poll(async () => { const { x, y } = await drift(page); return Math.max(x, y); }).toBeLessThan(1.5);
+  };
+
+  test('editable text shows the text cursor and only while editing', async ({ page }) => {
+    await openEditor(page);
+    await load(page, '<section><p>第一段 <a href="https://example.com"><strong>链接</strong></a></p><p>第二段</p></section>');
+    const first = editable(page).locator('p').first();
+    await expect(first).toHaveCSS('cursor', 'pointer');
+    await first.dblclick();
+    await expect(first).toHaveCSS('cursor', 'text');
+    await expect(first.locator('strong')).toHaveCSS('cursor', 'text');
+    await expect(editable(page).locator('p').nth(1)).toHaveCSS('cursor', 'pointer');
+    await page.locator('.paper-title').click();
+    await expect(first).toHaveCSS('cursor', 'pointer');
+  });
+
+  test('the drawn caret is thick, follows typing across lines and leaves nothing in the document', async ({ page }) => {
+    await openEditor(page);
+    const text = '班会围绕学生日常安全、学校发展动态及期末诚信应考三大板块展开，旨在增强学生安全意识，凝聚校园共识，营造公平、诚信的期末考试氛围。';
+    await load(page, `<section style="background:#fb7158;padding:12px"><p style="color:#fff;text-align:center;font-size:20px">${text}</p></section>`);
+    const paragraph = editable(page).locator('p');
+    await paragraph.dblclick();
+    await placeAt(page, 30);
+    await expect(caret(page)).toBeVisible();
+    await expect(paragraph).toHaveCSS('caret-color', 'rgba(0, 0, 0, 0)');
+    const size = await bar(page);
+    expect(size.width).toBeGreaterThanOrEqual(2);
+    expect(size.height).toBeGreaterThanOrEqual(20);
+    await expectAligned(page);
+    await page.locator('[data-editor-block="edit"]').screenshot({ path: test.info().outputPath('caret.png') });
+
+    await page.keyboard.type('新增');
+    await expectAligned(page);
+    // Forward delete recentres the line without moving the selection.
+    await page.keyboard.press('Delete');
+    await expectAligned(page);
+    for (const key of ['End', 'Home', 'ArrowDown', 'ArrowUp']) {
+      await page.keyboard.press(key);
+      await expect(caret(page)).toBeVisible();
+    }
+
+    // A real range shows the selection, not a caret.
+    await page.keyboard.press('Shift+ArrowRight');
+    await expect(caret(page)).toHaveCount(0);
+    await page.keyboard.press('ArrowRight');
+    await expect(caret(page)).toBeVisible();
+
+    await page.locator('.paper-title').click();
+    await expect(caret(page)).toHaveCount(0);
+    await expect(paragraph).not.toHaveCSS('caret-color', 'rgba(0, 0, 0, 0)');
+    const saved = await page.evaluate(async () => (await import('/src/store.ts')).useStore.getState().doc.blocks[0]);
+    expect(JSON.stringify(saved)).toContain('新增');
+    expect(JSON.stringify(saved)).not.toMatch(/caret|contenteditable/i);
+  });
+
+  test('a block edited while it slides in ends with the caret on the text', async ({ page }) => {
+    await openEditor(page);
+    await page.addStyleTag({ content: '.editor-block { animation-duration: 900ms !important; }' });
+    await load(page, '<section><p style="font-size:18px">刚插入就开始编辑</p></section>');
+    // dispatchEvent skips Playwright's wait for the element to stop moving.
+    await editable(page).locator('p').dispatchEvent('dblclick', { bubbles: true });
+    await placeAt(page, 3);
+    await expect(caret(page)).toBeVisible();
+    // Right after measuring the caret matches by definition; only the end state proves anything.
+    await page.evaluate(() => Promise.all(document.querySelector('.editor-block')!.getAnimations().map(animation => animation.finished)));
+    await expectAligned(page);
+  });
+
+  test('at a soft wrap the caret stays on the line it was moved to', async ({ page }) => {
+    await openEditor(page);
+    await load(page, '<section><p style="font-size:20px">班会围绕学生日常安全、学校发展动态及期末诚信应考三大板块展开，旨在增强学生安全意识，凝聚校园共识。</p></section>');
+    const paragraph = editable(page).locator('p');
+    await paragraph.dblclick();
+    await placeAt(page, 3);
+    const onFirstLine = await bar(page);
+    await page.keyboard.press('End');
+    await expect.poll(async () => (await bar(page)).x).toBeGreaterThan(onFirstLine.x + 100);
+    expect((await bar(page)).y).toBeLessThan(onFirstLine.y + 8);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Home');
+    await expect.poll(async () => (await bar(page)).x).toBeLessThan(onFirstLine.x);
+    expect((await bar(page)).y).toBeGreaterThan(onFirstLine.y + 20);
+  });
+
+  test('the caret stays on the text under canvas zoom and while an IME composes', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1000 });
+    await openEditor(page);
+    await load(page, '<section><p style="font-size:18px">缩放之后光标也要贴着文字</p></section>');
+    await editable(page).locator('p').dblclick();
+    await placeAt(page, 4);
+    await expectAligned(page);
+    for (const zoom of [50, 150]) {
+      await page.evaluate(async zoom => (await import('/src/store.ts')).useStore.getState().setZoom(zoom), zoom);
+      await expectAligned(page);
+      expect((await bar(page)).width).toBeCloseTo(2, 0);
+    }
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.imeSetComposition', { text: 'ceshi', selectionStart: 5, selectionEnd: 5 });
+    await expect(caret(page)).toBeVisible();
+    await expectAligned(page);
+    await cdp.send('Input.insertText', { text: '测试' });
+    await expect(editable(page).locator('p')).toContainText('测试');
+    await expectAligned(page);
+  });
+
+  test('empty lines, empty slots and vertical text still get a caret', async ({ page }) => {
+    await openEditor(page);
+    await load(page, '<section><p style="text-align:center" data-kiumi-placeholder="写点什么"></p><p style="writing-mode:vertical-rl;height:140px;font-size:18px">竖排文字竖排文字</p><p>一行</p></section>');
+    const empty = editable(page).locator('p').first();
+    await empty.click();
+    await empty.dblclick();
+    await expect(caret(page)).toBeVisible();
+    const slot = (await empty.boundingBox())!, inSlot = await bar(page);
+    expect(Math.abs(inSlot.x - (slot.x + slot.width / 2))).toBeLessThan(4);
+    expect(inSlot.y).toBeGreaterThanOrEqual(slot.y - 8);
+    await page.locator('.paper-title').click();
+
+    const vertical = editable(page).locator('p').nth(1);
+    await vertical.dblclick();
+    await placeAt(page, 3);
+    await expect.poll(async () => { const { width, height } = await bar(page); return width > height; }).toBe(true);
+    await page.locator('.paper-title').click();
+
+    const line = editable(page).locator('p').nth(2);
+    await line.dblclick();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await expect(caret(page)).toBeVisible();
+    const first = (await line.boundingBox())!;
+    await expect.poll(async () => (await bar(page)).y).toBeGreaterThan(first.y + 10);
+  });
+
+  test('rotated blocks fall back to the native caret', async ({ page }) => {
+    await openEditor(page);
+    await load(page, '<section style="transform:rotate(20deg)"><p>旋转的文字</p></section>');
+    const paragraph = editable(page).locator('p');
+    await paragraph.dblclick({ force: true });
+    await expect(paragraph).toHaveAttribute('contenteditable', 'true');
+    await expect(caret(page)).toHaveCount(0);
+    await expect(paragraph).not.toHaveCSS('caret-color', 'rgba(0, 0, 0, 0)');
+  });
+});

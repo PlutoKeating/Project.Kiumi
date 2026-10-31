@@ -531,6 +531,11 @@ input[type="checkbox"] { accent-color: var(--sky-deep); width: 16px; height: 16p
 [data-block-content] [data-kiumi-placeholder]:empty::before { content: attr(data-kiumi-placeholder); opacity: .55; }
 [data-block-content] [data-kiumi-placeholder]:empty { min-height: 1.5em; min-width: 4em; }
 [data-block-content] [contenteditable="true"]:focus { outline: 1.5px dashed var(--focus); outline-offset: 2px; }
+/* Editable text is a text surface even inside a clickable block. */
+[contenteditable="true"], [contenteditable="true"] * { cursor: text; }
+/* Two tones so the caret reads on any template colour, including text of its own colour. */
+.inline-caret { position: absolute; z-index: 6; border-radius: 1px; background: var(--sky-deep); box-shadow: 0 0 0 var(--caret-px) var(--paper); pointer-events: none; animation: caret-blink 1.06s step-end infinite; }
+@keyframes caret-blink { 50% { opacity: 0; } }
 
 .block-quick { position: absolute; z-index: 5; top: -14px; right: 4px; display: none; gap: 1px; padding: 2px; border-radius: var(--r-md); background: rgb(255 255 255 / 92%); box-shadow: var(--shadow-float); }
 .editor-block:hover > .block-quick, .block-quick:focus-within { display: flex; }
