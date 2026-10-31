@@ -130,6 +130,17 @@ test('toolbar menus stay below the top capsules so every row is reachable', asyn
   expect(popover!.y + popover!.height).toBeLessThanOrEqual(680);
 });
 
+test('toolbar row fits inside its glass at 1280 and every template type stays reachable', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 }); await openEditor(page);
+  await expect.poll(() => toolbar(page).evaluate(el => { const bar = el.getBoundingClientRect(); return [...el.querySelector('.toolbar-row')!.children].every(item => item.getBoundingClientRect().right <= bar.right - 4); })).toBe(true);
+  await page.evaluate(async () => (await import('/src/store.ts')).useStore.setState({ rooms: ['甲类', '乙类', '丙类', '丁类', '戊类', '己类', '庚类', '辛类'].map((name, i) => ({ tag: `modern:${i}`, name, order: i, house: 'paper', floor: 'comp', count: 1 })) }));
+  const panel = await page.locator('.template-browser').boundingBox();
+  for (const chip of await page.getByRole('group', { name: '模板类型' }).getByRole('button').all()) {
+    const box = await chip.boundingBox();
+    expect(box!.x + box!.width).toBeLessThanOrEqual(panel!.x + panel!.width);
+  }
+});
+
 test('asset failures offer retry and image cards support keyboard insertion', async ({ page }) => {
   await openEditor(page);
   let fail = true;

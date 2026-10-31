@@ -316,11 +316,11 @@ export function Canvas() {
 function EmptyPaper() {
   const addNative = useStore((state) => state.addNative);
   return <div className="empty-paper">
-    <svg width="96" height="72" viewBox="0 0 96 72" fill="none" aria-hidden="true">
-      <rect x="4" y="16" width="44" height="44" rx="7" fill="#bcd8ff" />
-      <rect x="48" y="10" width="44" height="44" rx="7" fill="#ffc8de" />
-      <rect x="26" y="24" width="44" height="44" rx="7" fill="#d8ccff" />
-      <path d="M36 38h24M36 46h24M36 54h14" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
+    <svg width="84" height="96" viewBox="0 0 84 96" fill="none" aria-hidden="true">
+      <rect x=".5" y=".5" width="83" height="95" rx="7.500" fill="#f6f8ff" stroke="#d9e1f7" />
+      <rect x="12" y="13" width="36" height="6" rx="3" fill="#232c4b" fillOpacity=".7" />
+      <rect x="12" y="27" width="60" height="26" rx="4" fill="#bcd8ff" />
+      <path d="M12 62h60M12 71h60M12 80h34" stroke="#ffc8de" strokeWidth="4" strokeLinecap="round" />
     </svg>
     <h3>从一个模板开始</h3>
     <p>在左侧点一下模板，它就会落到这张纸上。也可以直接写：</p>

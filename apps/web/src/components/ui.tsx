@@ -2,8 +2,6 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon.tsx';
 
-const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 /** The signature move: one selection marker slides to the active item, shared by every switcher. */
 export function useDroplet(container: RefObject<HTMLElement | null>, active: unknown) {
   const droplet = useRef<HTMLSpanElement>(null);
@@ -11,25 +9,19 @@ export function useDroplet(container: RefObject<HTMLElement | null>, active: unk
   useLayoutEffect(() => {
     const root = container.current, bead = droplet.current;
     if (!root || !bead) return;
-    const place = (animate: boolean) => {
+    const place = () => {
       const target = root.querySelector<HTMLElement>('[data-active="true"]');
       if (!target) { bead.style.opacity = '0'; return; }
       const x = target.offsetLeft, y = target.offsetTop, width = target.offsetWidth, height = target.offsetHeight;
       bead.style.opacity = '1';
       bead.style.width = `${width}px`; bead.style.height = `${height}px`;
       bead.style.transform = `translate(${x}px, ${y}px)`;
-      const from = last.current;
-      if (animate && from && (from.x !== x || from.y !== y) && !reduced()) {
-        const horizontal = Math.abs(x - from.x) >= Math.abs(y - from.y);
-        const squash = horizontal ? 'scale(1.04, .96)' : 'scale(.97, 1.03)';
-        bead.firstElementChild?.animate([{ transform: 'scale(1)' }, { transform: squash, offset: .38 }, { transform: 'scale(1)' }], { duration: 320, easing: 'cubic-bezier(.3, .7, .3, 1)' });
-      }
       last.current = { x, y };
     };
     bead.dataset.ready = last.current ? 'true' : 'false';
-    place(true);
+    place();
     const frame = requestAnimationFrame(() => { bead.dataset.ready = 'true'; });
-    const observer = new ResizeObserver(() => place(false));
+    const observer = new ResizeObserver(place);
     observer.observe(root);
     return () => { cancelAnimationFrame(frame); observer.disconnect(); };
   }, [container, active]);

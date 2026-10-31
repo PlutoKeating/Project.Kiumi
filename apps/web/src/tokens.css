@@ -66,13 +66,14 @@
 
   /* Shape: small, concentric radii read as a professional tool. Island 14 - padding 6 = inner 8. */
   --r-xs: 4px;
+  --r-thumb: 5px; /* 8 track - 3 padding */
   --r-sm: 6px;
   --r-md: 8px;
   --r-control: 8px;
   --r-lg: 10px;
   --r-island: 14px;
   --r-xl: 14px;
-  --r-sheet: 16px;
+  --r-sheet: 14px;
 
   /* Space */
   --gap-island: 10px;
@@ -90,9 +91,7 @@
   --text-xl: 18px;
   --text-2xl: 24px;
 
-  /* Motion: springs say "liquid", ease-out says "settled". */
-  --spring: linear(0.0, 0.074, 0.243, 0.445, 0.638, 0.799, 0.921, 1.002, 1.049, 1.07, 1.072, 1.064, 1.05, 1.036, 1.022, 1.011, 1.003, 0.998, 0.996, 0.995, 0.995, 0.996, 0.997, 0.998, 0.999, 0.999, 1);
-  --spring-soft: linear(0.0, 0.05, 0.164, 0.304, 0.447, 0.578, 0.69, 0.782, 0.854, 0.908, 0.946, 0.973, 0.991, 1.002, 1.008, 1.011, 1.011, 1.01, 1.009, 1.007, 1.006, 1.004, 1.003, 1.002, 1.002, 1.001, 1);
+  /* Motion: calm ease-out. State changes settle, nothing bounces. */
   --ease-out: cubic-bezier(.16, 1, .3, 1);
   --t-fast: 150ms;
   --t-base: 220ms;

@@ -49,14 +49,14 @@ export function WechatPanel() {
             {images.length>0?<div className="cover-grid">{images.map(i=><button type="button" key={i.id} aria-label={`选择封面：${i.name}`} aria-pressed={cover===i.url} onClick={()=>select(()=>setCover(i.url))}><img src={i.url} alt={i.name}/>{cover===i.url&&<span><Icon name="check" size={14} /></span>}</button>)}</div>:<p className="quiet-note">团队图库还没有图片，上传一张作为封面。</p>}
           </div>
           {result&&<div className="sync-result"><Icon name="check" size={18} /><div><p>草稿已创建{result.verified?'，回读确认成功':'；请在公众号后台确认内容'}。</p><small>草稿编号：{result.mediaId}</small></div><button type="button" className="btn btn-plain" onClick={()=>{setResult(null);setRequestId(crypto.randomUUID());}}>准备下一次同步</button></div>}
-          <footer className="sheet-actions"><a className="btn btn-plain" href="https://mp.weixin.qq.com" target="_blank" rel="noreferrer"><Icon name="external" size={15} />打开公众号后台</a><button type="button" disabled={busy||!account||!cover||Boolean(result)} className="btn btn-candy" onClick={sync}>{busy?'正在处理图片与草稿…':'保存并同步草稿'}</button></footer>
+          <footer className="sheet-actions">{!cover&&<span className="sheet-hint">先选择或上传一张封面</span>}<a className="btn btn-plain" href="https://mp.weixin.qq.com" target="_blank" rel="noreferrer"><Icon name="external" size={15} />打开公众号后台</a><button type="button" disabled={busy||!account||!cover||Boolean(result)} className="btn btn-candy" onClick={sync}>{busy?'正在处理图片与草稿…':'保存并同步草稿'}</button></footer>
         </fieldset>}
         {!loading && owner&&<div className="account-manage"><button type="button" disabled={busy} aria-expanded={adding} className="disclosure" onClick={()=>setAdding(v=>!v)}>管理团队公众号<Icon name="chevron" size={14} /></button>{adding&&<>
           {accounts.map(a=><div key={a.id} className="account-row"><span>{a.name}</span><ConfirmAction label="解除绑定" question={`解除「${a.name}」与团队的绑定？之后将无法从此团队同步到该公众号。`} busy={busy} onConfirm={()=>run(async()=>{await api.request('/api/accounts/'+a.id,{method:'DELETE'});await reload();})} /></div>)}
           <form className="account-form" onSubmit={e=>{e.preventDefault();void run(async()=>{await api.request('/api/accounts',{method:'POST',body:JSON.stringify({name,appId,secret})});setSecret('');setName('');setAppId('');await reload();setNotice('公众号已连接');});}}>
             <label className="field-label">公众号名称<input disabled={busy} className="field" placeholder="例如：周末编辑室" required value={name} onChange={e=>setName(e.target.value)}/></label>
             <label className="field-label">AppID<input disabled={busy} className="field" placeholder="公众号 AppID" required value={appId} onChange={e=>setAppId(e.target.value)}/></label>
-            <label className="field-label">AppSecret<input disabled={busy} type="password" autoComplete="new-password" className="field" placeholder="仅用于服务端连接，不回显" required value={secret} onChange={e=>setSecret(e.target.value)}/></label>
+            <label className="field-label">AppSecret<input disabled={busy} type="password" autoComplete="new-password" className="field" placeholder="保存后不回显" required value={secret} onChange={e=>setSecret(e.target.value)}/></label>
             <button disabled={busy} className="btn btn-tint">验证并绑定</button>
           </form>
         </>}</div>}

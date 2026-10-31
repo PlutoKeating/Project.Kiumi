@@ -82,10 +82,6 @@ function GroupChips({ groups, rooms, active, onPick }: {
 }) {
   const root = useRef<HTMLDivElement>(null);
   const bead = useDroplet(root, active);
-  useEffect(() => {
-    const scroller = root.current, chip = scroller?.querySelector<HTMLElement>('[data-active="true"]');
-    if (scroller && chip) scroller.scrollTo({ left: chip.offsetLeft - (scroller.clientWidth - chip.offsetWidth) / 2, behavior: 'smooth' });
-  }, [active, groups.length]);
   return <div ref={root} className="chips" role="group" aria-label="模板类型">
     <Droplet bead={bead} />
     {groups.map(item => {
