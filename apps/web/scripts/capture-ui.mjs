@@ -139,6 +139,8 @@ await page.getByRole('button',{name:'收起资源面板'}).click();await capture
 await page.getByRole('button',{name:'公众号草稿',exact:true}).click();let draft=page.getByRole('dialog',{name:'公众号草稿'});
 await draft.getByRole('button',{name:/^选择封面/}).first().click();await draft.getByRole('button',{name:'保存并同步草稿'}).click();await draft.locator('.sync-result').waitFor();await capture('wechat-sync-success');
 if(await draft.getByRole('button',{name:'管理团队公众号'}).getAttribute('aria-expanded')!=='true')await draft.getByRole('button',{name:'管理团队公众号'}).click();await draft.getByLabel('公众号名称',{exact:true}).fill('周末编辑室');await draft.getByLabel('AppID',{exact:true}).fill('demo');await draft.getByLabel('AppSecret',{exact:true}).fill('demo');await draft.getByRole('button',{name:'验证并绑定'}).click();await draft.getByText('公众号已连接',{exact:true}).waitFor();await capture('wechat-connected');await page.keyboard.press('Escape');
+await page.evaluate(async()=>{const {useStore}=await import('/src/store.ts');const s=useStore.getState();s.loadDoc({...s.doc,title:'纸面穿过胶囊（示例）',blocks:Array.from({length:16},(_,i)=>({kind:'library',id:`paper-${i}`,tplId:'review-0',matrix:[],html:`<h2 style="margin:0 0 8px;font-size:22px">第 ${i+1} 节的小标题</h2><p style="margin-bottom:18px">这是一段普通正文，滚动时从顶部胶囊下面穿过。</p>`}))});});
+await page.waitForTimeout(300);await page.locator('.editor-canvas').evaluate(el=>{el.scrollTop=262;});await page.mouse.move(120,700);await capture('scrolled-paper');
 for (const [name,colors] of [['stress-vivid',['#ff5a3c','#ffd400','#00b386','#2a6bff']],['stress-dark',['#101a3c','#1d1d1f','#0d3b2e','#3b0d2a']]]) {
  await page.evaluate(async colors => {
   const {useStore}=await import('/src/store.ts');const s=useStore.getState();

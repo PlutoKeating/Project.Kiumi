@@ -111,11 +111,12 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .block-toolbar::before { background: var(--glass-sheen), var(--glass-fill-toolbar); }
 .glass-pop::before, .pop-menu::before, .tool-popover::before, .toast::before { background: var(--glass-sheen), var(--glass-fill-strong); }
 .capsule::before, .dock::before { background: var(--glass-sheen), var(--glass-fill-float); }
-.capsule-document::before, .dock::before, .block-toolbar::before, .toast::before, .glass-pop::before, .pop-menu::before, .tool-popover::before { backdrop-filter: var(--glass-blur-float); }
+.capsule-document::before, .dock::before, .block-toolbar::before { backdrop-filter: var(--glass-blur-float); }
+.toast::before, .glass-pop::before, .pop-menu::before, .tool-popover::before { backdrop-filter: var(--glass-blur-pop); }
+.glass-pop, .pop-menu, .tool-popover { --ink-500: var(--ink-700); }
 /* These two bars can sit on any article colour, so their quiet labels use stronger ink than a panel's. */
 .capsule-document, .dock { --ink-500: var(--ink-700); --ink-700: var(--ink-900); --ink-disabled: #5d6688; }
-.dock::before { background: var(--glass-sheen), rgb(255 255 255 / 36%); }
-.capsule-document::before { background: var(--glass-sheen), var(--glass-fill-toolbar); }
+.capsule-document::before, .dock::before { background: var(--glass-sheen), rgb(255 255 255 / 36%); }
 .sheet::before { background: var(--glass-sheen), rgb(255 255 255 / 76%); backdrop-filter: var(--glass-blur-sheet); }
 
 @supports not (backdrop-filter: blur(1px)) {
@@ -826,6 +827,7 @@ input.font-size { width: 46px; min-height: 32px; margin: 0 3px; padding: 0 4px 0
 /* ---------------------------------------------------------------- Toast */
 
 .toast { position: fixed; z-index: 65; left: 50%; bottom: 96px; display: flex; align-items: center; gap: 7px; max-width: min(460px, calc(var(--vw) * .6)); padding: 8px 15px; border-radius: var(--r-md); box-shadow: var(--shadow-float); font-size: var(--text-md); color: var(--ink-900); transform: translate(-50%, 10px) scale(.96); opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, transform var(--t-slow) var(--ease-out), visibility var(--t-base); pointer-events: none; }
+body:has(.modal-backdrop) .toast { bottom: 20px; }
 .toast[data-visible="true"] { transform: translate(-50%, 0); opacity: 1; visibility: visible; }
 .toast svg { flex: none; color: var(--mint-deep); }
 .toast[data-tone="error"] svg { color: var(--danger); }

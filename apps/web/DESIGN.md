@@ -305,7 +305,7 @@ components:
 - **次级墨** (`ink-700`)：控件默认文字。**弱墨** (`ink-500`)：次要说明、计数、未选导航。**占位墨** (`ink-placeholder`)：只给 placeholder。
 - **细线** (`hairline` / `hairline-strong`)：分隔线、字段描边、列表界线；strong 用于字段悬停和拖放区。
 - **底色** (`ground`)：环境光下的基底。**白纸** (`paper`)：文章、模板预览和缩略图的底。
-- **玻璃填充** (`glass-fill` 32%、胶囊与 Dock 30%、`glass-fill-toolbar` 44%、`glass-fill-strong` 58%、`glass-fill-sheet` 76%)：岛和胶囊、跟随工具条、弹出层、弹窗，越靠上层越实。**玻璃回退** (`glass-solid`)：浏览器不支持 backdrop-filter 时使用。**玻璃边** (`glass-edge`)：四周均匀的 1px 细边。
+- **玻璃填充** (`glass-fill` 32%、左右胶囊 30%、中间胶囊与 Dock 36%、`glass-fill-toolbar` 44%、`glass-fill-strong` 58%、`glass-fill-sheet` 76%)：岛和胶囊、跟随工具条、弹出层、弹窗，越靠上层越实。**玻璃回退** (`glass-solid`)：浏览器不支持 backdrop-filter 时使用。**玻璃边** (`glass-edge`)：四周均匀的 1px 细边。
 - **状态** (`danger` / `danger-hover` / `danger-wash`、`warn` / `warn-wash`)：破坏性操作和发布前警告，文字色在对应浅底上保持可读。
 - **工具提示墨** (`tooltip`)、**遮罩** (`backdrop`)：工具提示底和弹窗遮罩。
 - **文章墨** (`article-ink` #3f3f3f)：文章默认字色，属于文章，不属于界面。
@@ -362,7 +362,7 @@ components:
 
 深度来自四件事：环境光、一层磨砂、顶边细高光、两层投影。所有玻璃面共用 `--glass-blur`（`blur(32px) saturate(200%)`，弹窗用更重的 `--glass-blur-sheet`（`blur(44px) saturate(180%)`））、1px 均匀玻璃边和按层级递增的填充不透明度；不支持 backdrop-filter 时回退到 `glass-solid`。弹窗几乎不透明，避免长表单被背景干扰；遮罩是 `backdrop` 加 `blur(10px) saturate(130%)`。
 
-层级从低到高：跟随块快捷工具 5、岛 10、Dock 30、跟随工具条 35、顶栏 40、右键菜单 45、弹出菜单 50、弹窗 60、Toast 65、工具提示 80、下拉列表 90。
+层级从低到高：跟随块快捷工具 5、岛 10、Dock 30、跟随工具条 35、顶栏 40、右键菜单 45、弹出菜单 50、弹窗 60、Toast 65（弹窗打开时移到视口底部，不压表单）、工具提示 80、下拉列表 90。
 
 ### Shadow Vocabulary
 
@@ -382,7 +382,7 @@ components:
 
 **The 整体缩放 Rule.** 界面用根级 `zoom`（`--ui-scale`）等比放大：窗口 ≤1360 为 1.04，常规 1.08，≥1800 为 1.1。文中所有 px 都是缩放前的值。按测量定位的浮层必须走 `lib/ui-scale.ts`，视口单位必须用 `--vh`、`--vw`，否则位置和高度都会偏移。
 
-**The 看得清 Rule.** 对比度按屏幕实际像素算，不按色值算：`pnpm --filter @kiumi/web audit:contrast` 在全部状态里实测每段文字和图标，正文 ≥4.5，大字和图标 ≥3，禁用 ≥3，含深色与高饱和文章压在玻璃下的压力状态。禁用用 `--ink-disabled` 换色，不用 opacity 变淡。中间胶囊、Dock、工具条、Toast 和所有菜单用 `--glass-blur-float` 提亮背后的深色内容，中间胶囊和 Dock 的次要文字比面板深一档；11px 的安静文字用 `ink-700`。提示气泡不得盖住已打开的菜单。
+**The 看得清 Rule.** 对比度按屏幕实际像素算，不按色值算：`pnpm --filter @kiumi/web audit:contrast` 在全部状态里实测每段文字和图标，正文 ≥4.5，大字和图标 ≥3，禁用 ≥3，含深色与高饱和文章压在玻璃下的压力状态。禁用用 `--ink-disabled` 换色，不用 opacity 变淡。中间胶囊、Dock、工具条用 `--glass-blur-float` 提亮背后的深色内容；Toast 和菜单用更柔和的 `--glass-blur-pop`，在浅色内容上保留色彩；中间胶囊和 Dock 的次要文字比面板深一档；11px 的安静文字用 `ink-700`。提示气泡不得盖住已打开的菜单。
 
 **The 克制玻璃 Rule.** 玻璃是一块有光泽的薄片：通透填充、强模糊、顶边 1px 细高光、顶部 56px 淡光、两层靛蓝投影，到此为止。质感只在边缘和顶部出现，任何暗示球面、粗厚边缘或随指针移动的光都不属于这个世界。
 

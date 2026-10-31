@@ -60,6 +60,8 @@
   --glass-blur: blur(32px) saturate(200%);
   /* Floating bars pass over articles: lift dark content so ink stays readable, white paper is unchanged. */
   --glass-blur-float: blur(28px) saturate(160%) contrast(.5) brightness(1.82);
+  /* Raised layers keep pastel colour on light content, so they get a softer lift. */
+  --glass-blur-pop: blur(28px) saturate(200%) contrast(.4) brightness(1.42);
   --glass-blur-sheet: blur(44px) saturate(180%);
   --glass-sheen: linear-gradient(180deg, rgb(255 255 255 / 24%), rgb(255 255 255 / 0%) 56px);
   --field-fill: rgb(255 255 255 / 48%);
