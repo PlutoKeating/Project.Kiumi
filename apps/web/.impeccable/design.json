@@ -1,166 +1,222 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-29T17:14:41.242557+00:00",
+  "generatedAt": "2026-10-31T08:35:44.522546+00:00",
   "title": "Design System: Kiumi",
   "extensions": {
     "colorMeta": {
       "primary": {
         "role": "primary",
-        "displayName": "鼠尾草",
+        "displayName": "操作蓝",
         "tonalRamp": [
-          "oklch(15% 0.0150 160)",
-          "oklch(25% 0.0300 160)",
-          "oklch(35% 0.0480 160)",
-          "oklch(47% 0.0600 160)",
-          "oklch(60% 0.0600 160)",
-          "oklch(73% 0.0480 160)",
-          "oklch(85% 0.0300 160)",
-          "oklch(95% 0.0120 160)"
+          "oklch(15% 0.0240 260)",
+          "oklch(25% 0.0480 260)",
+          "oklch(35% 0.0840 260)",
+          "oklch(47% 0.1200 260)",
+          "oklch(60% 0.1200 260)",
+          "oklch(73% 0.0900 260)",
+          "oklch(85% 0.0480 260)",
+          "oklch(95% 0.0180 260)"
         ]
       },
       "focus": {
         "role": "primary",
-        "displayName": "焦点绿",
+        "displayName": "focus",
         "tonalRamp": [
-          "oklch(15% 0.0125 160)",
-          "oklch(25% 0.0250 160)",
-          "oklch(35% 0.0400 160)",
-          "oklch(47% 0.0500 160)",
-          "oklch(60% 0.0500 160)",
-          "oklch(73% 0.0400 160)",
-          "oklch(85% 0.0250 160)",
-          "oklch(95% 0.0100 160)"
+          "oklch(15% 0.0240 260)",
+          "oklch(25% 0.0480 260)",
+          "oklch(35% 0.0840 260)",
+          "oklch(47% 0.1200 260)",
+          "oklch(60% 0.1200 260)",
+          "oklch(73% 0.0900 260)",
+          "oklch(85% 0.0480 260)",
+          "oklch(95% 0.0180 260)"
         ]
       },
-      "background": {
-        "role": "neutral",
-        "displayName": "工作区底色",
+      "action-hover": {
+        "role": "primary",
+        "displayName": "action-hover",
         "tonalRamp": [
-          "oklch(15% 0.0037 145)",
-          "oklch(25% 0.0075 145)",
-          "oklch(35% 0.0120 145)",
-          "oklch(47% 0.0150 145)",
-          "oklch(60% 0.0150 145)",
-          "oklch(73% 0.0120 145)",
-          "oklch(85% 0.0075 145)",
-          "oklch(95% 0.0030 145)"
+          "oklch(15% 0.0240 260)",
+          "oklch(25% 0.0480 260)",
+          "oklch(35% 0.0840 260)",
+          "oklch(47% 0.1200 260)",
+          "oklch(60% 0.1200 260)",
+          "oklch(73% 0.0900 260)",
+          "oklch(85% 0.0480 260)",
+          "oklch(95% 0.0180 260)"
+        ]
+      },
+      "action-surface": {
+        "role": "primary",
+        "displayName": "action-surface",
+        "tonalRamp": [
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
+        ]
+      },
+      "collection": {
+        "role": "secondary",
+        "displayName": "收藏粉",
+        "tonalRamp": [
+          "oklch(15% 0.0080 345)",
+          "oklch(25% 0.0160 345)",
+          "oklch(35% 0.0280 345)",
+          "oklch(47% 0.0400 345)",
+          "oklch(60% 0.0400 345)",
+          "oklch(73% 0.0300 345)",
+          "oklch(85% 0.0160 345)",
+          "oklch(95% 0.0060 345)"
+        ]
+      },
+      "collection-surface": {
+        "role": "secondary",
+        "displayName": "collection-surface",
+        "tonalRamp": [
+          "oklch(15% 0.0080 345)",
+          "oklch(25% 0.0160 345)",
+          "oklch(35% 0.0280 345)",
+          "oklch(47% 0.0400 345)",
+          "oklch(60% 0.0400 345)",
+          "oklch(73% 0.0300 345)",
+          "oklch(85% 0.0160 345)",
+          "oklch(95% 0.0060 345)"
         ]
       },
       "ink": {
         "role": "neutral",
-        "displayName": "深墨",
+        "displayName": "深蓝墨",
         "tonalRamp": [
-          "oklch(15% 0.0063 170)",
-          "oklch(25% 0.0125 170)",
-          "oklch(35% 0.0200 170)",
-          "oklch(47% 0.0250 170)",
-          "oklch(60% 0.0250 170)",
-          "oklch(73% 0.0200 170)",
-          "oklch(85% 0.0125 170)",
-          "oklch(95% 0.0050 170)"
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
+        ]
+      },
+      "ink-strong": {
+        "role": "neutral",
+        "displayName": "ink-strong",
+        "tonalRamp": [
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
+        ]
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "ink-secondary",
+        "tonalRamp": [
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
         ]
       },
       "muted": {
         "role": "neutral",
-        "displayName": "次级文字",
+        "displayName": "muted",
         "tonalRamp": [
-          "oklch(15% 0.0063 160)",
-          "oklch(25% 0.0125 160)",
-          "oklch(35% 0.0200 160)",
-          "oklch(47% 0.0250 160)",
-          "oklch(60% 0.0250 160)",
-          "oklch(73% 0.0200 160)",
-          "oklch(85% 0.0125 160)",
-          "oklch(95% 0.0050 160)"
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
         ]
       },
-      "border": {
+      "placeholder": {
         "role": "neutral",
-        "displayName": "柔和边框",
+        "displayName": "placeholder",
         "tonalRamp": [
-          "oklch(15% 0.0050 150)",
-          "oklch(25% 0.0100 150)",
-          "oklch(35% 0.0160 150)",
-          "oklch(47% 0.0200 150)",
-          "oklch(60% 0.0200 150)",
-          "oklch(73% 0.0160 150)",
-          "oklch(85% 0.0100 150)",
-          "oklch(95% 0.0040 150)"
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
+        ]
+      },
+      "field": {
+        "role": "neutral",
+        "displayName": "field",
+        "tonalRamp": [
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
         ]
       },
       "mist": {
         "role": "neutral",
-        "displayName": "浅雾",
+        "displayName": "mist",
         "tonalRamp": [
-          "oklch(15% 0.0037 145)",
-          "oklch(25% 0.0075 145)",
-          "oklch(35% 0.0120 145)",
-          "oklch(47% 0.0150 145)",
-          "oklch(60% 0.0150 145)",
-          "oklch(73% 0.0120 145)",
-          "oklch(85% 0.0075 145)",
-          "oklch(95% 0.0030 145)"
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
         ]
       },
-      "lavender": {
-        "role": "secondary",
-        "displayName": "薰衣草",
+      "border": {
+        "role": "neutral",
+        "displayName": "border",
         "tonalRamp": [
-          "oklch(15% 0.0088 305)",
-          "oklch(25% 0.0175 305)",
-          "oklch(35% 0.0280 305)",
-          "oklch(47% 0.0350 305)",
-          "oklch(60% 0.0350 305)",
-          "oklch(73% 0.0280 305)",
-          "oklch(85% 0.0175 305)",
-          "oklch(95% 0.0070 305)"
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
         ]
       },
-      "peach": {
-        "role": "secondary",
-        "displayName": "蜜桃",
+      "ground": {
+        "role": "neutral",
+        "displayName": "ground",
         "tonalRamp": [
-          "oklch(15% 0.0088 55)",
-          "oklch(25% 0.0175 55)",
-          "oklch(35% 0.0280 55)",
-          "oklch(47% 0.0350 55)",
-          "oklch(60% 0.0350 55)",
-          "oklch(73% 0.0280 55)",
-          "oklch(85% 0.0175 55)",
-          "oklch(95% 0.0070 55)"
-        ]
-      },
-      "sage": {
-        "role": "secondary",
-        "displayName": "浅鼠尾草",
-        "tonalRamp": [
-          "oklch(15% 0.0063 150)",
-          "oklch(25% 0.0125 150)",
-          "oklch(35% 0.0200 150)",
-          "oklch(47% 0.0250 150)",
-          "oklch(60% 0.0250 150)",
-          "oklch(73% 0.0200 150)",
-          "oklch(85% 0.0125 150)",
-          "oklch(95% 0.0050 150)"
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
         ]
       },
       "glass": {
         "role": "neutral",
-        "displayName": "玻璃表面",
-        "tonalRamp": [
-          "oklch(15% 0.0030 130)",
-          "oklch(25% 0.0060 130)",
-          "oklch(35% 0.0096 130)",
-          "oklch(47% 0.0120 130)",
-          "oklch(60% 0.0120 130)",
-          "oklch(73% 0.0096 130)",
-          "oklch(85% 0.0060 130)",
-          "oklch(95% 0.0024 130)"
-        ]
-      },
-      "white": {
-        "role": "neutral",
-        "displayName": "纸张白",
+        "displayName": "冷白玻璃",
         "tonalRamp": [
           "oklch(15% 0.0000 0)",
           "oklch(25% 0.0000 0)",
@@ -171,130 +227,262 @@
           "oklch(85% 0.0000 0)",
           "oklch(95% 0.0000 0)"
         ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "文章白纸",
+        "tonalRamp": [
+          "oklch(15% 0.0000 0)",
+          "oklch(25% 0.0000 0)",
+          "oklch(35% 0.0000 0)",
+          "oklch(47% 0.0000 0)",
+          "oklch(60% 0.0000 0)",
+          "oklch(73% 0.0000 0)",
+          "oklch(85% 0.0000 0)",
+          "oklch(95% 0.0000 0)"
+        ]
+      },
+      "selected": {
+        "role": "primary",
+        "displayName": "selected",
+        "tonalRamp": [
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
+        ]
+      },
+      "selected-ink": {
+        "role": "primary",
+        "displayName": "selected-ink",
+        "tonalRamp": [
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
+        ]
+      },
+      "hover": {
+        "role": "primary",
+        "displayName": "hover",
+        "tonalRamp": [
+          "oklch(15% 0.0080 260)",
+          "oklch(25% 0.0160 260)",
+          "oklch(35% 0.0280 260)",
+          "oklch(47% 0.0400 260)",
+          "oklch(60% 0.0400 260)",
+          "oklch(73% 0.0300 260)",
+          "oklch(85% 0.0160 260)",
+          "oklch(95% 0.0060 260)"
+        ]
+      },
+      "danger": {
+        "role": "secondary",
+        "displayName": "danger",
+        "tonalRamp": [
+          "oklch(15% 0.0080 345)",
+          "oklch(25% 0.0160 345)",
+          "oklch(35% 0.0280 345)",
+          "oklch(47% 0.0400 345)",
+          "oklch(60% 0.0400 345)",
+          "oklch(73% 0.0300 345)",
+          "oklch(85% 0.0160 345)",
+          "oklch(95% 0.0060 345)"
+        ]
       }
     },
     "typographyMeta": {
       "title": {
-        "displayName": "弹窗标题",
-        "purpose": "主要弹窗标题"
+        "displayName": "title",
+        "purpose": "弹窗标题"
+      },
+      "panel-title": {
+        "displayName": "panel-title",
+        "purpose": "面板与图文设置标题"
       },
       "field": {
-        "displayName": "字段文字",
-        "purpose": "摘要等表单内容"
+        "displayName": "field",
+        "purpose": "摘要等字段文字"
+      },
+      "body": {
+        "displayName": "body",
+        "purpose": "面板说明与常规操作"
       },
       "label": {
-        "displayName": "辅助标签",
-        "purpose": "紧凑字段与导航标签"
+        "displayName": "label",
+        "purpose": "紧凑标签"
       }
     },
     "shadows": [
       {
+        "name": "highlight",
+        "value": "inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(255, 255, 255, .6)",
+        "purpose": "顶栏、侧栏及玻璃边缘"
+      },
+      {
         "name": "float",
-        "value": "inset 0 1px 0 rgba(255,255,255,.95), inset 0 0 0 1px rgba(255,255,255,.6), 0 16px 40px -12px rgba(40,38,32,.22)",
-        "purpose": "工具栏与菜单"
+        "value": "inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(255, 255, 255, .6), 0 16px 40px -12px rgba(58, 82, 128, .18)",
+        "purpose": "工具栏、菜单与右键菜单"
       },
       {
         "name": "modal",
-        "value": "inset 0 1px 0 rgba(255,255,255,.95), inset 0 0 0 1px rgba(255,255,255,.6), 0 32px 100px -24px rgba(40,38,32,.25)",
-        "purpose": "模态窗口"
+        "value": "inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(255, 255, 255, .6), 0 32px 100px -24px rgba(48, 68, 112, .22)",
+        "purpose": "模态对话框"
+      },
+      {
+        "name": "paper",
+        "value": "0 8px 30px rgba(18,21,28,0.10)",
+        "purpose": "文章白纸"
       }
     ],
     "motion": [
       {
-        "name": "control-transition",
+        "name": "control",
         "value": "150ms ease",
-        "purpose": "背景色、边框色、阴影过渡；减少动态效果时关闭 CSS 动画与过渡"
+        "purpose": "背景、边框、阴影；减少动态偏好禁用"
+      },
+      {
+        "name": "card-hover",
+        "value": "180ms ease",
+        "purpose": "模板卡片边框与阴影"
+      },
+      {
+        "name": "reveal",
+        "value": "200ms cubic-bezier(.16, 1, .3, 1)",
+        "purpose": "菜单与弹窗从 translateY(6px) 进入；减少动态偏好禁用"
       }
     ],
     "breakpoints": [
       {
-        "name": "compact-desktop",
+        "name": "compact-desktop-max-width",
         "value": "1250px"
       },
       {
-        "name": "medium-desktop",
+        "name": "medium-desktop-max-width",
         "value": "1440px"
+      },
+      {
+        "name": "short-window-max-height",
+        "value": "700px"
       }
     ]
   },
   "components": [
     {
-      "name": "主要操作",
+      "name": "文稿主要操作",
       "kind": "button",
-      "description": "顶栏主要操作，样例展示视觉状态。",
+      "refersTo": "button-primary",
+      "description": "蓝色交付动作；复制到公众号。",
       "html": "<button class=\"ds-primary\">复制到公众号</button>",
-      "css": ".ds-primary{background:var(--color-accent-500,#426c5f);color:#fff;border:0;border-radius:8px;min-height:34px;padding:6px 12px;font:13px system-ui;cursor:pointer;transition:background-color 150ms ease}.ds-primary:hover{background:var(--color-accent-400,#64867b)}.ds-primary:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}",
-      "refersTo": "button-primary"
+      "css": ".ds-primary{font-family:-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif;cursor:pointer;transition:background-color var(--duration-control,150ms) ease,border-color var(--duration-control,150ms) ease,box-shadow var(--duration-control,150ms) ease;font-size:12px;border:0;min-height:36px;padding:8px 18px;border-radius:var(--radius-control,10px);background:var(--color-accent-500,#3e68ad);color:var(--surface-white,#fff);box-shadow:inset 0 1px 0 #ffffff40,0 5px 12px -7px #486ca5}.ds-primary:hover{background:var(--color-action-hover,#335c9e)}.ds-primary:focus-visible{outline:2px solid var(--color-accent-400,#6087c5);outline-offset:3px;}.ds-primary:active{filter:brightness(.96)}.ds-primary:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"]{transition:none!important;animation:none!important}}"
     },
     {
-      "name": "工具栏按钮",
+      "name": "文稿次要操作",
       "kind": "button",
-      "description": "按下状态与悬停状态区分。",
-      "html": "<button class=\"ds-tool\" aria-pressed=\"true\"><b>B</b></button>",
-      "css": ".ds-tool{border:0;border-radius:7px;min-width:32px;min-height:32px;padding:5px 8px;background:transparent;color:#354c40;cursor:pointer}.ds-tool:hover{background:#e9eee6}.ds-tool[aria-pressed=\"true\"]{background:#dce9dd;color:#2a513a}.ds-tool:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}"
+      "refersTo": "button-secondary",
+      "description": "保存、预览等次要文稿动作。",
+      "html": "<button class=\"ds-secondary\">预览</button>",
+      "css": ".ds-secondary{font-family:-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif;cursor:pointer;transition:background-color var(--duration-control,150ms) ease,border-color var(--duration-control,150ms) ease,box-shadow var(--duration-control,150ms) ease;font-size:12px;border:0;min-height:36px;padding:8px 12px;border-radius:var(--radius-control,10px);color:var(--color-ink-900,#28364b);background:#ffffffa8;box-shadow:inset 0 0 0 1px var(--color-mist-200,#dce3ef)}.ds-secondary:focus-visible{outline:2px solid var(--color-accent-400,#6087c5);outline-offset:3px;}.ds-secondary:active{filter:brightness(.96)}.ds-secondary:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"]{transition:none!important;animation:none!important}}"
+    },
+    {
+      "name": "工具按钮",
+      "kind": "button",
+      "refersTo": "button-tool",
+      "description": "选中、悬停与键盘焦点；B 是粗体操作标签。",
+      "html": "<button class=\"ds-tool\" aria-pressed=\"true\" aria-label=\"粗体\"><b>B</b></button>",
+      "css": ".ds-tool{font-family:-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif;cursor:pointer;transition:background-color var(--duration-control,150ms) ease,border-color var(--duration-control,150ms) ease,box-shadow var(--duration-control,150ms) ease;font-size:12px;min-width:32px;min-height:32px;padding:5px 8px;border:0;border-radius:var(--radius-field,8px);background:transparent;color:#354861}.ds-tool:hover{background:var(--surface-hover,#e8effb)}.ds-tool[aria-pressed=true]{background:var(--color-selected,#dce9fc);color:#315d9c}.ds-tool:focus-visible{outline:2px solid var(--color-accent-400,#6087c5);outline-offset:3px;}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"]{transition:none!important;animation:none!important}}"
     },
     {
       "name": "摘要字段",
       "kind": "input",
-      "description": "图文设置中的带标签摘要输入。",
+      "refersTo": "field",
+      "description": "稳定浅色底与可见标签。",
       "html": "<label class=\"ds-field\">分享摘要<textarea rows=\"2\" placeholder=\"用一句话介绍这篇文章…\"></textarea></label>",
-      "css": ".ds-field{display:grid;gap:5px;font:11px system-ui;color:#5c6a60}.ds-field textarea{background:#fafaf8;border:1px solid #e6e4df;border-radius:8px;padding:8px 10px;color:#35433a;font:13px/1.6 system-ui;resize:vertical}.ds-field textarea::placeholder{color:#738072}.ds-field textarea:hover{border-color:var(--color-accent-400,#64867b)}.ds-field textarea:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}",
-      "refersTo": "field"
-    },
-    {
-      "name": "侧栏导航",
-      "kind": "nav",
-      "description": "导航示例省略图标，保留文字及当前项状态。",
-      "html": "<nav class=\"ds-nav\"><button aria-current=\"page\">模板</button><button>素材</button></nav>",
-      "css": ".ds-nav{display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 0;background:#e5ede7;width:76px}.ds-nav button{width:64px;min-height:54px;border:0;border-radius:8px;background:transparent;color:#526b5b;font:11px system-ui;cursor:pointer}.ds-nav button:hover{background:#dbe5dd;color:#2e4f40}.ds-nav button[aria-current]{background:#fffaf4;color:#345445;box-shadow:0 4px 12px -7px #456351}.ds-nav button:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}"
+      "css": ".ds-field{display:grid;gap:5px;font:11px -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif;color:#52647f}.ds-field textarea{font:13px/1.6 -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif;padding:8px 10px;background:var(--surface-field,#f7f9fd);color:#354861;border:1px solid #e2e8f2;border-radius:var(--radius-field,8px);resize:vertical;caret-color:var(--color-accent-500,#3e68ad)}.ds-field textarea::placeholder{color:var(--color-placeholder,#65748a)}.ds-field textarea:focus-visible{outline:2px solid var(--color-accent-400,#6087c5);outline-offset:3px;outline-offset:2px}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"]{transition:none!important;animation:none!important}}"
     },
     {
       "name": "模板筛选",
       "kind": "chip",
-      "description": "紧凑文字筛选按钮。",
-      "html": "<button class=\"ds-chip\" aria-pressed=\"true\">全部</button>",
-      "css": ".ds-chip{border:0;border-radius:4px;padding:2px 6px;font:11px system-ui;color:var(--color-ink-600,#66665f);background:transparent;cursor:pointer}.ds-chip[aria-pressed=\"true\"]{background:rgb(66 108 95 / 10%);color:var(--color-accent-500,#426c5f)}.ds-chip:hover{color:var(--color-ink-900,#30302e)}.ds-chip:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}"
+      "refersTo": "filter",
+      "description": "资源面板中最小高 32px 的紧凑筛选。",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"true\">推荐模板</button>",
+      "css": ".ds-chip{font-family:-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif;cursor:pointer;transition:background-color var(--duration-control,150ms) ease,border-color var(--duration-control,150ms) ease,box-shadow var(--duration-control,150ms) ease;font-size:11px;min-height:32px;border:0;border-radius:4px;padding:2px 6px;background:transparent;color:var(--color-ink-600,#617087)}.ds-chip:hover{color:var(--color-ink-900,#28364b)}.ds-chip[aria-pressed=true]{background:rgb(62 104 173 / 10%);color:var(--color-accent-500,#3e68ad)}.ds-chip:focus-visible{outline:2px solid var(--color-accent-400,#6087c5);outline-offset:3px;}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"]{transition:none!important;animation:none!important}}"
+    },
+    {
+      "name": "侧栏导航",
+      "kind": "nav",
+      "description": "文字状态样例；实际导航另含现有 21px 线性 SVG。",
+      "html": "<nav class=\"ds-nav\" aria-label=\"资源\"><button aria-current=\"page\">图文模板</button><button data-section=\"favorites\">图文收藏</button></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;align-items:center;gap:10px;width:76px;padding:18px 0 12px;background:rgba(225,235,251,.56);backdrop-filter:var(--glass-filter,blur(28px) saturate(135%));box-shadow:var(--glass-highlight,inset 0 1px 0 rgba(255,255,255,.95),inset 0 0 0 1px rgba(255,255,255,.6))}.ds-nav button{font-family:-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif;cursor:pointer;transition:background-color var(--duration-control,150ms) ease,border-color var(--duration-control,150ms) ease,box-shadow var(--duration-control,150ms) ease;font-size:11px;line-height:1.25;width:64px;min-height:60px;border:0;border-radius:14px;background:transparent;color:#526983}.ds-nav button:hover{background:#e6edfa;color:#315e9d}.ds-nav button[aria-current]{background:#ffffffb8;color:#355d9b;box-shadow:inset 0 1px 0 rgba(255,255,255,.95),inset 0 0 0 1px rgba(255,255,255,.6),0 5px 14px -9px #7e9dc7}.ds-nav button[data-section=favorites]{color:var(--color-collection,#8d5276)}.ds-nav button[data-section=favorites][aria-current]{background:var(--surface-collection,#fae9f0)}.ds-nav button:focus-visible{outline:2px solid var(--color-accent-400,#6087c5);outline-offset:3px;}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"]{transition:none!important;animation:none!important}}"
     },
     {
       "name": "模板卡片",
       "kind": "card",
-      "description": "预览区为示意文字；实际模板使用独立 iframe。",
-      "html": "<div class=\"ds-card\" role=\"button\" tabindex=\"0\"><div class=\"ds-preview\">模板预览</div><div class=\"ds-caption\">模板名称</div><button class=\"ds-apply\">应用样式</button></div>",
-      "css": ".ds-card{display:flex;flex-direction:column;height:204px;width:160px;background:#fff;border:1px solid #e8e6e1;border-radius:12px;overflow:hidden;cursor:pointer}.ds-card:hover{border-color:var(--color-accent-400,#64867b);box-shadow:0 1px 3px #0000001a}.ds-card:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}.ds-preview{height:132px;flex-shrink:0;background:var(--color-mist-50,#fafaf8);display:grid;place-items:center;color:#66665f;font:12px system-ui}.ds-caption{height:32px;padding:0 8px;font:11px/32px system-ui;color:#66665f}.ds-apply{align-self:flex-end;min-height:32px;margin:0 8px 8px;padding:0 8px;border:1px solid #e5e4df;border-radius:4px;background:#fff;color:var(--color-accent-500,#426c5f);font:11px system-ui}.ds-apply:hover{background:var(--color-mist-100,#f4f3f0)}.ds-apply:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}"
+      "refersTo": "template-card",
+      "description": "预览用示意文字，生产使用独立白底 iframe；动作按钮彼此独立。",
+      "html": "<div class=\"ds-card\"><div class=\"ds-preview\"><span>模板预览</span><button aria-label=\"插入模板\" class=\"ds-insert\"></button></div><div class=\"ds-caption\">模板名称</div><div class=\"ds-actions\"><button>插入</button><button>应用样式</button></div></div>",
+      "css": ".ds-card{width:160px;height:224px;display:flex;flex-direction:column;overflow:hidden;background:var(--surface-white,#fff);border:1px solid #e0e6ef;border-radius:var(--radius-card,12px);transition:box-shadow 180ms ease,border-color 180ms ease;font:11px -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif;color:var(--color-ink-600,#617087)}.ds-card:hover{border-color:#9bb6dd;box-shadow:0 6px 18px -9px #708cb8}.ds-preview{height:144px;flex-shrink:0;position:relative;display:grid;place-items:center;background:#fff}.ds-insert{position:absolute;inset:0;border:0;background:transparent;cursor:pointer}.ds-insert:focus-visible{outline:2px solid var(--color-accent-400,#6087c5);outline-offset:3px;outline-offset:-3px}.ds-caption{height:32px;display:flex;align-items:center;padding:0 8px}.ds-actions{display:flex;align-items:center;gap:8px;padding:0 8px 8px}.ds-actions button{font-family:-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif;cursor:pointer;transition:background-color var(--duration-control,150ms) ease,border-color var(--duration-control,150ms) ease,box-shadow var(--duration-control,150ms) ease;font-size:11px;min-height:32px;border:0;padding:4px 2px;background:transparent;color:var(--color-accent-500,#3e68ad)}.ds-actions button:last-child{margin-left:auto;padding:0 8px;border:1px solid var(--color-mist-200,#dce3ef);border-radius:4px}.ds-actions button:last-child:hover{background:var(--color-mist-100,#eff3fa)}.ds-actions button:focus-visible{outline:2px solid var(--color-accent-400,#6087c5);outline-offset:3px;}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"]{transition:none!important;animation:none!important}}"
     },
     {
       "name": "磨砂工具栏",
       "kind": "custom",
-      "description": "展示材料和按钮状态；默认跟随、可固定。收藏完整块内容与样式后可从图文收藏复用；实际交互依赖 React 组件。",
-      "html": "<div class=\"ds-toolbar\" role=\"toolbar\" aria-label=\"内容块工具栏\"><button>复制</button><button>插入空行</button><button aria-pressed=\"true\"><b>B</b></button></div>",
-      "css": ".ds-toolbar{display:flex;gap:2px;padding:6px;border-radius:14px;background:rgba(255,255,255,.72);backdrop-filter:blur(28px) saturate(20%);box-shadow:var(--shadow-float,inset 0 1px 0 rgba(255,255,255,.95), 0 16px 40px -12px rgba(40,38,32,.22));color:#354c40}.ds-toolbar button{border:0;border-radius:7px;min-width:32px;min-height:32px;padding:5px 8px;background:transparent;font:12px system-ui;color:inherit;cursor:pointer}.ds-toolbar button:hover{background:#e9eee6}.ds-toolbar button[aria-pressed=\"true\"]{background:#dce9dd;color:#2a513a}.ds-toolbar button:focus-visible{outline:2px solid var(--color-accent-400,#64867b);outline-offset:3px;}",
-      "refersTo": "toolbar"
+      "refersTo": "toolbar",
+      "description": "材料与按钮状态样例；跟随、固定及菜单定位由真实组件实现。",
+      "html": "<div class=\"ds-toolbar\" role=\"toolbar\" aria-label=\"内容块工具栏\"><button>复制</button><button>插入空行</button><button aria-pressed=\"true\">固定工具栏</button></div>",
+      "css": ".ds-toolbar{display:flex;gap:2px;padding:8px;border-radius:var(--radius-overlay,16px);background:var(--surface-glass,rgba(255,255,255,.72));backdrop-filter:var(--glass-filter,blur(28px) saturate(135%));box-shadow:var(--shadow-float,inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(255, 255, 255, .6), 0 16px 40px -12px rgba(58, 82, 128, .18));color:#354861}.ds-toolbar button{font-family:-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif;cursor:pointer;transition:background-color var(--duration-control,150ms) ease,border-color var(--duration-control,150ms) ease,box-shadow var(--duration-control,150ms) ease;font-size:12px;border:0;border-radius:8px;min-width:32px;min-height:32px;padding:5px 8px;background:transparent;color:inherit}.ds-toolbar button:hover{background:var(--surface-hover,#e8effb)}.ds-toolbar button[aria-pressed=true]{background:var(--color-selected,#dce9fc);color:#315d9c}.ds-toolbar button:focus-visible{outline:2px solid var(--color-accent-400,#6087c5);outline-offset:3px;}@supports not(backdrop-filter:blur(8px)){.ds-toolbar{background:#f9fbff}}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"]{transition:none!important;animation:none!important}}"
+    },
+    {
+      "name": "危险操作就地确认",
+      "kind": "custom",
+      "description": "保留问题、取消与明确确认；样例仅演示视觉，不执行删除。",
+      "html": "<div class=\"ds-confirm\" role=\"group\" aria-label=\"删除这份文稿？\"><p>删除这份文稿？</p><div><button>取消</button><button class=\"ds-destructive\">确认删除</button></div></div>",
+      "css": ".ds-confirm{max-width:360px;padding:14px;border-radius:var(--radius-card,12px);background:var(--surface-collection,#fae9f0);color:var(--color-ink-900,#28364b);font:12px/1.7 -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif}.ds-confirm p{margin:0}.ds-confirm>div{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}.ds-confirm button{font-family:-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", sans-serif;cursor:pointer;transition:background-color var(--duration-control,150ms) ease,border-color var(--duration-control,150ms) ease,box-shadow var(--duration-control,150ms) ease;font-size:12px;min-height:36px;border:0;border-radius:8px;padding:6px 12px;background:transparent;color:inherit}.ds-confirm button:hover{background:#e6eefb;color:#354861}.ds-confirm button.ds-destructive{background:var(--color-danger,#963a56);color:white}.ds-confirm button.ds-destructive:hover{background:#7e3048;color:white}.ds-confirm button:focus-visible{outline:2px solid var(--color-accent-400,#6087c5);outline-offset:3px;}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"]{transition:none!important;animation:none!important}}"
     }
   ],
   "narrative": {
-    "northStar": "明亮的磨砂编辑台",
-    "overview": "以用户确认的优雅、清爽、对齐、整洁为准：浅色工作区承载低饱和马卡龙分区，磨砂浮层提供操作层次。保持桌面编辑器的紧凑信息密度，用柔和底色、留白与清楚的状态降低视觉压力。\n\n本文记录现有实现。界面字体、配色和圆角服务于编辑器外壳；文章正文、模板与导出内容保留各自排版。以 `src/styles.css` 的主题 tokens、工作台规则及组件源码为准。",
+    "northStar": "蓝粉玻璃编辑台",
+    "overview": "冷白工作区承载浅蓝操作反馈与粉色收藏点缀，深蓝墨色让紧凑控件保持清楚。半透明表面、内侧高光与柔和投影构成用户指定的 iOS 液态磨砂玻璃语言；表单保持稳定的浅色或白色底。\n\n本文从 `src/tokens.css`、`src/styles.css` 的最终层叠与现有组件提取，替代原鼠尾草方案。系统只约束桌面工作台外壳；文章白纸、模板 HTML、SVG 和导出内容保留自身样式。没有新增字体、图片资产或运行时依赖。",
     "keyCharacteristics": [
-      "明亮底色与低饱和鼠尾草、薰衣草、蜜桃点缀。",
-      "半透明浮层、柔和阴影和清楚的键盘焦点。",
-      "桌面多栏布局，正文与编辑器外壳隔离。"
+      "蓝色表示操作与选中，粉色表示收藏和少量辅助反馈。",
+      "玻璃高光、柔和阴影与清楚的键盘焦点。",
+      "紧凑桌面多栏，白色文章画布独立于外壳。"
     ],
     "rules": [
       {
         "name": "正文隔离",
         "body": "界面主题不得覆盖文章 HTML 的文字、背景和模板样式，也不得进入导出正文。",
         "section": "colors"
+      },
+      {
+        "name": "颜色有职",
+        "body": "蓝色承担主要操作与当前状态，粉色承担收藏；危险操作通过独立危险色、文案和确认状态区分。",
+        "section": "colors"
+      },
+      {
+        "name": "玻璃可读",
+        "body": "磨砂只服务于界面表面；字段和正文保持稳定底色，不用透明度替代文字对比。",
+        "section": "elevation"
       }
     ],
     "dos": [
-      "**Do** 复用浅色表面、鼠尾草强调色和现有圆角层级。",
-      "**Do** 为控件保留可见标签、焦点和明确的禁用状态。",
-      "**Do** 保持默认跟随、可固定的工具栏行为。"
+      "**Do** 复用蓝粉语义色、玻璃材质和现有圆角层级。",
+      "**Do** 保留可见字段标签、键盘焦点、明确禁用状态以及加载、空白、错误的区别。",
+      "**Do** 保持工具栏默认跟随、可固定以及弹窗的焦点管理。",
+      "**Do** 在 1280、1440、1920 桌面宽度和较低窗口高度检查滚动与浮层边界。"
     ],
     "donts": [
-      "**Don't** 将工作台主题写入文章正文或导出 HTML。",
-      "**Don't** 将旧蓝色主题重新引入当前工作台。",
-      "**Don't** 将桌面工作台擅自改为移动端编辑器。"
+      "**Don't** 将工作台主题写入文章正文、模板预览或导出 HTML。",
+      "**Don't** 恢复已被替代的鼠尾草主色与低饱和度灰绿玻璃规范。",
+      "**Don't** 将桌面工作台擅自改为移动端编辑器，或引入额外字体和装饰图片。",
+      "**Don't** 把请求错误显示成空面板，或把删除、解除绑定藏在无解释的图标后。"
     ]
   }
 }

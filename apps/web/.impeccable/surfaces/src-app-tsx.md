@@ -23,5 +23,8 @@ FORM: 用户指定方向优先于随机候选。seed:1079beb0dedc0dad。code-led
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 
-## Pending verification
-所有资源面板、内容工具菜单、导入、团队、公众号、预览；1280/1440/1920 桌面与较低高度；键盘、空/错/加载态、减少动画和无磨砂回退。
+## Verification
+
+36 个可复现状态截图覆盖资源面板、全部工具菜单、导入、团队、公众号、预览；1280/1440/1920 桌面与 1280×680；空/错/加载态、减少动画与模拟无磨砂回退。`capture:ui` 使用拦截 API 的示例数据，截图不进入提交。无磨砂回退是 CSS 模拟，静态截图不代表动画质量或真实公众号发布。
+
+`verify:ui`：33 项浏览器测试通过、1 项外部 Word 样本跳过，类型检查与生产构建通过。独立 finish reviewer 提出的白底文章预览、原生反馈替换和状态证据补充均已解决，复核 disposition: ship（针对这三项修复）。本轮没有新增交付用栅格资源；设计规则由 DESIGN.md 与 .impeccable/design.json 记录。
