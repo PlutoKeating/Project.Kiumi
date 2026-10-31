@@ -65,7 +65,7 @@ export function Workspace({session,onChange}:{session:api.SessionState|null;onCh
                 <header className="section-head"><h3>团队文稿</h3><button type="button" className="btn btn-plain" onClick={restoreGuest}>恢复登录前稿件</button><button type="button" className="btn btn-tint" disabled={busy} onClick={()=>void run(async()=>{await useStore.getState().save();await refresh();})}>保存当前稿件</button></header>
                 {!docs.length && <PanelState icon="filePlus" title="还没有云端文稿" detail="保存当前稿件后，团队成员都能打开。" />}
                 <ul className="doc-list">{docs.map(d=><li key={d.id}>
-                  <button type="button" disabled={busy} className="doc-open" onClick={()=>void run(async()=>{useStore.getState().loadDoc(await api.openDocument(d.id));setOpen(false);})}><strong>{d.title}</strong><span>{new Date(d.updatedAt).toLocaleString()}</span></button>
+                  <button type="button" disabled={busy} className="doc-open" onClick={()=>void run(async()=>{useStore.getState().loadDoc(await api.openDocument(d.id));setOpen(false);})}><strong>{d.title}</strong><span>{new Date(d.updatedAt).toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })}</span></button>
                   <ConfirmAction label="删除" question={`删除「${d.title}」？团队成员将无法再打开此文稿。`} busy={busy} onConfirm={()=>run(async()=>{await api.deleteDocument(d.id);if(useStore.getState().doc.id===d.id)useStore.getState().newDoc();await refresh();})} />
                 </li>)}</ul>
               </section>

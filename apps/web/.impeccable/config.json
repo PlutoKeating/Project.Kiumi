@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "var(--spring-soft)",
+        "createdAt": "2026-10-31T09:36:32.995Z",
+        "reason": "Brief pins iOS liquid glass; the soft spring overshoots under 2% and only signals state change"
+      }
+    ]
+  }
+}
