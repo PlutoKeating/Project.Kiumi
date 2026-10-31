@@ -76,7 +76,7 @@ async function recordContrast(name) {
  await writeFile(`${contrastDir}/${name}.json`, JSON.stringify(items));
 }
 async function capture(name) {
- await page.waitForTimeout(250);
+ await page.waitForTimeout(480);
  await page.screenshot({path:`${output}${name}.png`}); files.push(`${name}.png`); console.log(`Captured ${name}`);
  if (contrastDir) await recordContrast(name);
 }
@@ -149,6 +149,10 @@ for (const [name,colors] of [['stress-vivid',['#ff5a3c','#ffd400','#00b386','#2a
 }
 await page.evaluate(async()=>{(await import('/src/store.ts')).useStore.setState({message:'保存失败：网络连接已中断，请重试'});});await page.locator('.toast[data-tone="error"][data-visible="true"]').waitFor();await capture('toast-error');
 await page.getByRole('button',{name:'保存',exact:true}).hover();await page.waitForTimeout(600);await capture('tooltip-dark');await page.mouse.move(700,300);
+await bar.locator('summary[aria-label="更多"]').click();await page.mouse.move(120,700);await capture('stress-dark-menu');await page.keyboard.press('Escape');
+await bar.locator('summary[aria-label="文字格式"]').click();await page.mouse.move(120,700);await capture('stress-dark-format');await page.keyboard.press('Escape');
+await bar.getByRole('combobox',{name:'字体'}).click();await page.mouse.move(120,700);await capture('stress-dark-listbox');await page.keyboard.press('Escape');
+await page.locator('[data-editor-block="stress-4"]').click({button:'right'});await page.locator('.canvas-context-menu').waitFor();await capture('stress-dark-context');await page.keyboard.press('Escape');
 await page.setViewportSize({width:1280,height:680});
 await page.evaluate(async source => {const {useStore}=await import('/src/store.ts');const s=useStore.getState();s.loadDoc({...s.doc,title:'周末阅读计划（示例）',blocks:[{kind:'library',id:'review-body',tplId:'review-0',html:source,matrix:[]}]});},source);
 await page.emulateMedia({reducedMotion:'reduce'});await page.waitForTimeout(300);await page.locator('[data-editor-block="review-body"]').click({force:true});await bar.locator('summary[aria-label="间距"]').click();await capture('reduced-motion');await page.keyboard.press('Escape');await bar.locator('summary[aria-label="间距"]').click();
