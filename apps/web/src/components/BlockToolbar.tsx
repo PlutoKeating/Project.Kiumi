@@ -4,6 +4,7 @@ import { useStore } from '../store.ts';
 import { copyRichHtml, renderDocument } from '../api.ts';
 import { editBlock, styleBlock } from '../lib/block-edit.ts';
 import { Icon } from './Icon.tsx';
+import { ColorPicker, Select } from './ui.tsx';
 
 function Menu({ label, children, icon, align = 'start', wide = false }: { label: string; children: ReactNode; icon: ReactNode; align?: 'start' | 'end'; wide?: boolean }) {
   return <details className="tool-menu" data-align={align} data-wide={wide}><summary aria-label={label} data-tip={label}>{icon}<Icon name="chevron" size={12} /></summary><div className="tool-popover">{children}</div></details>;
@@ -44,7 +45,11 @@ export function BlockToolbar() {
       const area = canvas.getBoundingClientRect(), rect = target.getBoundingClientRect();
       const width = Math.min(toolbar.current?.scrollWidth || 600, area.width - 24), height = toolbar.current?.offsetHeight || 56;
       const ceiling = area.top + TOP_CLEARANCE, floor = area.bottom - height - BOTTOM_CLEARANCE;
-      const top = pinned ? ceiling : Math.min(floor, Math.max(ceiling, rect.top - height - 12));
+      // Never cover the article title: above the block, else below it, else tucked inside its top edge.
+      const title = document.querySelector('.paper-title')?.getBoundingClientRect();
+      const safe = title && title.bottom > ceiling ? title.bottom + 6 : ceiling;
+      const above = rect.top - height - 12, below = rect.bottom + 12;
+      const top = pinned ? safe : above >= safe ? Math.min(above, floor) : below <= floor ? below : Math.min(floor, Math.max(safe, rect.top + 8));
       const left = Math.max(area.left + 12, Math.min(rect.left + rect.width / 2 - width / 2, area.right - width - 12));
       setPosition({ width, left, top, visible: pinned || (rect.bottom > area.top + TOP_CLEARANCE && rect.top < area.bottom - BOTTOM_CLEARANCE) });
     };
@@ -87,15 +92,16 @@ export function BlockToolbar() {
   const transformNumber = (key: string, fallback: number) => Number(css('transform', '', true).match(new RegExp(`${key}\\((-?[\\d.]+)`))?.[1] ?? fallback);
   const popHeight = Math.max(160, position.top > window.innerHeight / 2 ? position.top - 24 : window.innerHeight - position.top - (toolbar.current?.offsetHeight || 56) - 24);
   const align = css('text-align', 'left');
+  const textColor = /^#[\da-f]{6}$/i.test(css('color', '')) ? css('color', '') : '#3f3f3f';
   const alignIcon = ALIGNMENTS.find(([value]) => value === align)?.[2] ?? 'alignLeft';
   return createPortal(<div ref={toolbar} className={`block-toolbar ${position.top > window.innerHeight / 2 ? 'popover-above' : ''}`} data-settled={settled} role="toolbar" aria-label="内容块工具栏" style={{ left: position.left, top: position.top, maxWidth: position.width || undefined, visibility: position.visible ? 'visible' : 'hidden', '--popover-height': `${popHeight}px` } as CSSProperties} onClick={e => e.stopPropagation()} onToggle={e => {
     const current = e.target as HTMLDetailsElement;
     if (current.open) toolbar.current?.querySelectorAll('details[open]').forEach(el => { if (el !== current) el.removeAttribute('open'); });
   }}>
     <div className="toolbar-row">
-      <div className="select-chip"><select aria-label="字体" value={css('font-family', '').includes('serif') && !css('font-family', '').includes('sans-serif') ? 'serif' : css('font-family', '').includes('monospace') ? 'monospace' : 'sans-serif'} onChange={e => apply('font-family', e.target.value)}><option value="sans-serif">默认字体</option><option value="serif">宋体 / 衬线</option><option value="monospace">等宽字体</option></select><Icon name="chevron" size={12} /></div>
+      <Select variant="chip" label="字体" value={css('font-family', '').includes('serif') && !css('font-family', '').includes('sans-serif') ? 'serif' : css('font-family', '').includes('monospace') ? 'monospace' : 'sans-serif'} onChange={value => apply('font-family', value)} options={[{ value: 'sans-serif', label: '默认字体' }, { value: 'serif', label: '宋体 / 衬线' }, { value: 'monospace', label: '等宽字体' }]} />
       <input className="font-size" aria-label="字号" data-tip="字号" type="number" min={8} max={96} value={number('font-size', 16)} onChange={e => { if (e.target.value) apply('font-size', `${Math.max(8, Math.min(96, Number(e.target.value)))}px`); }} />
-      <label className="color-chip" data-tip="文字颜色"><input aria-label="文字颜色" type="color" value={/^#[\da-f]{6}$/i.test(css('color', '')) ? css('color', '') : '#3f3f3f'} onChange={e => apply('color', e.target.value)} /></label>
+      <Menu label="文字颜色" icon={<span className="color-dot" style={{ background: textColor }} />}><ColorPicker label="文字颜色" value={textColor} onChange={color => apply('color', color)} /></Menu>
       <button type="button" aria-label="加粗" data-tip="加粗" aria-pressed={['bold','700'].includes(css('font-weight', ''))} onClick={() => toggle('font-weight', 'bold', 'normal')}><b>B</b></button>
       <button type="button" aria-label="斜体" data-tip="斜体" aria-pressed={css('font-style', '') === 'italic'} onClick={() => toggle('font-style', 'italic', 'normal')}><i>I</i></button>
       <Menu label="对齐" icon={<Icon name={alignIcon} />}>{ALIGNMENTS.map(([value, label, icon]) => <button type="button" aria-pressed={align === value} key={value} onClick={() => apply('text-align', value)}><Icon name={icon} size={16} />{label}</button>)}</Menu>
@@ -103,7 +109,9 @@ export function BlockToolbar() {
       <Menu label="文字格式" icon={<Icon name="type" />}>
         <button type="button" onClick={() => toggle('text-decoration', 'underline', 'none')}>下划线</button><button type="button" onClick={() => toggle('text-decoration', 'line-through', 'none')}>删除线</button><button type="button" onClick={() => apply('text-decoration', 'none')}>清除装饰</button>
         <button type="button" onClick={() => apply('text-indent', css('text-indent', '') === '2em' ? '0' : '2em')}>首行缩进</button>
-        <label className="tool-field"><span>文字底色</span><span className="color-chip"><input aria-label="文字底色" type="color" defaultValue="#ffe7f1" onChange={e => apply('background-color', e.target.value)} /></span></label>
+        <div className="tool-divider" />
+        <strong>文字底色</strong>
+        <ColorPicker label="文字底色" value={/^#[\da-f]{6}$/i.test(css('background-color', '')) ? css('background-color', '') : '#ffe7f1'} onChange={color => apply('background-color', color)} />
         <div className="tool-divider" />
         <button type="button" onClick={() => state().takeFormat(selected)}>复制格式</button><button type="button" disabled={!formatBrush} onClick={() => state().brushFormat(selected)}>粘贴格式</button><button type="button" disabled={!formatBrush} onClick={() => state().clearFormat()}>取消格式刷</button>
         <button type="button" onClick={() => editBlock(selected, root => { for (const node of root.content.querySelectorAll<HTMLElement>('*')) for (const name of ['font-size','font-family','font-weight','font-style','color','text-align','line-height','letter-spacing','text-decoration','text-indent']) node.style.removeProperty(name); })}>清除文字格式</button>

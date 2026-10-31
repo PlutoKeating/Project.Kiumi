@@ -2,7 +2,7 @@ import { blockKind, blockSummary } from '../lib/block-label.ts';
 import { PanelState } from './PanelState.tsx';
 import { renderDocument } from '@kiumi/core';
 import { useEffect, useState } from 'react';
-import { listUploads, previewUrl } from '../api.ts';
+import { listUploads, previewUrl, teamId } from '../api.ts';
 import { useStore } from '../store.ts';
 
 function PanelShell({ title, hint, label, children, action }: { title: string; hint?: string; label: string; children: React.ReactNode; action?: React.ReactNode }) {
@@ -81,11 +81,12 @@ export function GalleryPanel() {
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
+    if (!teamId()) { setLoading(false); return; } // No team is a next step, not a failure.
     let alive = true;
     setLoading(true); setError('');
     listUploads()
       .then((items) => { if (alive) setItems(items); })
-      .catch(() => { if (alive) setError('请先在左上角登录并选择团队；已选择团队时可重试。'); })
+      .catch(() => { if (alive) setError('团队图库暂时无法读取，请重试。'); })
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
@@ -93,10 +94,11 @@ export function GalleryPanel() {
   }, [retry]);
 
   return (
-    <PanelShell label="我的图库" title="我的图库" hint={loading ? '加载中' : `${items.length} 张`}>
+    <PanelShell label="我的图库" title="我的图库" hint={!teamId() ? undefined : loading ? '加载中' : `${items.length} 张`}>
+      {!teamId() && <PanelState icon="user" title="登录后查看团队图库" detail="图库在团队内共享。登录并加入团队后，就能在这里选用图片。" action="登录 / 注册" onAction={() => window.location.assign(`/auth/login?next=${encodeURIComponent(window.location.pathname)}`)} />}
       {loading && <PanelState title="正在加载团队图库" loading />}
       {error && <PanelState tone="error" icon="alert" title="图库暂时无法读取" detail={error} action="重试" onAction={() => setRetry(v => v + 1)} />}
-      {!loading && !error && items.length === 0 && (
+      {teamId() && !loading && !error && items.length === 0 && (
         <PanelState icon="gallery" title="建立团队的图片库" detail="用底部「上传」添加图片，团队成员可在这里一起选用。" />
       )}
       <div className="image-grid is-flush">

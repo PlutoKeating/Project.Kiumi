@@ -127,6 +127,7 @@ export function Canvas() {
 
   return (
     <div className="canvas-area">
+      <div className="bubbles" aria-hidden="true"><i /><i /><i /></div>
       <main
         className="editor-canvas"
         onClick={() => { setMenu(null); select(null); }}

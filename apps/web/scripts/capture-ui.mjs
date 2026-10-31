@@ -60,7 +60,7 @@ const bar=page.getByRole('toolbar',{name:'内容块工具栏'});
 for (const summary of await bar.locator('summary').all()) {
  const label=await summary.getAttribute('aria-label');await summary.click();await capture(`tools-${label}`);await summary.click();
 }
-await page.getByRole('button',{name:'更多文稿操作',exact:true}).click();await capture('top-menu');await page.keyboard.press('Escape');
+await page.getByRole('button',{name:'更多文稿操作',exact:true}).click();await capture('top-menu');await page.keyboard.press('Escape');await page.getByRole('combobox',{name:'模板分类'}).click();await capture('listbox-category');await page.keyboard.press('Escape');
 for (const [label,name] of [['导入内容','import'],['示例编辑部','team'],['公众号草稿','wechat'],['预览','preview']]) {
  await page.getByRole('button',{name:label,exact:true}).click(); await page.getByRole('dialog').waitFor(); await capture(name); await page.keyboard.press('Escape');
 }
@@ -86,11 +86,11 @@ await page.getByLabel('粘贴内容').evaluate(el=>{
 });
 await page.getByText('确认导入预览',{exact:true}).waitFor();await capture('import-issues');await page.keyboard.press('Escape');
 await page.getByRole('button',{name:'导入内容',exact:true}).click();await page.getByRole('button',{name:'网页地址',exact:true}).click();await page.getByLabel('导入文本').fill('https://example.com/demo');await page.getByRole('button',{name:'生成预览',exact:true}).click();await page.getByText('正在解析，请稍候…',{exact:true}).waitFor();await capture('import-processing');await page.getByText('网页暂时无法读取，请稍后重试',{exact:true}).waitFor({timeout:30000});await capture('import-error');await page.keyboard.press('Escape');
-await page.emulateMedia({reducedMotion:'reduce'});await page.locator('[data-editor-block="review-body"]').click();await bar.locator('summary[aria-label="间距"]').click();await capture('reduced-motion');await bar.locator('summary[aria-label="间距"]').click();
+await page.emulateMedia({reducedMotion:'reduce'});await page.locator('[data-editor-block="review-body"]').click();await bar.locator('summary[aria-label="间距"]').click();await capture('reduced-motion');await page.keyboard.press('Escape');await bar.locator('summary[aria-label="间距"]').click();
 // Simulate the declared no-backdrop fallback material, without claiming native engine support testing.
-await page.addStyleTag({content:'.capsule::before,.island::before,.dock::before,.block-toolbar::before,.toast::before,.glass-pop::before,.pop-menu::before,.tool-popover::before,.sheet::before{backdrop-filter:none!important;background:#f8f8fe!important}.modal-backdrop{backdrop-filter:none!important}'});
+await page.addStyleTag({content:'.capsule::after,.dock::after,.block-toolbar::after,.bubbles i{backdrop-filter:none!important}.capsule::before,.island::before,.dock::before,.block-toolbar::before,.toast::before,.glass-pop::before,.pop-menu::before,.tool-popover::before,.sheet::before{backdrop-filter:none!important;background:#f8f8fe!important}.modal-backdrop{backdrop-filter:none!important}'});
 await page.getByRole('button',{name:'导入内容',exact:true}).click();await capture('simulated-no-backdrop');await page.keyboard.press('Escape');
-signedOut=true;await page.reload();await page.getByRole('link',{name:'登录',exact:true}).waitFor();await page.getByRole('button',{name:'团队与文稿',exact:true}).click();await capture('signed-out-team');await page.keyboard.press('Escape');await page.getByRole('button',{name:'我的图库',exact:true}).click();await page.getByText('图库暂时无法读取',{exact:true}).waitFor();await capture('signed-out-gallery');
+signedOut=true;await page.reload();await page.getByRole('link',{name:'登录',exact:true}).waitFor();await page.getByRole('button',{name:'团队与文稿',exact:true}).click();await capture('signed-out-team');await page.keyboard.press('Escape');await page.getByRole('button',{name:'我的图库',exact:true}).click();await page.getByText('登录后查看团队图库',{exact:true}).waitFor();await capture('signed-out-gallery');
 await writeFile(`${output}manifest.json`,JSON.stringify({fixture:'All data are synthetic; API requests intercepted',files},null,2));
 await browser.close();
 console.log(`Captured ${files.length} states in ${output}`);

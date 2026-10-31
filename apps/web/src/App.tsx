@@ -156,7 +156,7 @@ export function App() {
 
   return (
     <div className="workbench" data-section={rail} data-collapsed={collapsed}>
-      <div className="ambient" aria-hidden="true"><i /><i /><i /></div>
+      <div className="ambient" aria-hidden="true" />
 
       <Topbar
         session={session}

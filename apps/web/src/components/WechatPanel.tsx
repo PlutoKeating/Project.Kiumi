@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import * as api from '../api.ts';
 import { useStore } from '../store.ts';
 import { Icon } from './Icon.tsx';
-import { SheetHeader } from './ui.tsx';
+import { Select, SheetHeader } from './ui.tsx';
 
 type Account={id:string;name:string;appId:string};
 export function WechatPanel() {
@@ -41,7 +41,7 @@ export function WechatPanel() {
         {!loading && !notice && accounts.length === 0 && <PanelState icon="send" title="还没有连接公众号" detail={owner ? '在下方管理团队公众号，验证并绑定后即可同步草稿。' : '请先在左上角选择团队，并请创建者连接公众号。'} />}
         {!loading && accounts.length>0&&<fieldset disabled={busy} className="wechat-draft-fields">
           <div className="field-pair">
-            <label className="field-label">公众号<div className="select-pill is-field"><select aria-label="公众号" value={account} onChange={e=>select(()=>setAccount(e.target.value))}>{accounts.map(a=><option value={a.id} key={a.id}>{a.name} · {a.appId}</option>)}</select><Icon name="chevron" size={14} /></div></label>
+            <div className="field-label">公众号<Select variant="field" label="公众号" value={account} onChange={value => select(() => setAccount(value))} options={accounts.map(a => ({ value: a.id, label: `${a.name} · ${a.appId}` }))} /></div>
             <label className="field-label">作者<input className="field" aria-label="作者" maxLength={16} defaultValue={useStore.getState().doc.meta.author??''} onBlur={e=>{const state=useStore.getState();state.commit({...state.doc,meta:{...state.doc.meta,author:e.target.value}});}}/></label>
           </div>
           <div className="cover-section">

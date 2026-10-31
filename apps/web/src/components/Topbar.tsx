@@ -53,7 +53,7 @@ export function Topbar({ session, workspaceVersion, onWorkspaceChange, onPreview
 
   return (
     <header className="topbar">
-      <div className="capsule capsule-identity">
+      <div className="capsule capsule-identity" data-glint>
         <span className="brand" aria-label="Kiumi">
           <svg className="brand-mark" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
             <defs><linearGradient id="brand-drop" x1="4" y1="3" x2="24" y2="26" gradientUnits="userSpaceOnUse"><stop stopColor="#a8cbff" /><stop offset=".55" stopColor="#cdbfff" /><stop offset="1" stopColor="#ffb9d6" /></linearGradient></defs>
@@ -64,7 +64,9 @@ export function Topbar({ session, workspaceVersion, onWorkspaceChange, onPreview
         </span>
         <span className="capsule-rule" />
         <Workspace session={session} onChange={onWorkspaceChange} />
-        <span className="crumb-slash" aria-hidden="true">/</span>
+      </div>
+
+      <div className="capsule capsule-document" data-glint>
         <span className="crumb-title" title={title}>{title || '未命名图文'}</span>
         <button type="button" className={`save-button is-${saving}`} aria-label="保存" disabled={saving === 'busy'} data-tip="保存 · Ctrl/⌘ S" onClick={() => void runSave()}>
           <Icon name={saving === 'done' ? 'check' : 'cloud'} size={16} />
@@ -75,7 +77,7 @@ export function Topbar({ session, workspaceVersion, onWorkspaceChange, onPreview
         <IconButton icon="redo" label="重做" tip="重做 · Ctrl/⌘ ⇧ Z" disabled={!canRedo} onClick={redo} />
       </div>
 
-      <div className="capsule capsule-delivery">
+      <div className="capsule capsule-delivery" data-glint>
         <button type="button" className="btn btn-plain" onClick={onPreview}><Icon name="eye" size={17} />预览</button>
         <WechatPanel key={workspaceVersion} />
         <button type="button" data-glint data-state={copied ? 'done' : undefined} className="btn btn-candy" onClick={() => void runCopy()}>

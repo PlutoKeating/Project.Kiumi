@@ -260,7 +260,8 @@ test('insert-after and new-document destinations preserve existing drafts', asyn
     await page.getByRole('button', { name: '导入内容', exact: true }).click();
     await page.getByLabel('选择导入文件').setInputFiles({ name: '新稿.txt', mimeType: 'text/plain', buffer: Buffer.from(text) });
     await expect(page.locator('[data-import-block]')).toHaveCount(1);
-    await page.getByLabel('导入位置').selectOption(destination);
+    await page.getByRole('combobox', { name: '导入位置' }).click();
+    await page.getByRole('option', { name: destination === 'after' ? '插入选中块之后' : destination === 'new' ? '创建新文稿' : '追加到当前文稿末尾' }).click();
     await page.getByRole('button', { name: '确认导入画布', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
   }
@@ -396,7 +397,7 @@ test('template preview warms insertion; cached insertion and editing do not call
   void backend;
 });
 
-test('top bar keeps identity and delivery capsules on one row at desktop widths', async ({ page }) => {
+test('top bar keeps identity, document and delivery capsules on one row at desktop widths', async ({ page }) => {
   await app(page);
   for (const width of [1280,1440,1920]) {
     await page.setViewportSize({width,height:900});
@@ -405,9 +406,10 @@ test('top bar keeps identity and delivery capsules on one row at desktop widths'
       const rows = [...header.children].map(node => node.getBoundingClientRect());
       return {height:header.getBoundingClientRect().height, rows:rows.map(r=>({top:r.top,left:r.left,right:r.right})), overflow:document.documentElement.scrollWidth > innerWidth};
     });
-    expect(layout.rows).toHaveLength(2);
-    expect(layout.rows[1].top).toBe(layout.rows[0].top);
+    expect(layout.rows).toHaveLength(3);
+    expect(new Set(layout.rows.map(row => row.top)).size).toBe(1);
     expect(layout.rows[1].left).toBeGreaterThanOrEqual(layout.rows[0].right);
+    expect(layout.rows[2].left).toBeGreaterThanOrEqual(layout.rows[1].right);
     expect(layout.height).toBeLessThan(60);
     expect(layout.overflow).toBe(false);
   }

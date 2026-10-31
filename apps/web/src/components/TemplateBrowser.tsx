@@ -7,7 +7,7 @@ import { readableName } from '../lib/template-name.ts';
 import { ROOM_GROUPS, useStore } from '../store.ts';
 import { Icon } from './Icon.tsx';
 import { PanelState } from './PanelState.tsx';
-import { Droplet, IconButton, Segmented, useDroplet } from './ui.tsx';
+import { Droplet, IconButton, Segmented, Select, useDroplet } from './ui.tsx';
 
 function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () => void }) {
   const hasSelection = useStore(s => s.selected !== null);
@@ -168,10 +168,7 @@ export function TemplateBrowser() {
         </div>
         <GroupChips groups={groups} rooms={rooms} active={activeGroup} onPick={setGroup} />
         <div className="filter-row">
-          <div className="select-pill"><select aria-label="模板分类" value={activeRoom ?? ''} onChange={event => setRoom(event.target.value || null)}>
-            <option value="">全部分类</option>
-            {groupRooms.map(room => <option key={room.tag} value={room.tag}>{room.name} · {room.count}</option>)}
-          </select><Icon name="chevron" size={14} /></div>
+          <Select label="模板分类" value={activeRoom ?? ''} onChange={value => setRoom(value || null)} options={[{ value: '', label: '全部分类' }, ...groupRooms.map(room => ({ value: room.tag, label: `${room.name} · ${room.count}` }))]} />
           <Segmented label="模板来源" value={view} onChange={setView} options={[{ value: 'recommend', label: '推荐' }, { value: 'recent', label: '最近' }]} />
         </div>
       </div>

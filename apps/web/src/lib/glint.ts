@@ -1,4 +1,4 @@
-/** Moves the specular highlight of candy buttons with the pointer. One listener, one write per frame. */
+/** Moves the specular highlight of glass and candy surfaces with the pointer. One listener, one write per frame. */
 export function startGlint(): void {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   let frame = 0;

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as api from '../api.ts';
 import { useStore } from '../store.ts';
 import { Icon } from './Icon.tsx';
-import { Segmented, SheetHeader } from './ui.tsx';
+import { Segmented, Select, SheetHeader } from './ui.tsx';
 import { prepareFile, prepareText, prepareRichHtml, releasePreview, setHeading, uploadPreview, type ImportPreview } from '../lib/word-import/index.ts';
 
 type Mode = 'paste' | 'markdown' | 'html' | 'url';
@@ -98,15 +98,15 @@ export function ImportPanel() {
           <div className="import-preview">
             {preview.galleryOnly ? <div className="import-gallery">{preview.assets.map(asset => <figure key={asset.url}><img src={asset.url} alt={asset.file.name} /><figcaption>{asset.file.name}</figcaption></figure>)}</div> : preview.items.map((item, i) => <div key={item.block.id} className="import-item" data-import-block>
               <div className="import-item-head"><span>块 {i + 1} · {item.label}{item.candidate ? ' · 疑似标题' : ''}</span>
-                {['段落', '1 级标题', '2 级标题', '3 级标题', '4 级标题', '5 级标题', '6 级标题'].includes(item.label) && <div className="select-pill"><select disabled={busy} aria-label={`块 ${i + 1} 标题层级`} value={item.label === '段落' ? 0 : Number(item.label[0])} onChange={e => {
-                  const next = { ...preview, items: preview.items.map((entry, j) => j === i ? setHeading(entry, Number(e.target.value)) : entry) }; current.current = next; setPreview(next); setAcknowledged(false);
-                }}><option value={0}>正文</option>{[1,2,3,4,5,6].map(level => <option value={level} key={level}>{level} 级标题</option>)}</select><Icon name="chevron" size={13} /></div>}
+                {['段落', '1 级标题', '2 级标题', '3 级标题', '4 级标题', '5 级标题', '6 级标题'].includes(item.label) && <Select disabled={busy} label={`块 ${i + 1} 标题层级`} value={item.label === '段落' ? 0 : Number(item.label[0])} options={[{ value: 0, label: '正文' }, ...[1, 2, 3, 4, 5, 6].map(level => ({ value: level, label: `${level} 级标题` }))]} onChange={level => {
+                  const next = { ...preview, items: preview.items.map((entry, j) => j === i ? setHeading(entry, level) : entry) }; current.current = next; setPreview(next); setAcknowledged(false);
+                }} />}
               </div><div className="import-item-body" dangerouslySetInnerHTML={{ __html: item.block.html || '' }} />
             </div>)}
           </div>
           {preview.issues.length > 0 && <div className="import-issues"><h3><Icon name="alert" size={15} />有 {preview.issues.length} 项需要核对</h3><ul>{preview.issues.map((entry, i) => <li key={i}>{entry.location}：{entry.message}</li>)}</ul><label className="tool-check"><input type="checkbox" disabled={busy} checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)} />我已核对以上问题，接受提示的转换结果和待补充标记</label></div>}
           <footer className="sheet-actions is-split">
-            {!preview.galleryOnly ? <label className="inline-select">导入位置<div className="select-pill"><select aria-label="导入位置" disabled={busy} value={destination} onChange={e => setDestination(e.target.value as typeof destination)}><option value="append">追加到当前文稿末尾</option><option value="after" disabled={selected === null}>插入选中块之后</option><option value="new">创建新文稿</option></select><Icon name="chevron" size={13} /></div></label> : <span />}
+            {!preview.galleryOnly ? <div className="inline-select">导入位置<Select label="导入位置" disabled={busy} value={destination} onChange={setDestination} options={[{ value: 'append', label: '追加到当前文稿末尾' }, { value: 'after', label: '插入选中块之后', disabled: selected === null }, { value: 'new', label: '创建新文稿' }]} /></div> : <span />}
             <div>
               {busy && cancellation.current && <button type="button" className="btn btn-plain" onClick={() => cancellation.current?.abort()}>取消导入</button>}
               <button type="button" className="btn btn-plain" disabled={busy} onClick={reset}>重新选择</button>

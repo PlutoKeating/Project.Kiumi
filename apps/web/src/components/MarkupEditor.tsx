@@ -3,6 +3,7 @@ import { useStore } from '../store.ts';
 import * as api from '../api.ts';
 import { cleanHtml } from '../lib/import.ts';
 import { Icon } from './Icon.tsx';
+import { Select } from './ui.tsx';
 
 const animationFields=['dur','begin','end','repeatCount','repeatDur','values','from','to','by','keyTimes','keySplines','calcMode','fill','type','path','keyPoints','rotate','additive','accumulate'];
 
@@ -43,7 +44,7 @@ export function MarkupEditor({index,html}:{index:number;html:string}) {
           <span className="image-thumb"><img src={current} alt="" /></span>
           <label className="btn btn-tint"><Icon name="upload" size={15} />上传替换<input type="file" aria-label={`上传替换图片 ${i+1}`} accept="image/png,image/jpeg,image/gif,image/webp" className="sr-only" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;setNotice('');try{const item=await api.uploadImage(file);setAttribute(node,attr,item.url);setUploads(await api.listUploads());}catch(error){setNotice((error as Error).message);}}}/></label>
         </div>
-        {uploads.length>0&&<div className="select-pill is-field"><select aria-label={`从团队图库选择图片 ${i+1}`} value="" onChange={e=>{if(e.target.value)setAttribute(node,attr,e.target.value);}}><option value="">从团队图库选择</option>{uploads.map(item=><option key={item.id} value={item.url}>{item.name}</option>)}</select><Icon name="chevron" size={14} /></div>}
+        {uploads.length>0&&<Select variant="field" label={`从团队图库选择图片 ${i+1}`} value="" onChange={value=>{if(value)setAttribute(node,attr,value);}} options={[{value:'',label:'从团队图库选择'},...uploads.map(item=>({value:item.url,label:item.name}))]}/>}
         <input className="field" aria-label={`图片 ${i+1} 地址`} defaultValue={current} key={current} onBlur={e=>setAttribute(node,attr,e.target.value)}/>
       </div>;
     })}</div></details>}

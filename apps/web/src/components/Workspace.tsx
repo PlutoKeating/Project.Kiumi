@@ -5,7 +5,7 @@ import * as api from '../api.ts';
 import { useStore } from '../store.ts';
 import { Icon } from './Icon.tsx';
 import { PanelState } from './PanelState.tsx';
-import { SheetHeader } from './ui.tsx';
+import { Select, SheetHeader } from './ui.tsx';
 
 export function Workspace({session,onChange}:{session:api.SessionState|null;onChange:()=>void}) {
   const [teams,setTeams]=useState<api.Team[]>([]), [active,setActive]=useState('');
@@ -54,9 +54,9 @@ export function Workspace({session,onChange}:{session:api.SessionState|null;onCh
             <a className="btn btn-candy" href="/auth/login">登录 / 注册</a>
           </div> : <>
             <div className="workspace-top">
-              <label className="field-label">当前团队
-                <div className="select-pill is-field"><select id="workspace-team" aria-label="当前团队" disabled={busy} value={active} onChange={e=>select(e.target.value)}><option value="">选择团队</option>{teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select><Icon name="chevron" size={14} /></div>
-              </label>
+              <div className="field-label">当前团队
+                <Select variant="field" label="当前团队" disabled={busy} value={active} onChange={select} options={[{ value: '', label: '选择团队' }, ...teams.map(t => ({ value: t.id, label: t.name }))]} />
+              </div>
               <form className="inline-form" onSubmit={e=>{e.preventDefault();void run(async()=>{const t=await api.createTeam(name);setTeams(await api.listTeams());select(t.id);setName('');});}}><label className="field-label">新团队名称<input disabled={busy} className="field" placeholder="例如：内容编辑部" required maxLength={100} value={name} onChange={e=>setName(e.target.value)}/></label><button disabled={busy} className="btn btn-tint">创建团队</button></form>
               <form className="inline-form" onSubmit={e=>{e.preventDefault();void run(async()=>{const t=await api.joinTeam(code);setTeams(await api.listTeams());select(t.id);setCode('');});}}><label className="field-label">团队邀请码<input disabled={busy} className="field" placeholder="邀请人提供的邀请码" required value={code} onChange={e=>setCode(e.target.value)}/></label><button disabled={busy} className="btn btn-tint">加入团队</button></form>
             </div>

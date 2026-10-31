@@ -23,6 +23,14 @@ export function ArticleSettings() {
     const state = useStore.getState(); state.commit({ ...state.doc, meta: { ...state.doc.meta, ...patch } });
   };
   const digest = doc.meta.digest ?? '';
+  const todos = [
+    ...(!doc.title.trim() || doc.title === '未命名图文' ? ['写一个标题'] : []),
+    ...(doc.blocks.length === 0 ? ['添加正文内容'] : []),
+    ...(!doc.meta.cover ? ['添加分享封面'] : []),
+    ...(!digest.trim() ? ['写一句分享摘要'] : []),
+  ];
+  const blocking = issues.filter(issue => issue.level !== 'info');
+  const ready = todos.length === 0 && blocking.length === 0;
   return <section className="article-settings" aria-label="图文设置">
     <div className="cover-picker" data-filled={Boolean(doc.meta.cover)}>
       {doc.meta.cover && <img src={doc.meta.cover} alt="分享封面" />}
@@ -53,8 +61,9 @@ export function ArticleSettings() {
       <div>{THEME_SWATCHES.map(({ color, name }) => <button key={color} type="button" className="swatch" aria-label={`主题色 ${name}`} aria-pressed={themeColor.toLowerCase() === color} data-tip={name} style={{ background: color }} onClick={() => applyTheme(color)} />)}</div>
     </fieldset>
 
-    <section className="preflight" aria-label="发布前检查" data-state={issues.length ? 'issues' : 'clean'}>
-      <h3><Icon name={issues.length ? 'alert' : 'check'} size={15} />{issues.length ? `发布前有 ${issues.length} 项要看` : '发布前检查通过'}</h3>
+    <section className="preflight" aria-label="发布前检查" data-state={ready ? 'clean' : 'issues'}>
+      <h3><Icon name={ready ? 'check' : 'alert'} size={15} />{ready ? '可以发布了' : `发布前还有 ${todos.length + blocking.length} 项`}</h3>
+      {todos.map(todo => <p key={todo} data-level="todo">{todo}</p>)}
       {issues.slice(0, 12).map((issue, index) => <p key={`${issue.rule}-${index}`} data-level={issue.level}>{issue.message}</p>)}
     </section>
   </section>;

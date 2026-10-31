@@ -116,8 +116,9 @@ test('1280px toolbar stays on one row and clears selected text', async ({ page }
     const rows = [...el.querySelectorAll('.toolbar-row')];
     return rows.every(row => { const tops = [...row.children].map(child => Math.round(child.getBoundingClientRect().top)); return Math.max(...tops) - Math.min(...tops) < 8; });
   })).toBe(true);
-  const bar = await toolbar(page).boundingBox(), block = await page.locator('[data-editor-block="one"]').boundingBox();
-  expect(bar!.y + bar!.height).toBeLessThan(block!.y);
+  const bar = await toolbar(page).boundingBox(), block = await page.locator('[data-editor-block="one"]').boundingBox(), title = await page.getByLabel('文章标题', { exact: true }).boundingBox();
+  expect(bar!.y).toBeGreaterThanOrEqual(title!.y + title!.height);
+  expect(bar!.y >= block!.y + block!.height || bar!.y + bar!.height <= block!.y).toBe(true);
 });
 
 test('asset failures offer retry and image cards support keyboard insertion', async ({ page }) => {
@@ -170,7 +171,7 @@ test('team and publishing forms expose labels, cover selection and narrow-height
   await page.goto('/');
   await page.getByRole('button', { name: '内容编辑部', exact: true }).click();
   const teamDialog = page.getByRole('dialog', { name: '团队工作空间' });
-  await expect(teamDialog.getByLabel('当前团队')).toHaveValue('team');
+  await expect(teamDialog.getByRole('combobox', { name: '当前团队' })).toHaveAttribute('data-value', 'team');
   await expect(teamDialog.getByLabel('新团队名称')).toBeVisible();
   await expect(teamDialog.getByLabel('团队邀请码')).toBeVisible();
   await teamDialog.screenshot({ path: 'test-results/team-dialog.png' });
@@ -220,4 +221,35 @@ test('dialog Escape still works after an asynchronous control loses focus', asyn
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('button', { name: '导入内容', exact: true })).toBeFocused();
+});
+
+test('glass listbox supports keyboard, mouse and Escape without closing its dialog', async ({ page }) => {
+  await openEditor(page);
+  const font = toolbar(page).getByRole('combobox', { name: '字体' });
+  await font.click();
+  await page.getByRole('option', { name: '宋体 / 衬线' }).click();
+  await expect(content(page).locator('p').first()).toHaveCSS('font-family', 'serif');
+  await font.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('listbox', { name: '字体' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+  await expect(font).toBeFocused();
+});
+
+test('canvas keeps article typography identical to the export context', async ({ page }) => {
+  await openEditor(page);
+  await page.evaluate(async () => { const { useStore } = await import('/src/store.ts'); const state = useStore.getState(); state.updateHtml(0, '<h2>标题</h2><p>段落</p>'); });
+  const heading = page.locator('[data-editor-block="one"] h2');
+  await expect(heading).toHaveCSS('font-weight', '700');
+  await expect(heading).toHaveCSS('font-size', '24px');
+  await expect(page.locator('[data-editor-block="one"] p')).not.toHaveCSS('margin-top', '0px');
+});
+
+test('publishing checklist never reports ready on a blank document', async ({ page }) => {
+  await page.route('**/api/**', route => route.fulfill({ json: { ok: true, data: [] } }));
+  await page.goto('/');
+  const check = page.getByLabel('发布前检查');
+  await expect(check).toContainText('发布前还有');
+  await expect(check).toContainText('添加正文内容');
 });
