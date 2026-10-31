@@ -26,7 +26,7 @@ export function Dock() {
   };
 
   return (
-    <div className="dock" data-glint role="toolbar" aria-label="插入内容">
+    <div className="dock" role="toolbar" aria-label="插入内容">
       {NATIVE_TOOLS.map((tool) => (
         <button type="button" key={tool.kind} data-tone={tool.tone} aria-label={`插入${tool.label}`} onClick={() => addNative(tool.kind, insertionPoint())}>
           <Icon name={tool.icon} size={19} /><span>{tool.label}</span>

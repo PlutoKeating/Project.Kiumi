@@ -127,7 +127,6 @@ export function Canvas() {
 
   return (
     <div className="canvas-area">
-      <div className="bubbles" aria-hidden="true"><i /><i /><i /></div>
       <main
         className="editor-canvas"
         onClick={() => { setMenu(null); select(null); }}
@@ -152,6 +151,7 @@ export function Canvas() {
               onChange={event => setTitle(event.target.value.replace(/\n/g, ' '))}
               onFocus={() => select(null)}
             />
+            <p className="paper-byline">{doc.meta.author || '未署名'} · {new Date().toLocaleDateString('zh-CN')}</p>
 
             {doc.blocks.length === 0 && <EmptyPaper />}
 
@@ -316,12 +316,11 @@ export function Canvas() {
 function EmptyPaper() {
   const addNative = useStore((state) => state.addNative);
   return <div className="empty-paper">
-    <svg width="132" height="96" viewBox="0 0 132 96" fill="none" aria-hidden="true">
-      <rect x="10" y="20" width="62" height="62" rx="16" transform="rotate(-10 10 20)" fill="#bcd8ff" fillOpacity=".75" />
-      <rect x="64" y="10" width="58" height="58" rx="15" transform="rotate(9 64 10)" fill="#ffc8de" fillOpacity=".78" />
-      <rect x="39" y="30" width="58" height="58" rx="15" fill="#d8ccff" fillOpacity=".7" />
-      <rect x="39.500" y="30.500" width="57" height="57" rx="14.500" stroke="#fff" strokeOpacity=".9" />
-      <path d="M53 50h30M53 60h30M53 70h18" stroke="#fff" strokeWidth="3.500" strokeLinecap="round" />
+    <svg width="96" height="72" viewBox="0 0 96 72" fill="none" aria-hidden="true">
+      <rect x="4" y="16" width="44" height="44" rx="7" fill="#bcd8ff" />
+      <rect x="48" y="10" width="44" height="44" rx="7" fill="#ffc8de" />
+      <rect x="26" y="24" width="44" height="44" rx="7" fill="#d8ccff" />
+      <path d="M36 38h24M36 46h24M36 54h14" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
     </svg>
     <h3>从一个模板开始</h3>
     <p>在左侧点一下模板，它就会落到这张纸上。也可以直接写：</p>

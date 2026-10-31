@@ -57,6 +57,15 @@ export function BlockToolbar() {
     const observer = new ResizeObserver(place); if (toolbar.current) observer.observe(toolbar.current);
     return () => { window.removeEventListener('scroll', place, true); window.removeEventListener('resize', place); observer.disconnect(); };
   }, [block?.id, html, pinned]);
+  // A block taller than the room around it would be cut by the toolbar: bring its top into the clear.
+  useLayoutEffect(() => {
+    if (!block || pinned) return;
+    const canvas = document.querySelector('.editor-canvas'), target = document.querySelector(`[data-editor-block="${CSS.escape(block.id)}"]`);
+    if (!canvas || !target) return;
+    const area = canvas.getBoundingClientRect(), rect = target.getBoundingClientRect(), height = toolbar.current?.offsetHeight || 56;
+    const above = rect.top - height - 12, ceiling = area.top + TOP_CLEARANCE;
+    if (above < ceiling && rect.bottom + 12 > area.bottom - BOTTOM_CLEARANCE - height) canvas.scrollBy({ top: above - ceiling });
+  }, [block?.id, pinned]);
   const present = block !== null;
   useEffect(() => {
     if (!present) { setSettled(false); return; }
@@ -90,11 +99,14 @@ export function BlockToolbar() {
     apply('transform', `${current} ${key}(${value})`.trim(), false);
   };
   const transformNumber = (key: string, fallback: number) => Number(css('transform', '', true).match(new RegExp(`${key}\\((-?[\\d.]+)`))?.[1] ?? fallback);
-  const popHeight = Math.max(160, position.top > window.innerHeight / 2 ? position.top - 24 : window.innerHeight - position.top - (toolbar.current?.offsetHeight || 56) - 24);
+  const barHeight = toolbar.current?.offsetHeight || 56;
+  const roomAbove = position.top - TOP_CLEARANCE - 12, roomBelow = window.innerHeight - position.top - barHeight - 24;
+  const openUp = roomAbove > roomBelow;
+  const popHeight = Math.max(160, openUp ? roomAbove : roomBelow);
   const align = css('text-align', 'left');
   const textColor = /^#[\da-f]{6}$/i.test(css('color', '')) ? css('color', '') : '#3f3f3f';
   const alignIcon = ALIGNMENTS.find(([value]) => value === align)?.[2] ?? 'alignLeft';
-  return createPortal(<div ref={toolbar} className={`block-toolbar ${position.top > window.innerHeight / 2 ? 'popover-above' : ''}`} data-settled={settled} role="toolbar" aria-label="内容块工具栏" style={{ left: position.left, top: position.top, maxWidth: position.width || undefined, visibility: position.visible ? 'visible' : 'hidden', '--popover-height': `${popHeight}px` } as CSSProperties} onClick={e => e.stopPropagation()} onToggle={e => {
+  return createPortal(<div ref={toolbar} className={`block-toolbar ${openUp ? 'popover-above' : ''}`} data-settled={settled} role="toolbar" aria-label="内容块工具栏" style={{ left: position.left, top: position.top, maxWidth: position.width || undefined, visibility: position.visible ? 'visible' : 'hidden', '--popover-height': `${popHeight}px` } as CSSProperties} onClick={e => e.stopPropagation()} onToggle={e => {
     const current = e.target as HTMLDetailsElement;
     if (current.open) toolbar.current?.querySelectorAll('details[open]').forEach(el => { if (el !== current) el.removeAttribute('open'); });
   }}>

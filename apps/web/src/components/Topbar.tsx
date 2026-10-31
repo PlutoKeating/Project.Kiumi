@@ -53,12 +53,11 @@ export function Topbar({ session, workspaceVersion, onWorkspaceChange, onPreview
 
   return (
     <header className="topbar">
-      <div className="capsule capsule-identity" data-glint>
+      <div className="capsule capsule-identity">
         <span className="brand" aria-label="Kiumi">
           <svg className="brand-mark" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
             <defs><linearGradient id="brand-drop" x1="4" y1="3" x2="24" y2="26" gradientUnits="userSpaceOnUse"><stop stopColor="#a8cbff" /><stop offset=".55" stopColor="#cdbfff" /><stop offset="1" stopColor="#ffb9d6" /></linearGradient></defs>
             <path d="M14 2.500c5.200 5.600 9.500 9.900 9.500 14.300a9.500 9.500 0 0 1-19 0C4.500 12.400 8.800 8.100 14 2.500Z" fill="url(#brand-drop)" />
-            <path d="M9.200 17.400c.2 2.200 1.600 3.800 3.700 4.300" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity=".9" />
           </svg>
           <b>Kiumi</b>
         </span>
@@ -66,7 +65,7 @@ export function Topbar({ session, workspaceVersion, onWorkspaceChange, onPreview
         <Workspace session={session} onChange={onWorkspaceChange} />
       </div>
 
-      <div className="capsule capsule-document" data-glint>
+      <div className="capsule capsule-document">
         <span className="crumb-title" title={title}>{title || '未命名图文'}</span>
         <button type="button" className={`save-button is-${saving}`} aria-label="保存" disabled={saving === 'busy'} data-tip="保存 · Ctrl/⌘ S" onClick={() => void runSave()}>
           <Icon name={saving === 'done' ? 'check' : 'cloud'} size={16} />
@@ -77,10 +76,10 @@ export function Topbar({ session, workspaceVersion, onWorkspaceChange, onPreview
         <IconButton icon="redo" label="重做" tip="重做 · Ctrl/⌘ ⇧ Z" disabled={!canRedo} onClick={redo} />
       </div>
 
-      <div className="capsule capsule-delivery" data-glint>
+      <div className="capsule capsule-delivery">
         <button type="button" className="btn btn-plain" onClick={onPreview}><Icon name="eye" size={17} />预览</button>
         <WechatPanel key={workspaceVersion} />
-        <button type="button" data-glint data-state={copied ? 'done' : undefined} className="btn btn-candy" onClick={() => void runCopy()}>
+        <button type="button" data-state={copied ? 'done' : undefined} className="btn btn-candy" onClick={() => void runCopy()}>
           <Icon name={copied ? 'check' : 'copy'} size={17} />
           <span aria-live="polite">{copied ? '已复制' : '复制到公众号'}</span>
         </button>

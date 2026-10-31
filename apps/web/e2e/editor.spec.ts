@@ -121,6 +121,15 @@ test('1280px toolbar stays on one row and clears selected text', async ({ page }
   expect(bar!.y >= block!.y + block!.height || bar!.y + bar!.height <= block!.y).toBe(true);
 });
 
+test('toolbar menus stay below the top capsules so every row is reachable', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 680 }); await openEditor(page);
+  await menu(page, '更多').click();
+  const popover = await toolbar(page).locator('details[open] .tool-popover').boundingBox();
+  const capsules = await page.locator('.capsule-delivery').boundingBox();
+  expect(popover!.y).toBeGreaterThanOrEqual(capsules!.y + capsules!.height);
+  expect(popover!.y + popover!.height).toBeLessThanOrEqual(680);
+});
+
 test('asset failures offer retry and image cards support keyboard insertion', async ({ page }) => {
   await openEditor(page);
   let fail = true;
@@ -237,13 +246,18 @@ test('glass listbox supports keyboard, mouse and Escape without closing its dial
   await expect(font).toBeFocused();
 });
 
-test('canvas keeps article typography identical to the export context', async ({ page }) => {
+test('canvas and preview read article HTML in one context', async ({ page }) => {
   await openEditor(page);
   await page.evaluate(async () => { const { useStore } = await import('/src/store.ts'); const state = useStore.getState(); state.updateHtml(0, '<h2>标题</h2><p>段落</p>'); });
   const heading = page.locator('[data-editor-block="one"] h2');
   await expect(heading).toHaveCSS('font-weight', '700');
   await expect(heading).toHaveCSS('font-size', '24px');
-  await expect(page.locator('[data-editor-block="one"] p')).not.toHaveCSS('margin-top', '0px');
+  await expect(page.locator('[data-editor-block="one"] p')).toHaveCSS('margin-top', '0px');
+  await expect(page.locator('[data-editor-block="one"] p')).toHaveCSS('box-sizing', 'border-box');
+  await page.getByRole('button', { name: '预览', exact: true }).click();
+  const preview = page.frameLocator('iframe[title="preview"]').getByText('段落');
+  await expect(preview).toHaveCSS('box-sizing', 'border-box');
+  await expect(preview).toHaveCSS('margin-top', '0px');
 });
 
 test('publishing checklist never reports ready on a blank document', async ({ page }) => {

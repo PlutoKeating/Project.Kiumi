@@ -4,7 +4,7 @@ import { Icon, type IconName } from './Icon.tsx';
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** The signature move: one bead of glass slides to the active item and squashes along its travel. */
+/** The signature move: one selection marker slides to the active item, shared by every switcher. */
 export function useDroplet(container: RefObject<HTMLElement | null>, active: unknown) {
   const droplet = useRef<HTMLSpanElement>(null);
   const last = useRef<{ x: number; y: number } | null>(null);
@@ -21,8 +21,8 @@ export function useDroplet(container: RefObject<HTMLElement | null>, active: unk
       const from = last.current;
       if (animate && from && (from.x !== x || from.y !== y) && !reduced()) {
         const horizontal = Math.abs(x - from.x) >= Math.abs(y - from.y);
-        const squash = horizontal ? 'scale(1.12, .86)' : 'scale(.9, 1.1)';
-        bead.firstElementChild?.animate([{ transform: 'scale(1)' }, { transform: squash, offset: .38 }, { transform: 'scale(1)' }], { duration: 460, easing: 'cubic-bezier(.3, .7, .3, 1)' });
+        const squash = horizontal ? 'scale(1.04, .96)' : 'scale(.97, 1.03)';
+        bead.firstElementChild?.animate([{ transform: 'scale(1)' }, { transform: squash, offset: .38 }, { transform: 'scale(1)' }], { duration: 320, easing: 'cubic-bezier(.3, .7, .3, 1)' });
       }
       last.current = { x, y };
     };

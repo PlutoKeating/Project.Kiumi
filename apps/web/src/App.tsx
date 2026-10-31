@@ -11,6 +11,7 @@ import { TemplateBrowser } from './components/TemplateBrowser.tsx';
 import { Toast } from './components/Toast.tsx';
 import { Topbar } from './components/Topbar.tsx';
 import { SheetHeader } from './components/ui.tsx';
+import { ARTICLE_CSS } from './lib/article-context.ts';
 import { useStore } from './store.ts';
 
 export function App() {
@@ -207,7 +208,7 @@ export function App() {
               referrerPolicy="no-referrer"
               title="preview"
               sandbox=""
-              srcDoc={`<body style="background:#fff;margin:0;padding:16px;max-width:677px;font-family:-apple-system,'PingFang SC',sans-serif">${preview}</body>`}
+              srcDoc={`<!doctype html><style>${ARTICLE_CSS}body{padding:16px;max-width:677px}</style><body>${preview}</body>`}
             />
           </section>
         </Modal>

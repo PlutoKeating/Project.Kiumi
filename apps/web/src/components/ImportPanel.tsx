@@ -92,7 +92,7 @@ export function ImportPanel() {
             const files = [...e.clipboardData.files].filter(f => f.type.startsWith('image/'));
             void prepare(() => prepareText(html || text, html ? 'html' : 'text', files));
           }} /> : <textarea disabled={busy} aria-label="导入文本" className="field paste-box" placeholder={mode === 'url' ? 'https://…' : '粘贴内容'} value={value} onChange={e => setValue(e.target.value)} />}
-          {mode !== 'paste' && <footer className="sheet-actions"><button type="button" className="btn btn-candy" data-glint disabled={busy || !value.trim()} onClick={() => void prepareValue()}>生成预览</button></footer>}
+          {mode !== 'paste' && <footer className="sheet-actions"><button type="button" className="btn btn-candy" disabled={busy || !value.trim()} onClick={() => void prepareValue()}>生成预览</button></footer>}
         </> : <>
           <p className="sheet-lead">{preview.galleryOnly ? `${preview.assets.length} 张图片将进入团队图库，不自动插入正文。` : `${preview.items.length} 个内容块 · ${preview.assets.length} 张待上传图片。按公众号样式统一排版，不保留 Word 分页。`}</p>
           <div className="import-preview">
@@ -110,7 +110,7 @@ export function ImportPanel() {
             <div>
               {busy && cancellation.current && <button type="button" className="btn btn-plain" onClick={() => cancellation.current?.abort()}>取消导入</button>}
               <button type="button" className="btn btn-plain" disabled={busy} onClick={reset}>重新选择</button>
-              <button type="button" className="btn btn-candy" data-glint disabled={busy || (!preview.galleryOnly && !preview.items.length) || (preview.issues.length > 0 && !acknowledged)} onClick={() => void confirm()}>{preview.galleryOnly ? '确认导入图库' : '确认导入画布'}</button>
+              <button type="button" className="btn btn-candy" disabled={busy || (!preview.galleryOnly && !preview.items.length) || (preview.issues.length > 0 && !acknowledged)} onClick={() => void confirm()}>{preview.galleryOnly ? '确认导入图库' : '确认导入画布'}</button>
             </div>
           </footer>
         </>}

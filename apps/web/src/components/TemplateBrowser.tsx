@@ -3,6 +3,7 @@ import { fetchRooms, fetchTemplate, type Room, type TemplateIndexEntry } from '.
 import { sanitizeHtml } from '@kiumi/core';
 import { pauseCatalogSync, syncCatalog, SYNC_STATUS } from '../lib/catalog-sync.ts';
 import { CATALOG_UPDATED } from '../lib/catalog-cache.ts';
+import { ARTICLE_CSS } from '../lib/article-context.ts';
 import { readableName } from '../lib/template-name.ts';
 import { ROOM_GROUPS, useStore } from '../store.ts';
 import { Icon } from './Icon.tsx';
@@ -56,7 +57,7 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
           <iframe
             title={`${item.displayName}预览`}
             className="preview-frame"
-            srcDoc={`<!doctype html><html><head><meta charset="utf-8"><style>*{box-sizing:border-box}html,body{margin:0;min-height:100vh;font:14px/1.6 sans-serif;color:#3f3f3f;background:white}body{padding:14px;display:flex;flex-direction:column;justify-content:safe center}img,svg{max-width:100%;height:auto}section,div,p{max-width:100%}p{margin:0}</style></head><body>${html}</body></html>`}
+            srcDoc={`<!doctype html><html><head><meta charset="utf-8"><style>${ARTICLE_CSS}html,body{min-height:100vh}body{padding:14px;display:flex;flex-direction:column;justify-content:safe center}</style></head><body>${html}</body></html>`}
             loading="lazy"
             sandbox=""
             referrerPolicy="no-referrer"

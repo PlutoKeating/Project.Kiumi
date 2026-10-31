@@ -3,6 +3,7 @@ import { PanelState } from './PanelState.tsx';
 import { renderDocument } from '@kiumi/core';
 import { useEffect, useState } from 'react';
 import { listUploads, previewUrl, teamId } from '../api.ts';
+import { ARTICLE_CSS } from '../lib/article-context.ts';
 import { useStore } from '../store.ts';
 
 function PanelShell({ title, hint, label, children, action }: { title: string; hint?: string; label: string; children: React.ReactNode; action?: React.ReactNode }) {
@@ -28,7 +29,7 @@ export function FavoritesPanel() {
       )}
       <div className="saved-grid">
         {favoriteBlocks.map(block => <article key={block.id} className="saved-card">
-          <div className="saved-preview"><iframe title="收藏内容预览" className="preview-frame" sandbox="" tabIndex={-1} srcDoc={renderDocument({ ...doc, blocks: [block] }).html} /></div>
+          <div className="saved-preview"><iframe title="收藏内容预览" className="preview-frame" sandbox="" tabIndex={-1} srcDoc={`<!doctype html><style>${ARTICLE_CSS}</style><body>${renderDocument({ ...doc, blocks: [block] }).html}</body>`} /></div>
           <p title={blockSummary(block)}>{blockSummary(block)}</p>
           <div className="saved-actions"><button type="button" onClick={() => useStore.getState().insertFavorite(block.id)}>使用</button><button type="button" onClick={() => useStore.getState().toggleBlockFavorite(block)}>移除</button></div>
         </article>)}
