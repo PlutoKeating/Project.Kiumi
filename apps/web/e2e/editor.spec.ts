@@ -135,3 +135,20 @@ test('asset failures offer retry and image cards support keyboard insertion', as
   await card.focus(); await page.keyboard.press('Space');
   await expect(page.locator('[data-editor-block]')).toHaveCount(3);
 });
+
+test('outline uses content labels and keyboard selection with bounded move actions', async ({ page }) => {
+  await openEditor(page);
+  const outline = page.getByLabel('文稿内容列表');
+  const second = outline.getByRole('button', { name: /独立内容保持不变/ });
+  await second.focus();
+  await page.keyboard.press('Enter');
+  await expect(second).toHaveAttribute('aria-pressed', 'true');
+  const actions = page.getByLabel('选中内容操作');
+  await expect(actions.getByRole('button', { name: '下移', exact: true })).toBeDisabled();
+  await actions.getByRole('button', { name: '上移', exact: true }).click();
+  await expect(outline.getByRole('button').first()).toContainText('独立内容保持不变');
+  await expect(actions.getByRole('button', { name: '上移', exact: true })).toBeDisabled();
+  await actions.getByRole('button', { name: '复制到剪贴板', exact: true }).click();
+  await page.getByRole('button', { name: '剪贴板', exact: true }).click();
+  await expect(page.getByRole('button', { name: '粘贴', exact: true })).toBeVisible();
+});

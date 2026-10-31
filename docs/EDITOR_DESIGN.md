@@ -39,4 +39,6 @@
 
 蓝粉基础层和资源面板首批：`pnpm --filter @kiumi/web verify:ui` 通过类型检查、29 项浏览器测试和生产构建；1 项外部 Word 样本测试因未配置样本跳过。构建提示主包超过 500 kB，未新增运行时依赖。当前截图仅覆盖空工作台、含内容工具栏和导入初始态，不能证明所有页面已经达到视觉验收标准。
 
-下一阶段：收敛重复 CSS 到语义 tokens；完整重做检查器、收藏/剪贴板和业务弹窗；检查低高度、长内容、未登录/团队/错误状态；按 impeccable 完成 detector、独立 finish reviewer 和 documenter，同步替换 DESIGN.md 与 design.json。
+下一阶段：收敛重复 CSS 到语义 tokens；继续重做业务弹窗；检查低高度、长内容、未登录/团队/错误状态；按 impeccable 完成 detector、独立 finish reviewer 和 documenter，同步替换 DESIGN.md 与 design.json。
+
+内容导航批次已完成：检查器改为内容摘要与中文类型，操作单独分组并支持键盘与首尾禁用；收藏/剪贴板采用同一摘要规则和空状态引导。验证为类型检查、10 项编辑回归和生产构建。构建仍提示主包大于 500 kB。本批无新增依赖和部署配置；尚待业务弹窗、设计 tokens 收敛和独立视觉审查。
