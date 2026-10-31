@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { uploadImage } from '../api.ts';
 import { layoutViewport, uiScale } from '../lib/ui-scale.ts';
 import { cleanHtml } from '../lib/import.ts';
+import { beginInlineFormat, endInlineFormat, keepsInlineEdit } from '../lib/inline-format.ts';
 import { primaryTextSlot } from '../lib/slots.ts';
 import { useStore } from '../store.ts';
 
@@ -105,10 +106,12 @@ export function Canvas() {
     inlineTarget.current={element:target,path};
     if (!target.textContent?.trim() || isPlaceholder(target.textContent || '')) target.replaceChildren();
     target.contentEditable='true';target.focus();
+    beginInlineFormat(target);
     setEditing({block:index,slot:''});
   };
   const finishInlineEdit = (index:number, _slot:string) => {
     const edited=inlineTarget.current,block=doc.blocks[index];
+    endInlineFormat();
     if(!edited||!block){setEditing(null);return;}
     const value=cleanHtml(edited.element.innerHTML);
     edited.element.removeAttribute('contenteditable');inlineTarget.current=null;setEditing(null);
@@ -121,6 +124,22 @@ export function Canvas() {
       if(node instanceof Element){node.innerHTML=value;updateHtml(index,root.innerHTML);}
     } else {const slot=primaryTextSlot(block.matrix);if(slot)updateSlot(index,slot,value);}
   };
+
+  // With focus in a toolbar field the block's blur has already passed, so leaving is caught here.
+  useEffect(() => {
+    if (!editing) return;
+    const away = (event: Event) => {
+      const target = event.target as Element, element = inlineTarget.current?.element;
+      if (!element || element.contains(target) || keepsInlineEdit(target)) return;
+      finishInlineEdit(editing.block, editing.slot);
+    };
+    document.addEventListener('pointerdown', away, true);
+    document.addEventListener('focusin', away);
+    return () => {
+      document.removeEventListener('pointerdown', away, true);
+      document.removeEventListener('focusin', away);
+    };
+  });
 
   const runMenu = (action: () => void) => {
     action();
@@ -197,6 +216,7 @@ export function Canvas() {
                   if (editing?.block === index) {
                     const next = event.relatedTarget as HTMLElement | null;
                     if (next && event.currentTarget.contains(next)) return;
+                    if (keepsInlineEdit(next)) return;
                     finishInlineEdit(index, editing.slot);
                   }
                 }}

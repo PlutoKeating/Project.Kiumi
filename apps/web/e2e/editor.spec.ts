@@ -450,3 +450,232 @@ test.describe('inline text editing', () => {
     await expect(paragraph).not.toHaveCSS('caret-color', 'rgba(0, 0, 0, 0)');
   });
 });
+
+test.describe('formatting part of a block', () => {
+  const TEXT = '会计学2502班在辅导员主持下展开';
+  const load = (page: import('@playwright/test').Page, html: string) => page.evaluate(async html => {
+    const { useStore } = await import('/src/store.ts');
+    const state = useStore.getState();
+    state.loadDoc({ ...state.doc, blocks: [{ kind: 'library', id: 'edit', tplId: 'fixture', matrix: [], html }, { kind: 'native', id: 'other', node: { kind: 'text', text: '别的内容' } }] });
+  }, html);
+  const body = (page: import('@playwright/test').Page) => page.locator('[data-editor-block="edit"] [data-block-content]');
+  /** Double-clicks into the paragraph, then selects `words` as a drag would. */
+  const selectWords = async (page: import('@playwright/test').Page, words: string) => {
+    await body(page).locator('p').first().dblclick();
+    await page.waitForSelector('[contenteditable="true"]');
+    await page.evaluate(words => {
+      const root = document.querySelector('[contenteditable="true"]')!, texts: Text[] = [];
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) texts.push(node as Text);
+      const whole = texts.map(text => text.data).join(''), from = whole.indexOf(words), to = from + words.length, range = document.createRange();
+      let seen = 0;
+      for (const text of texts) {
+        if (seen <= from && from < seen + text.length) range.setStart(text, from - seen);
+        if (seen < to && to <= seen + text.length) range.setEnd(text, to - seen);
+        seen += text.length;
+      }
+      const selection = document.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }, words);
+    await expect(toolbar(page).getByRole('button', { name: '加粗', exact: true })).toBeVisible();
+    await page.waitForTimeout(30);
+  };
+  const leave = (page: import('@playwright/test').Page) => page.locator('[data-editor-block="other"]').click();
+  /** Weight of the word as rendered: 700 only where it was asked for. */
+  const weightOf = (page: import('@playwright/test').Page, words: string) => body(page).evaluate((root, words) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.nodeValue!.includes(words)) return getComputedStyle(node.parentElement!).fontWeight;
+    return 'missing';
+  }, words);
+  const saved = (page: import('@playwright/test').Page) => page.evaluate(async () => {
+    const block = (await import('/src/store.ts')).useStore.getState().doc.blocks[0]!;
+    return block.kind === 'library' ? block.html! : '';
+  });
+  const bold = (page: import('@playwright/test').Page) => toolbar(page).getByRole('button', { name: '加粗', exact: true });
+
+  test('selected words take the format, the rest of the block does not, and it reaches the document', async ({ page }) => {
+    await openEditor(page);
+    await load(page, `<section><p style="color:#fff;background:#fb7158">${TEXT}</p></section>`);
+    await selectWords(page, '2502班');
+    await bold(page).click();
+    await expect.poll(() => weightOf(page, '2502班')).toBe('700');
+    expect(await weightOf(page, '会计学')).not.toBe('700');
+    await expect(bold(page)).toHaveAttribute('aria-pressed', 'true');
+    // Still editing, still selected, so formats stack.
+    expect(await page.evaluate(() => document.getSelection()!.toString())).toBe('2502班');
+    await expect(body(page).locator('[contenteditable="true"]')).toHaveCount(1);
+    await toolbar(page).getByRole('button', { name: '斜体', exact: true }).click();
+    await expect(body(page).locator('span', { hasText: '2502班' })).toHaveCSS('font-style', 'italic');
+
+    await leave(page);
+    await expect(body(page).locator('[contenteditable]')).toHaveCount(0);
+    const html = await saved(page);
+    expect(html).toMatch(/<span style="[^"]*font-weight: bold[^"]*">2502班<\/span>/);
+    expect(html).toContain('会计学');
+    expect(renderDocument(await page.evaluate(async () => (await import('/src/store.ts')).useStore.getState().doc)).html).toContain('2502班</span>');
+  });
+
+  test('a mouse drag over part of a template paragraph bolds only what was dragged', async ({ page }) => {
+    await openEditor(page);
+    await load(page, `<section style="background:#fb7158;padding:12px"><p style="color:#fff;text-align:center;font-size:20px">2025年12月，华南农业大学珠江学院经济管理学院${TEXT}，旨在增强学生安全意识，凝聚校园共识。</p></section>`);
+    const paragraph = body(page).locator('p').first();
+    await paragraph.dblclick();
+    await page.waitForSelector('[contenteditable="true"]');
+    const box = (await paragraph.boundingBox())!;
+    const y = box.y + 44;
+    await page.mouse.move(box.x + 120, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 200, y, { steps: 6 });
+    await page.mouse.up();
+    const dragged = await page.evaluate(() => document.getSelection()!.toString());
+    expect(dragged.length).toBeGreaterThan(1);
+    await page.screenshot({ path: test.info().outputPath('selected.png') });
+    await bold(page).click();
+    await expect.poll(() => weightOf(page, dragged)).toBe('700');
+    expect(await weightOf(page, '华南农业大学')).toBe('400');
+    await toolbar(page).getByLabel('字号', { exact: true }).fill('26');
+    await expect(body(page).locator('span', { hasText: dragged })).toHaveCSS('font-size', '26px');
+    await page.locator('[data-editor-block="edit"]').screenshot({ path: test.info().outputPath('field-focused.png') });
+    await leave(page);
+    await page.locator('[data-editor-block="edit"]').screenshot({ path: test.info().outputPath('done.png') });
+    expect(await saved(page)).toContain(`>${dragged}</span>`);
+  });
+
+  test('selecting only blank space counts as no selection and loses nothing', async ({ page }) => {
+    await openEditor(page);
+    await load(page, '<section><p>前面   后面</p></section>');
+    await selectWords(page, '   ');
+    await bold(page).click();
+    await expect(body(page).locator('[contenteditable]')).toHaveCount(0);
+    await expect.poll(() => weightOf(page, '前面')).toBe('700');
+  });
+
+  test('without selected words the whole block is formatted, with or without an open edit', async ({ page }) => {
+    await openEditor(page);
+    await load(page, `<section><p>${TEXT}</p></section>`);
+    await body(page).locator('p').click();
+    await bold(page).click();
+    await expect.poll(() => weightOf(page, '2502班')).toBe('700');
+    expect(await weightOf(page, '会计学')).toBe('700');
+    await bold(page).click();
+    await expect.poll(() => weightOf(page, '2502班')).toBe('400');
+
+    // A bare caret selects nothing: same as the whole block, and what was typed survives.
+    await body(page).locator('p').dblclick();
+    await page.waitForSelector('[contenteditable="true"]');
+    await page.keyboard.press('End');
+    await page.keyboard.type('新增');
+    await bold(page).click();
+    await expect(body(page).locator('p')).toHaveText(`${TEXT}新增`);
+    await expect.poll(() => weightOf(page, '新增')).toBe('700');
+    await expect(body(page).locator('[contenteditable]')).toHaveCount(0);
+  });
+
+  test('toolbar fields and menus keep the selection while they hold the focus', async ({ page }) => {
+    await openEditor(page);
+    await load(page, `<section><p>${TEXT}</p></section>`);
+    await selectWords(page, '2502班');
+    const size = toolbar(page).getByLabel('字号', { exact: true });
+    await size.fill('24');
+    const words = body(page).locator('span', { hasText: '2502班' });
+    await expect(words).toHaveCSS('font-size', '24px');
+    await expect(size).toBeFocused();
+    await size.fill('30');
+    await expect(words).toHaveCSS('font-size', '30px');
+
+    await menu(page, '文字颜色').click();
+    await toolbar(page).locator('input[aria-label="文字颜色"]').fill('#ff0000');
+    await expect(words).toHaveCSS('color', 'rgb(255, 0, 0)');
+    await expect(toolbar(page).locator('.color-dot')).toHaveCSS('background-color', 'rgb(255, 0, 0)');
+    await menu(page, '文字颜色').click();
+
+    await toolbar(page).getByRole('combobox', { name: '字体' }).click();
+    await page.getByRole('option', { name: '宋体' }).click();
+    await expect(words).toHaveCSS('font-family', 'serif');
+
+    await menu(page, '间距').click();
+    await toolbar(page).getByLabel('字间距', { exact: true }).fill('3');
+    await expect(words).toHaveCSS('letter-spacing', '3px');
+    await menu(page, '间距').click();
+
+    await menu(page, '文字格式').click();
+    await toolbar(page).getByRole('button', { name: '下划线' }).click();
+    await expect(words).toHaveCSS('text-decoration-line', 'underline');
+    await toolbar(page).getByLabel('文字底色', { exact: true }).fill('#00ff00');
+    await expect(words).toHaveCSS('background-color', 'rgb(0, 255, 0)');
+    await toolbar(page).getByRole('button', { name: '清除文字格式' }).click();
+    await expect(words).toHaveCSS('font-size', '16px');
+    await expect(words).toHaveCSS('text-decoration-line', 'none');
+    await size.fill('20');
+    await expect(words).toHaveCSS('font-size', '20px');
+
+    // Clicking away from a field has no block blur to end the edit.
+    await leave(page);
+    await expect(body(page).locator('[contenteditable]')).toHaveCount(0);
+    expect(await saved(page)).toMatch(/font-size: 20px[^>]*>2502班/);
+    expect(await weightOf(page, '会计学')).toBe('400');
+  });
+
+  test('a selection across formatted runs styles each run and only the selected part', async ({ page }) => {
+    await openEditor(page);
+    await load(page, '<section><p>前面<strong>粗的文字</strong>中间<span style="color:#ff0000">红的文字</span>后面</p></section>');
+    await selectWords(page, '文字中间红的');
+    await toolbar(page).getByLabel('字号', { exact: true }).fill('24');
+    const sized = await body(page).evaluate(root => [...root.querySelectorAll<HTMLElement>('span')].filter(span => span.style.fontSize === '24px').map(span => span.textContent));
+    expect(sized.join('')).toBe('文字中间红的');
+    await expect(body(page).locator('p')).toHaveText('前面粗的文字中间红的文字后面');
+    await expect(body(page).locator('strong')).toHaveText('粗的文字');
+  });
+
+  test('Ctrl+Z takes back one format at a time and the whole edit undoes as one step', async ({ page }) => {
+    await openEditor(page);
+    await load(page, `<section><p>${TEXT}</p></section>`);
+    const before = await saved(page);
+    await selectWords(page, '2502班');
+    await bold(page).click();
+    await toolbar(page).getByRole('button', { name: '斜体', exact: true }).click();
+    await page.keyboard.press('Control+z');
+    await expect(body(page).locator('p')).toHaveText(TEXT);
+    await expect(body(page).locator('span', { hasText: '2502班' })).not.toHaveCSS('font-style', 'italic');
+    expect(await weightOf(page, '2502班')).toBe('700');
+    expect(await page.evaluate(() => document.getSelection()!.toString())).toBe('2502班');
+    await page.keyboard.press('Control+z');
+    await expect.poll(() => weightOf(page, '2502班')).toBe('400');
+    await bold(page).click();
+    await expect.poll(() => weightOf(page, '2502班')).toBe('700');
+    await leave(page);
+    await expect.poll(() => saved(page)).toContain('font-weight: bold');
+    await page.getByRole('button', { name: '撤销', exact: true }).click();
+    await expect.poll(() => saved(page)).toBe(before);
+  });
+
+  test('paragraph settings and block actions end the edit and keep it', async ({ page }) => {
+    await openEditor(page);
+    await load(page, `<section><p>${TEXT}</p><p>第二段</p></section>`);
+    await selectWords(page, '2502班');
+    await bold(page).click();
+    await expect.poll(() => weightOf(page, '2502班')).toBe('700');
+    await menu(page, '对齐').click();
+    await toolbar(page).getByRole('button', { name: '居中对齐' }).click();
+    await expect(body(page).locator('p').first()).toHaveCSS('text-align', 'center');
+    await expect(body(page).locator('p').nth(1)).toHaveCSS('text-align', 'center');
+    await expect(body(page).locator('[contenteditable]')).toHaveCount(0);
+    expect(await saved(page)).toMatch(/font-weight: bold[^>]*>2502班/);
+    expect(await weightOf(page, '会计学')).not.toBe('700');
+  });
+
+  test('plain native text can be formatted in part too', async ({ page }) => {
+    await openEditor(page);
+    await page.evaluate(async () => {
+      const { useStore } = await import('/src/store.ts');
+      const state = useStore.getState();
+      state.loadDoc({ ...state.doc, blocks: [{ kind: 'native', id: 'edit', node: { kind: 'text', text: '原生正文里的几个字' } }, { kind: 'native', id: 'other', node: { kind: 'text', text: '别的内容' } }] });
+    });
+    await selectWords(page, '几个字');
+    await bold(page).click();
+    await leave(page);
+    await expect.poll(() => weightOf(page, '几个字')).toBe('700');
+    expect(await weightOf(page, '原生正文里的')).not.toBe('700');
+  });
+});

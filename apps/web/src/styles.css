@@ -531,6 +531,7 @@ input[type="checkbox"] { accent-color: var(--sky-deep); width: 16px; height: 16p
 [data-block-content] [data-kiumi-placeholder]:empty::before { content: attr(data-kiumi-placeholder); opacity: .55; }
 [data-block-content] [data-kiumi-placeholder]:empty { min-height: 1.5em; min-width: 4em; }
 [data-block-content] [contenteditable="true"]:focus { outline: 1.5px dashed var(--focus); outline-offset: 2px; }
+::highlight(inline-format) { background-color: rgb(150 186 255 / 45%); }
 /* Editable text is a text surface even inside a clickable block. */
 [contenteditable="true"], [contenteditable="true"] * { cursor: text; }
 /* Two tones so the caret reads on any template colour, including text of its own colour. */

@@ -81,8 +81,8 @@ export function PopMenu({ label, trigger, children, align = 'end' }: { label: st
 export interface SelectOption<T> { value: T; label: string; disabled?: boolean }
 
 /** A glass listbox. It portals out of scrolling islands and sheets, and keeps focus on the trigger. */
-export function Select<T extends string | number>({ label, value, options, onChange, disabled, variant = 'pill' }: {
-  label: string; value: T; options: readonly SelectOption<T>[]; onChange: (value: T) => void; disabled?: boolean; variant?: 'pill' | 'field' | 'chip';
+export function Select<T extends string | number>({ label, value, options, onChange, disabled, variant = 'pill', triggerProps }: {
+  label: string; value: T; options: readonly SelectOption<T>[]; onChange: (value: T) => void; disabled?: boolean; variant?: 'pill' | 'field' | 'chip'; triggerProps?: Record<string, string>;
 }) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null), list = useRef<HTMLDivElement>(null);
@@ -128,7 +128,7 @@ export function Select<T extends string | number>({ label, value, options, onCha
   const below = box ? screen.height - box.bottom : 0, flip = box ? below < 220 && box.top > below : false;
   const width = box ? Math.max(box.width, 168) : 168;
   return <>
-    <button ref={trigger} type="button" role="combobox" className={`select-trigger is-${variant}`} aria-label={label} aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? id : undefined} aria-activedescendant={open ? `${id}-${active}` : undefined} data-value={value} disabled={disabled} onClick={() => (open ? setOpen(false) : show())} onKeyDown={onKey}>
+    <button {...triggerProps} ref={trigger} type="button" role="combobox" className={`select-trigger is-${variant}`} aria-label={label} aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? id : undefined} aria-activedescendant={open ? `${id}-${active}` : undefined} data-value={value} disabled={disabled} onClick={() => (open ? setOpen(false) : show())} onKeyDown={onKey}>
       <span>{options[currentIndex]?.label ?? ''}</span><Icon name="chevron" size={13} />
     </button>
     {open && box && createPortal(<div ref={list} id={id} role="listbox" aria-label={label} className="listbox glass-pop" data-flip={flip} style={{ left: Math.max(8, Math.min(box.left, screen.width - width - 8)), width, maxHeight: Math.min(300, (flip ? box.top : below) - 16), ...(flip ? { bottom: screen.height - box.top + 6 } : { top: box.bottom + 6 }) }}>

@@ -3,15 +3,19 @@ import { createPortal } from 'react-dom';
 import { useStore } from '../store.ts';
 import { copyRichHtml, renderDocument } from '../api.ts';
 import { editBlock, styleBlock } from '../lib/block-edit.ts';
+import { CHARACTER_STYLES, clearInlineFormat, formatInline, hasInlineSelection, inlineStyle, useInlineSelection } from '../lib/inline-format.ts';
 import { layoutRect, layoutViewport, uiScale } from '../lib/ui-scale.ts';
 import { Icon } from './Icon.tsx';
 import { ColorPicker, Select } from './ui.tsx';
 
-function Menu({ label, children, icon, align = 'start', wide = false }: { label: string; children: ReactNode; icon: ReactNode; align?: 'start' | 'end'; wide?: boolean }) {
-  return <details className="tool-menu" data-align={align} data-wide={wide}><summary aria-label={label} data-tip={label}>{icon}<Icon name="chevron" size={12} /></summary><div className="tool-popover">{children}</div></details>;
+/** Spread on a control that acts on the selected words; see KEEPS_SELECTION. */
+const WORDS = { 'data-inline-format': '' };
+
+function Menu({ label, children, icon, align = 'start', wide = false, words = false }: { label: string; children: ReactNode; icon: ReactNode; align?: 'start' | 'end'; wide?: boolean; words?: boolean }) {
+  return <details className="tool-menu" data-align={align} data-wide={wide}><summary {...(words ? WORDS : {})} aria-label={label} data-tip={label}>{icon}<Icon name="chevron" size={12} /></summary><div className="tool-popover">{children}</div></details>;
 }
-function NumberField({ label, value, unit, min, max, step = 1, onChange }: { label: string; value: number; unit?: string; min: number; max: number; step?: number; onChange: (n: number) => void }) {
-  return <label className="tool-field"><span>{label}</span><span><input aria-label={label} type="number" value={value} min={min} max={max} step={step} onChange={e => { if (e.target.value !== '') onChange(Math.min(max, Math.max(min, Number(e.target.value)))); }} />{unit && <small>{unit}</small>}</span></label>;
+function NumberField({ label, value, unit, min, max, step = 1, words = false, onChange }: { label: string; value: number; unit?: string; min: number; max: number; step?: number; words?: boolean; onChange: (n: number) => void }) {
+  return <label {...(words ? WORDS : {})} className="tool-field"><span>{label}</span><span><input aria-label={label} type="number" value={value} min={min} max={max} step={step} onChange={e => { if (e.target.value !== '') onChange(Math.min(max, Math.max(min, Number(e.target.value)))); }} />{unit && <small>{unit}</small>}</span></label>;
 }
 
 const ALIGNMENTS = [['left', '向左对齐', 'alignLeft'], ['center', '居中对齐', 'alignCenter'], ['right', '向右对齐', 'alignRight'], ['justify', '两端对齐', 'alignJustify']] as const;
@@ -27,14 +31,18 @@ export function BlockToolbar() {
   const [imageWidth, setImageWidth] = useState(100), [imageRadius, setImageRadius] = useState(0);
   const [notice, setNotice] = useState('');
   const toolbar = useRef<HTMLDivElement>(null);
+  useInlineSelection();
   const [settled, setSettled] = useState(false); // Glide between blocks, but never fly in on first appearance.
   const html = block ? previews[block.id] ?? '' : '';
   const source = document.createElement('template'); source.innerHTML = html;
   const first = source.content.firstElementChild as HTMLElement | null;
   const text = source.content.querySelector<HTMLElement>('p,h1,h2,h3,span,li') ?? first;
-  const css = (name: string, fallback: string, whole = false) => (whole ? first : text)?.style.getPropertyValue(name) || first?.style.getPropertyValue(name) || fallback;
+  const css = (name: string, fallback: string, whole = false) => (!whole && CHARACTER_STYLES.has(name) ? inlineStyle(name) : null) ?? ((whole ? first : text)?.style.getPropertyValue(name) || first?.style.getPropertyValue(name) || fallback);
   const number = (name: string, fallback: number, whole = false) => parseFloat(css(name, String(fallback), whole)) || 0;
-  const apply = (name: string, value: string, text = true) => { if (selected !== null) styleBlock(selected, name, value, text); };
+  const apply = (name: string, value: string, text = true) => {
+    if (text && CHARACTER_STYLES.has(name) && formatInline({ [name]: value })) return;
+    if (selected !== null) styleBlock(selected, name, value, text);
+  };
   const state = () => useStore.getState();
 
   useLayoutEffect(() => {
@@ -108,27 +116,31 @@ export function BlockToolbar() {
   const align = css('text-align', 'left');
   const textColor = /^#[\da-f]{6}$/i.test(css('color', '')) ? css('color', '') : '#3f3f3f';
   const alignIcon = ALIGNMENTS.find(([value]) => value === align)?.[2] ?? 'alignLeft';
-  return createPortal(<div ref={toolbar} className={`block-toolbar ${openUp ? 'popover-above' : ''}`} data-settled={settled} role="toolbar" aria-label="内容块工具栏" style={{ left: position.left, top: position.top, visibility: position.visible ? 'visible' : 'hidden', '--popover-height': `${popHeight}px` } as CSSProperties} onClick={e => e.stopPropagation()} onToggle={e => {
+  return createPortal(<div ref={toolbar} className={`block-toolbar ${openUp ? 'popover-above' : ''}`} data-settled={settled} role="toolbar" aria-label="内容块工具栏" style={{ left: position.left, top: position.top, visibility: position.visible ? 'visible' : 'hidden', '--popover-height': `${popHeight}px` } as CSSProperties} onClick={e => e.stopPropagation()} onMouseDown={e => {
+    // Buttons would take the focus and with it the selection. Fields need the focus, and keep a saved one.
+    const control = (e.target as Element).closest('[data-inline-format]');
+    if (control && hasInlineSelection() && !(e.target as Element).closest('input')) e.preventDefault();
+  }} onToggle={e => {
     const current = e.target as HTMLDetailsElement;
     if (current.open) toolbar.current?.querySelectorAll('details[open]').forEach(el => { if (el !== current) el.removeAttribute('open'); });
   }}>
     <div className="toolbar-row">
-      <Select variant="chip" label="字体" value={css('font-family', '').includes('serif') && !css('font-family', '').includes('sans-serif') ? 'serif' : css('font-family', '').includes('monospace') ? 'monospace' : 'sans-serif'} onChange={value => apply('font-family', value)} options={[{ value: 'sans-serif', label: '默认' }, { value: 'serif', label: '宋体' }, { value: 'monospace', label: '等宽' }]} />
-      <input className="font-size" aria-label="字号" data-tip="字号" type="number" min={8} max={96} value={number('font-size', 16)} onChange={e => { if (e.target.value) apply('font-size', `${Math.max(8, Math.min(96, Number(e.target.value)))}px`); }} />
-      <Menu label="文字颜色" icon={<span className="color-dot" style={{ background: textColor }} />}><ColorPicker label="文字颜色" value={textColor} onChange={color => apply('color', color)} /></Menu>
-      <button type="button" aria-label="加粗" data-tip="加粗" aria-pressed={['bold','700'].includes(css('font-weight', ''))} onClick={() => toggle('font-weight', 'bold', 'normal')}><b>B</b></button>
-      <button type="button" aria-label="斜体" data-tip="斜体" aria-pressed={css('font-style', '') === 'italic'} onClick={() => toggle('font-style', 'italic', 'normal')}><i>I</i></button>
+      <Select variant="chip" triggerProps={WORDS} label="字体" value={css('font-family', '').includes('serif') && !css('font-family', '').includes('sans-serif') ? 'serif' : css('font-family', '').includes('monospace') ? 'monospace' : 'sans-serif'} onChange={value => apply('font-family', value)} options={[{ value: 'sans-serif', label: '默认' }, { value: 'serif', label: '宋体' }, { value: 'monospace', label: '等宽' }]} />
+      <input {...WORDS} className="font-size" aria-label="字号" data-tip="字号" type="number" min={8} max={96} value={number('font-size', 16)} onChange={e => { if (e.target.value) apply('font-size', `${Math.max(8, Math.min(96, Number(e.target.value)))}px`); }} />
+      <Menu words label="文字颜色" icon={<span className="color-dot" style={{ background: textColor }} />}><div {...WORDS}><ColorPicker label="文字颜色" value={textColor} onChange={color => apply('color', color)} /></div></Menu>
+      <button {...WORDS} type="button" aria-label="加粗" data-tip="加粗" aria-pressed={['bold','700'].includes(css('font-weight', ''))} onClick={() => toggle('font-weight', 'bold', 'normal')}><b>B</b></button>
+      <button {...WORDS} type="button" aria-label="斜体" data-tip="斜体" aria-pressed={css('font-style', '') === 'italic'} onClick={() => toggle('font-style', 'italic', 'normal')}><i>I</i></button>
       <Menu label="对齐" icon={<Icon name={alignIcon} />}>{ALIGNMENTS.map(([value, label, icon]) => <button type="button" aria-pressed={align === value} key={value} onClick={() => apply('text-align', value)}><Icon name={icon} size={16} />{label}</button>)}</Menu>
-      <Menu label="间距" icon={<Icon name="spacing" />}><NumberField label="行间距" value={number('line-height', 1.6)} min={0.5} max={5} step={0.1} unit="倍" onChange={n => apply('line-height', String(n))} /><NumberField label="字间距" value={number('letter-spacing', 0)} min={-5} max={30} unit="px" onChange={n => apply('letter-spacing', `${n}px`)} /><NumberField label="段落间距" value={number('margin-bottom', 0)} min={0} max={150} unit="px" onChange={n => apply('margin-bottom', `${n}px`)} /><NumberField label="左右边距" value={number('padding-left', 0, true)} min={0} max={100} unit="px" onChange={n => editBlock(selected, root => { const node = root.content.firstElementChild as HTMLElement; if (node) { node.style.paddingLeft = `${n}px`; node.style.paddingRight = `${n}px`; } })} /></Menu>
-      <Menu label="文字格式" icon={<Icon name="type" />}>
-        <button type="button" onClick={() => toggle('text-decoration', 'underline', 'none')}>下划线</button><button type="button" onClick={() => toggle('text-decoration', 'line-through', 'none')}>删除线</button><button type="button" onClick={() => apply('text-decoration', 'none')}>清除装饰</button>
+      <Menu words label="间距" icon={<Icon name="spacing" />}><NumberField label="行间距" value={number('line-height', 1.6)} min={0.5} max={5} step={0.1} unit="倍" onChange={n => apply('line-height', String(n))} /><NumberField words label="字间距" value={number('letter-spacing', 0)} min={-5} max={30} unit="px" onChange={n => apply('letter-spacing', `${n}px`)} /><NumberField label="段落间距" value={number('margin-bottom', 0)} min={0} max={150} unit="px" onChange={n => apply('margin-bottom', `${n}px`)} /><NumberField label="左右边距" value={number('padding-left', 0, true)} min={0} max={100} unit="px" onChange={n => editBlock(selected, root => { const node = root.content.firstElementChild as HTMLElement; if (node) { node.style.paddingLeft = `${n}px`; node.style.paddingRight = `${n}px`; } })} /></Menu>
+      <Menu words label="文字格式" icon={<Icon name="type" />}>
+        <button {...WORDS} type="button" onClick={() => toggle('text-decoration', 'underline', 'none')}>下划线</button><button {...WORDS} type="button" onClick={() => toggle('text-decoration', 'line-through', 'none')}>删除线</button><button {...WORDS} type="button" onClick={() => apply('text-decoration', 'none')}>清除装饰</button>
         <button type="button" onClick={() => apply('text-indent', css('text-indent', '') === '2em' ? '0' : '2em')}>首行缩进</button>
         <div className="tool-divider" />
         <strong>文字底色</strong>
-        <ColorPicker label="文字底色" value={/^#[\da-f]{6}$/i.test(css('background-color', '')) ? css('background-color', '') : '#ffe7f1'} onChange={color => apply('background-color', color)} />
+        <div {...WORDS}><ColorPicker label="文字底色" value={/^#[\da-f]{6}$/i.test(css('background-color', '')) ? css('background-color', '') : '#ffe7f1'} onChange={color => apply('background-color', color)} /></div>
         <div className="tool-divider" />
         <button type="button" onClick={() => state().takeFormat(selected)}>复制格式</button><button type="button" disabled={!formatBrush} onClick={() => state().brushFormat(selected)}>粘贴格式</button><button type="button" disabled={!formatBrush} onClick={() => state().clearFormat()}>取消格式刷</button>
-        <button type="button" onClick={() => editBlock(selected, root => { for (const node of root.content.querySelectorAll<HTMLElement>('*')) for (const name of ['font-size','font-family','font-weight','font-style','color','text-align','line-height','letter-spacing','text-decoration','text-indent']) node.style.removeProperty(name); })}>清除文字格式</button>
+        <button {...WORDS} type="button" onClick={() => { if (clearInlineFormat()) return; editBlock(selected, root => { for (const node of root.content.querySelectorAll<HTMLElement>('*')) for (const name of ['font-size','font-family','font-weight','font-style','color','text-align','line-height','letter-spacing','text-decoration','text-indent']) node.style.removeProperty(name); }); }}>清除文字格式</button>
       </Menu>
       <span className="toolbar-rule" />
       <button type="button" aria-label="格式刷" data-tip={formatBrush ? '点目标块刷上格式' : '格式刷：先取格式'} aria-pressed={Boolean(formatBrush)} onClick={() => { if (state().formatBrush) state().brushFormat(selected); else state().takeFormat(selected); }}><Icon name="brush" /></button>
