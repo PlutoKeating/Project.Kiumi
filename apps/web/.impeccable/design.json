@@ -320,7 +320,7 @@
       "glass-fill": {
         "role": "neutral",
         "displayName": "玻璃填充",
-        "canonical": "rgb(255 255 255 / 56%)",
+        "canonical": "rgb(255 255 255 / 44%)",
         "tonalRamp": [
           "oklch(15% 0.0000 0)",
           "oklch(25% 0.0000 0)",
@@ -335,7 +335,7 @@
       "glass-fill-toolbar": {
         "role": "neutral",
         "displayName": "工具条玻璃",
-        "canonical": "rgb(255 255 255 / 66%)",
+        "canonical": "rgb(255 255 255 / 56%)",
         "tonalRamp": [
           "oklch(15% 0.0000 0)",
           "oklch(25% 0.0000 0)",
@@ -350,7 +350,7 @@
       "glass-fill-strong": {
         "role": "neutral",
         "displayName": "弹出层玻璃",
-        "canonical": "rgb(255 255 255 / 78%)",
+        "canonical": "rgb(255 255 255 / 68%)",
         "tonalRamp": [
           "oklch(15% 0.0000 0)",
           "oklch(25% 0.0000 0)",
@@ -365,7 +365,7 @@
       "glass-fill-sheet": {
         "role": "neutral",
         "displayName": "弹窗玻璃",
-        "canonical": "rgb(255 255 255 / 92%)",
+        "canonical": "rgb(255 255 255 / 84%)",
         "tonalRamp": [
           "oklch(15% 0.0000 0)",
           "oklch(25% 0.0000 0)",
@@ -394,7 +394,7 @@
       "glass-edge": {
         "role": "neutral",
         "displayName": "玻璃边",
-        "canonical": "rgb(255 255 255 / 62%)",
+        "canonical": "rgb(255 255 255 / 88%)",
         "tonalRamp": [
           "oklch(15% 0.0000 0)",
           "oklch(25% 0.0000 0)",
@@ -646,7 +646,7 @@
     "materials": [
       {
         "name": "glass-blur",
-        "value": "blur(26px) saturate(175%)",
+        "value": "blur(30px) saturate(190%)",
         "purpose": "所有玻璃面的 backdrop-filter，放在 ::before。"
       },
       {
@@ -716,7 +716,7 @@
       "name": "糖果主按钮",
       "kind": "button",
       "refersTo": "button-candy",
-      "description": "全屏唯一的主操作：复制到公众号。扁平蓝粉渐变配深靛墨字。",
+      "description": "全屏唯一的主操作：复制到公众号。蓝粉渐变配深靛墨字，顶边一道细高光。",
       "html": "<button class=\"ds-btn-candy\">复制到公众号</button>",
       "css": ".ds-btn-candy{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;border:0;border-radius:var(--r-md);font-family:var(--font-ui);font-size:var(--text-md);cursor:pointer;white-space:nowrap;transition:background-color var(--t-fast) ease,color var(--t-fast) ease,transform var(--t-base) var(--ease-out);padding:0 16px;background:var(--candy);color:var(--ink-900);font-weight:600}.ds-btn-candy:hover{background:var(--candy-hover)}.ds-btn-candy:active{transform:scale(.97)}.ds-btn-candy:focus-visible{outline:2px solid var(--focus);outline-offset:2px}"
     },
@@ -788,16 +788,16 @@
       "name": "跟随工具条",
       "kind": "custom",
       "refersTo": "block-toolbar",
-      "description": "扁平磨砂的结构样例：模糊和细边放在 ::before，投影留在元素上。工具提示文字写在 data-tip，名称写在 aria-label。",
+      "description": "磨砂面的结构样例：模糊、淡光和顶边高光放在 ::before，投影留在元素上。工具提示文字写在 data-tip，名称写在 aria-label。",
       "html": "<div class=\"ds-toolbar\" role=\"toolbar\" aria-label=\"内容块工具栏\"><button aria-label=\"加粗\" aria-pressed=\"true\"><b>B</b></button><button aria-label=\"斜体\" aria-pressed=\"false\"><i>I</i></button><span></span><button aria-label=\"固定工具栏\" aria-pressed=\"false\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9 3.800h6l-.7 5.400 3.200 3.300a.9.900 0 0 1-.6 1.500H7.100a.9.900 0 0 1-.6-1.500l3.200-3.300Z M12 14v6.500\"/></svg></button></div>",
       "css": ".ds-toolbar{position:relative;isolation:isolate;display:inline-flex;align-items:center;gap:1px;min-height:36px;padding:6px 8px;border-radius:var(--r-island);box-shadow:var(--shadow-float);color:var(--ink-700);font-family:var(--font-ui);font-size:var(--text-sm)}.ds-toolbar::before{content:\"\";position:absolute;inset:0;z-index:-2;border-radius:inherit;background:var(--glass-fill-toolbar);backdrop-filter:var(--glass-blur);box-shadow:inset 0 0 0 1px var(--glass-edge);pointer-events:none}@supports not (backdrop-filter:blur(1px)){.ds-toolbar::before{background:var(--glass-solid)}}.ds-toolbar span{width:1px;height:20px;margin:0 5px;background:var(--hairline)}.ds-toolbar button{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;border:0;border-radius:var(--r-sm);background:transparent;color:inherit;font-size:var(--text-lg);cursor:pointer;transition:background-color var(--t-fast) ease,color var(--t-fast) ease}.ds-toolbar button:hover{background:var(--selected-wash);color:var(--ink-900)}.ds-toolbar button[aria-pressed=true]{background:rgb(120 165 255 / 24%);color:var(--sky-deep)}.ds-toolbar button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}"
     }
   ],
   "narrative": {
-    "northStar": "晨光温室，扁平磨砂",
-    "overview": "全屏柔光（天蓝、樱粉、丁香、薄荷、杏色）铺在最底层，上面漂浮半透明的扁平面板，只靠一条细边和极轻的投影分层。文章是中央的一张白纸：所有工具都是纸外的玻璃，文章从玻璃下穿过。这里是操作型工具，密度紧凑、字阶固定，没有营销式的大标题，也没有展示字体。\n\n这个世界由用户的两句话定型：「过于拟物化了，希望应当是扁平风的磨砂玻璃质感」「减小圆角半径，看起来略微专业一点」。折射环、方向性内高光、镜面与指针高光、光泽、球体、胶囊控件、弹簧回弹都曾经做出来，又被整批拆除。方向合同和部分组件名里残留的「液态」「水滴」「胶囊」只是历史叫法，一律以本文的扁平小圆角为准。\n\n系统只约束工作台外壳。文章 HTML、模板预览和导出内容有自己的样式，界面主题不得进入其中。只面向桌面浏览器。",
+    "northStar": "晨光温室，克制的 iOS 磨砂",
+    "overview": "全屏柔光（天蓝、樱粉、丁香、薄荷、杏色）铺在最底层，上面漂浮通透的磨砂面板，靠强模糊、顶边细高光和层次投影分层。文章是中央的一张白纸：所有工具都是纸外的玻璃，文章从玻璃下穿过。这里是操作型工具，密度紧凑、字阶固定，没有营销式的大标题，也没有展示字体。\n\n这个世界由用户的两句话定型：「过于拟物化了，希望应当是扁平风的磨砂玻璃质感」「减小圆角半径，看起来略微专业一点」。折射环、方向性内高光、镜面与指针高光、光泽、球体、胶囊控件、弹簧回弹都曾经做出来，又被整批拆除。方向合同和部分组件名里残留的「液态」「水滴」「胶囊」只是历史叫法，一律以本文的扁平小圆角为准。\n\n系统只约束工作台外壳。文章 HTML、模板预览和导出内容有自己的样式，界面主题不得进入其中。只面向桌面浏览器。",
     "keyCharacteristics": [
-      "扁平磨砂：同一层模糊、四周均匀的 1px 细边、一档极轻投影，没有任何立体光效。",
+      "iOS 式磨砂薄片：通透填充、强模糊、顶边细高光、层次投影；质感克制，不做球面和粗边。",
       "小圆角且同心：面板 14px，控件 8px，内层再减。",
       "每个资源分区一种马卡龙光色，环境光随分区缓慢变换。",
       "全局只有一种选中标记，在导航、分段控件和筛选标签之间平滑滑动。",
@@ -835,8 +835,8 @@
         "section": "layout"
       },
       {
-        "name": "扁平磨砂",
-        "body": "玻璃就是一个平面：一层模糊、一种填充、四周等宽的 1px 细边、一档投影。任何暗示厚度、曲面或光源方向的处理都不属于这个世界。",
+        "name": "克制玻璃",
+        "body": "玻璃是一块有光泽的薄片：通透填充、强模糊、顶边 1px 细高光、顶部 56px 淡光、两层靛蓝投影，到此为止。质感只在边缘和顶部出现，任何暗示球面、粗厚边缘或随指针移动的光都不属于这个世界。",
         "section": "elevation"
       },
       {
@@ -881,8 +881,8 @@
       "**Do** 在 1280、1440、1920 和 1280×680 下检查滚动、工具条和弹出层边界。"
     ],
     "donts": [
-      "**Don't** 给玻璃加折射环、顶边亮线或渐变描边这类方向性内高光。玻璃边只有四周等宽的 1px `glass-edge`，字段的 `hairline` 内描同样不算高光。",
-      "**Don't** 加镜面反光、跟随指针的高光或光泽层。加载骨架的微光是状态信号，不在此列。",
+      "**Don't** 给玻璃加折射环或粗描边。玻璃边只有 `glass-edge`：顶边 1px 高光加四周 1px 淡边，字段的 `hairline` 内描不算高光。",
+      "**Don't** 加跟随指针的高光或大面积镜面反光。顶部 `glass-sheen` 是唯一的光泽层；加载骨架的微光是状态信号，不在此列。",
       "**Don't** 做球体、水泡或任何带明暗体积的形状。圆形只能扁平填色。",
       "**Don't** 用胶囊形控件。顶部「胶囊」只是名字，实际是 10px 圆角。",
       "**Don't** 用弹簧、回弹或过冲曲线，也不要让关键帧越过终点。",

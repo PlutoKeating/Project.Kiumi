@@ -32,7 +32,7 @@ React + Zustand。左上角团队入口提供创建/加入/切换团队、成员
 
 `App.tsx` 组织键盘、导出与预览；`Topbar.tsx`、`ResourceIsland.tsx`、`Canvas.tsx`（含 `Dock.tsx`、`BlockToolbar.tsx`）、`Inspector.tsx`、`Toast.tsx` 各管一块。`ui.tsx` 提供共用的 `useDroplet`/`Droplet` 选中液滴、`Segmented`、`IconButton`、`SheetHeader`、`PopMenu`、`Select`、`ColorPicker`；`Modal.tsx` 统一 portal、焦点循环、Escape 与焦点恢复。
 
-界面 tokens 在 `tokens.css`，组件规则在 `styles.css`（已替换旧的层叠覆盖；Tailwind 只导入 theme 与 utilities，不含 preflight，外壳 reset 止于文章内容）。玻璃的模糊和细边放在 `::before` 上，这样溢出的菜单能采样到页面，而不是父级。文章正文不继承界面主题。规范见 [DESIGN.md](../DESIGN.md)，功能和平台限制见 [编辑工作台](../../../docs/EDITOR_DESIGN.md)。
+界面 tokens 在 `tokens.css`，组件规则在 `styles.css`（已替换旧的层叠覆盖；Tailwind 只导入 theme 与 utilities，不含 preflight，外壳 reset 止于文章内容）。玻璃的模糊、淡光和顶边高光放在 `::before` 上，这样溢出的菜单能采样到页面，而不是父级。文章正文不继承界面主题。规范见 [DESIGN.md](../DESIGN.md)，功能和平台限制见 [编辑工作台](../../../docs/EDITOR_DESIGN.md)。
 
 `BlockToolbar.tsx` 跟随选中内容，`lib/block-edit.ts` 从源 HTML 执行文本/样式/图片操作，通过 store commit 保留撤销；原生块 DOM 编辑后转为保留 ID 的 HTML 块。`ArticleSettings.tsx` 管理封面、摘要、作者、标签、主题色与发布前检查；公众号草稿默认采用此封面。收藏和剪贴板用 `lib/block-label.ts` 展示正文摘要而非内部 ID；`lib/template-name.ts` 过滤目录编号，`lib/article-context.ts` 是画布、缩略图、收藏与预览共用的文章阅读语境。删除文稿和解除绑定用 `ConfirmAction.tsx` 就地确认。
 
