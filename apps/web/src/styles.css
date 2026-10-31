@@ -71,7 +71,7 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .workbench[data-section="clipboard"] { --tint: var(--butter); }
 .workbench[data-section="gallery"] { --tint: var(--lilac); }
 
-/* Glass needs something to refract. Light is sized to the window so wide screens stay composed. */
+/* Frosted panels need soft colour behind them. Light is sized to the window so wide screens stay composed. */
 .ambient {
   position: absolute;
   inset: 0;
@@ -248,7 +248,7 @@ textarea.field { resize: none; field-sizing: content; max-height: 280px; display
 .tool-check { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: var(--text-md); color: var(--ink-700); }
 input[type="checkbox"] { accent-color: var(--sky-deep); width: 16px; height: 16px; }
 
-/* Tooltips: glass labels that wait a beat, so moving across a toolbar stays quiet. */
+/* Tooltips wait a beat, so moving across a toolbar stays quiet. */
 [data-tip] { position: relative; }
 [data-tip]::before {
   content: attr(data-tip);
