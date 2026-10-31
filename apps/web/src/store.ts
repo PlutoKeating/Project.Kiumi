@@ -1,3 +1,4 @@
+import { readableName } from './lib/template-name.ts';
 import { prepareTemplate, transplantStyle } from './lib/template-style.ts';
 import { patchRecordedHtml, sanitizeHtml, validateHtml, rewriteHtmlAssets, renderDocument as renderCore } from '@kiumi/core';
 import { create } from 'zustand';
@@ -345,7 +346,7 @@ export const useStore = create<State>((set, get) => ({
         ...get().recent.filter((item) => item.id !== record.atomTplId),
       ].slice(0, 24);
       writeLocal(RECENT_KEY, recent);
-      set({ selected: index, recent, message: `已插入 ${record.displayName}` });
+      set({ selected: index, recent, message: `已插入${readableName(record.displayName) ? `「${readableName(record.displayName)}」` : '模板'}` });
       await get().refresh();
     } catch (error) {
       set({ message: `插入失败：${(error as Error).message}` });

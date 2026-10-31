@@ -206,6 +206,7 @@ test('UI preview does not mutate canvas; confirmed import uploads, edits, saves,
   await page.evaluate(async () => { const api = await import('/src/api.ts'); (await import('/src/store.ts')).useStore.getState().loadDoc(await api.openDocument('saved-doc')); });
   await expect(page.locator('[data-block-content] h2')).toContainText('编辑后的标题');
   const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: '更多文稿操作', exact: true }).click();
   await page.getByRole('button', { name: '导出 HTML', exact: true }).click();
   const exported = await download;
   const stream = await exported.createReadStream();
@@ -395,18 +396,19 @@ test('template preview warms insertion; cached insertion and editing do not call
   void backend;
 });
 
-test('toolbar keeps account and actions on intentional rows at desktop widths', async ({ page }) => {
+test('top bar keeps identity and delivery capsules on one row at desktop widths', async ({ page }) => {
   await app(page);
   for (const width of [1280,1440,1920]) {
     await page.setViewportSize({width,height:900});
     const layout = await page.evaluate(() => {
       const header = document.querySelector('header')!;
       const rows = [...header.children].map(node => node.getBoundingClientRect());
-      return {height:header.getBoundingClientRect().height, rows:rows.map(r=>({top:r.top,bottom:r.bottom})), overflow:document.documentElement.scrollWidth > innerWidth};
+      return {height:header.getBoundingClientRect().height, rows:rows.map(r=>({top:r.top,left:r.left,right:r.right})), overflow:document.documentElement.scrollWidth > innerWidth};
     });
     expect(layout.rows).toHaveLength(2);
-    expect(layout.rows[1].top).toBeGreaterThanOrEqual(layout.rows[0].bottom);
-    expect(layout.height).toBeLessThan(130);
+    expect(layout.rows[1].top).toBe(layout.rows[0].top);
+    expect(layout.rows[1].left).toBeGreaterThanOrEqual(layout.rows[0].right);
+    expect(layout.height).toBeLessThan(60);
     expect(layout.overflow).toBe(false);
   }
 });

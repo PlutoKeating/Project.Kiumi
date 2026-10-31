@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
 import './styles.css';
+import { startGlint } from './lib/glint.ts';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('missing #root');
@@ -10,6 +11,8 @@ createRoot(root).render(
     <App />
   </React.StrictMode>,
 );
+
+startGlint();
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   void navigator.serviceWorker.register('/catalog-assets-sw.js').catch(() => {});

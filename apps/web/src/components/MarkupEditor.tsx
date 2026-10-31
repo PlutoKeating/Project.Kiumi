@@ -2,9 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../store.ts';
 import * as api from '../api.ts';
 import { cleanHtml } from '../lib/import.ts';
+import { Icon } from './Icon.tsx';
 
-const field='mt-1 w-full border border-mist-200 rounded px-2 py-1.5 text-xs';
 const animationFields=['dur','begin','end','repeatCount','repeatDur','values','from','to','by','keyTimes','keySplines','calcMode','fill','type','path','keyPoints','rotate','additive','accumulate'];
+
+const toHex = (color: string) => {
+  const parts = color.match(/rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)\s*[,/)]/);
+  return parts ? `#${parts.slice(1, 4).map(part => Number(part).toString(16).padStart(2, '0')).join('')}` : color;
+};
 
 /** Edit the actual recorded DOM so synthesized SVG needs no reverse compiler. */
 export function MarkupEditor({index,html}:{index:number;html:string}) {
@@ -28,17 +33,23 @@ export function MarkupEditor({index,html}:{index:number;html:string}) {
   },[html]);
   const save=()=>update(index,model.root.innerHTML);
   const setAttribute=(element:Element,name:string,value:string)=>{if(value.trim())element.setAttribute(name,value);else element.removeAttribute(name);save();};
-  return <div className="space-y-4">{notice&&<p role="status" className="text-xs text-red-600">{notice}</p>}
-    <details open><summary className="text-xs font-medium cursor-pointer">文字（{model.texts.length}）</summary><div className="space-y-2 mt-2">{model.texts.map((node,i)=><textarea key={`${index}-text-${i}-${node.textContent}`} className={field} rows={2} defaultValue={node.textContent||''} aria-label={`文字 ${i+1}`} onBlur={e=>{node.nodeValue=e.target.value;save();}}/>)}</div></details>
-    {model.images.length>0&&<details open><summary className="text-xs font-medium cursor-pointer">图片（{model.images.length}）</summary>{model.images.map((node,i)=>{
+  return <div className="markup-editor">{notice&&<p role="status" className="field-error">{notice}</p>}
+    <details open><summary>文字<em>{model.texts.length}</em><Icon name="chevron" size={14} /></summary><div className="field-stack">{model.texts.map((node,i)=><textarea key={`${index}-text-${i}-${node.textContent}`} className="field" rows={1} defaultValue={node.textContent||''} aria-label={`文字 ${i+1}`} onBlur={e=>{node.nodeValue=e.target.value;save();}}/>)}</div></details>
+    {model.images.length>0&&<details open><summary>图片<em>{model.images.length}</em><Icon name="chevron" size={14} /></summary><div className="field-stack">{model.images.map((node,i)=>{
       const attr=node.hasAttribute('src')?'src':node.hasAttribute('xlink:href')?'xlink:href':'href';
-      return <label key={`${index}-image-${i}`} className="block text-xs mt-2">图片 {i+1}<input className={field} defaultValue={node.getAttribute(attr)||''} key={node.getAttribute(attr)} onBlur={e=>setAttribute(node,attr,e.target.value)}/>
-        <select className={field} value="" onChange={e=>{if(e.target.value)setAttribute(node,attr,e.target.value);}}><option value="">从团队图库选择</option>{uploads.map(item=><option key={item.id} value={item.url}>{item.name}</option>)}</select>
-        <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className={field} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;setNotice('');try{const item=await api.uploadImage(file);setAttribute(node,attr,item.url);setUploads(await api.listUploads());}catch(error){setNotice((error as Error).message);}}}/></label>;
-    })}</details>}
-    {model.links.length>0&&<details><summary className="text-xs cursor-pointer">链接（{model.links.length}）</summary>{model.links.map((node,i)=><label key={i} className="block text-xs mt-2">{node.textContent?.slice(0,30)||`链接 ${i+1}`}<input className={field} key={node.getAttribute('href')} defaultValue={node.getAttribute('href')||''} onBlur={e=>setAttribute(node,'href',e.target.value)}/></label>)}</details>}
-    {model.colors.length>0&&<details open><summary className="text-xs font-medium cursor-pointer">颜色</summary><div className="grid grid-cols-2 gap-2 mt-2">{model.colors.map(color=><label key={color} className="text-[10px] flex items-center gap-1"><span style={{background:color}} className="w-4 h-4 shrink-0 border border-mist-200 rounded"/><input className={field} defaultValue={color} aria-label={`替换颜色 ${color}`} onBlur={e=>{const next=e.target.value;if(next===color||!CSS.supports('color',next))return;for(const el of model.root.content.querySelectorAll('*'))for(const attr of ['style','fill','stroke','color','values','from','to']){const value=el.getAttribute(attr);if(value?.includes(color))el.setAttribute(attr,value.split(color).join(next));}save();}}/></label>)}</div></details>}
-    {model.animations.length>0&&<details open><summary className="text-xs font-medium cursor-pointer">动画（{model.animations.length}）</summary><p className="text-[11px] text-ink-600 my-2">时长使用 s/ms，重复次数可填 indefinite；触发器如 click 或 元素ID.click。</p>{model.animations.map((node,i)=><details key={`${index}-anim-${i}`} className="border border-mist-200 rounded p-2 mb-2"><summary className="text-xs cursor-pointer">{i+1} · {node.tagName} · {node.getAttribute('attributeName')||node.getAttribute('type')||'动画'}</summary>{animationFields.filter(attr=>['dur','begin','repeatCount'].includes(attr)||node.hasAttribute(attr)).map(attr=><label className="block text-[11px] mt-2" key={attr}>{attr}<input key={node.getAttribute(attr)} className={field} defaultValue={node.getAttribute(attr)||''} onBlur={e=>setAttribute(node,attr,e.target.value)}/></label>)}</details>)}</details>}
-    <details><summary className="text-xs cursor-pointer">HTML / SVG 源码</summary><textarea className={field+' font-mono'} rows={12} key={html} defaultValue={html} onBlur={e=>update(index,cleanHtml(e.target.value))}/></details>
+      const current=node.getAttribute(attr)||'';
+      return <div key={`${index}-image-${i}`} className="image-field">
+        <div className="image-field-row">
+          <span className="image-thumb"><img src={current} alt="" /></span>
+          <label className="btn btn-tint"><Icon name="upload" size={15} />上传替换<input type="file" aria-label={`上传替换图片 ${i+1}`} accept="image/png,image/jpeg,image/gif,image/webp" className="sr-only" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;setNotice('');try{const item=await api.uploadImage(file);setAttribute(node,attr,item.url);setUploads(await api.listUploads());}catch(error){setNotice((error as Error).message);}}}/></label>
+        </div>
+        {uploads.length>0&&<div className="select-pill is-field"><select aria-label={`从团队图库选择图片 ${i+1}`} value="" onChange={e=>{if(e.target.value)setAttribute(node,attr,e.target.value);}}><option value="">从团队图库选择</option>{uploads.map(item=><option key={item.id} value={item.url}>{item.name}</option>)}</select><Icon name="chevron" size={14} /></div>}
+        <input className="field" aria-label={`图片 ${i+1} 地址`} defaultValue={current} key={current} onBlur={e=>setAttribute(node,attr,e.target.value)}/>
+      </div>;
+    })}</div></details>}
+    {model.colors.length>0&&<details open><summary>颜色<em>{model.colors.length}</em><Icon name="chevron" size={14} /></summary><div className="color-grid">{model.colors.map(color=><label key={color} className="color-field"><span style={{background:color}}/><input defaultValue={toHex(color)} aria-label={`替换颜色 ${color}`} onBlur={e=>{const next=e.target.value;if(next===toHex(color)||!CSS.supports('color',next))return;for(const el of model.root.content.querySelectorAll('*'))for(const attr of ['style','fill','stroke','color','values','from','to']){const value=el.getAttribute(attr);if(value?.includes(color))el.setAttribute(attr,value.split(color).join(next));}save();}}/></label>)}</div></details>}
+    {model.links.length>0&&<details><summary>链接<em>{model.links.length}</em><Icon name="chevron" size={14} /></summary><div className="field-stack">{model.links.map((node,i)=><label key={i} className="field-label">{node.textContent?.slice(0,30)||`链接 ${i+1}`}<input className="field" key={node.getAttribute('href')} defaultValue={node.getAttribute('href')||''} onBlur={e=>setAttribute(node,'href',e.target.value)}/></label>)}</div></details>}
+    {model.animations.length>0&&<details><summary>动画<em>{model.animations.length}</em><Icon name="chevron" size={14} /></summary><p className="quiet-note">时长使用 s/ms，重复次数可填 indefinite；触发器如 click 或 元素ID.click。</p><div className="field-stack">{model.animations.map((node,i)=><details key={`${index}-anim-${i}`} className="nested-details"><summary>{i+1} · {node.tagName} · {node.getAttribute('attributeName')||node.getAttribute('type')||'动画'}<Icon name="chevron" size={14} /></summary><div className="field-stack">{animationFields.filter(attr=>['dur','begin','repeatCount'].includes(attr)||node.hasAttribute(attr)).map(attr=><label className="field-label" key={attr}>{attr}<input key={node.getAttribute(attr)} className="field" defaultValue={node.getAttribute(attr)||''} onBlur={e=>setAttribute(node,attr,e.target.value)}/></label>)}</div></details>)}</div></details>}
+    <details><summary>HTML / SVG 源码<Icon name="chevron" size={14} /></summary><textarea className="field is-code" aria-label="HTML / SVG 源码" rows={12} key={html} defaultValue={html} onBlur={e=>update(index,cleanHtml(e.target.value))}/></details>
   </div>;
 }

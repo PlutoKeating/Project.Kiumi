@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Icon } from './Icon.tsx';
 import { PanelState } from './PanelState.tsx';
 import { useStore } from '../store.ts';
 
@@ -36,41 +37,24 @@ export function AssetsPanel() {
   }, [query, retry]);
 
   return (
-    <section className="library-panel w-[360px] shrink-0 bg-mist-50 text-ink-600 flex flex-col min-h-0">
-      <div className="panel-heading"><h2>图片素材</h2><p>点选图片，插入当前文稿</p></div>
-      <div className="px-3 py-2 border-b border-mist-200">
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          aria-label="搜索图片素材"
-          placeholder="按文件名搜索"
-          className="w-full bg-white border border-mist-200 rounded px-2 py-1.5 text-[12px] placeholder:text-ink-600 focus:outline-none focus:border-accent-400"
-        />
+    <section className="library-panel" aria-label="图片素材">
+      <div className="panel-top">
+        <header className="panel-heading"><h2>图片素材</h2><span>{loading ? '加载中' : `已镜像 ${total} 个`}</span></header>
+        <label className="search">
+          <Icon name="search" size={16} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="搜索图片素材" placeholder="按文件名搜索" />
+          {query && <button type="button" aria-label="清空搜索" onClick={() => setQuery('')}><Icon name="close" size={14} /></button>}
+        </label>
       </div>
-      <div className="px-3 py-1.5 text-[11px] text-ink-600">
-        {loading ? '加载中…' : `已镜像 ${total} 个`}
-      </div>
-      <div className="flex-1 overflow-y-auto px-3 pb-4 grid grid-cols-3 gap-2 content-start">
+      <div className="image-grid">
         {!loading && !error && items.map((item) => (
-          <button
-            key={item.url}
-            aria-label={`插入图片：${item.path}`}
-            onClick={() => addImageBlock(item.url)}
-            title={item.url}
-            className="h-[100px] rounded border border-mist-200 bg-white/5 overflow-hidden hover:border-accent-400 cursor-pointer"
-          >
-            <img
-              src={`/assets/${item.path}`}
-              alt=""
-              loading="lazy"
-              className="w-full h-full object-cover"
-            />
+          <button type="button" key={item.url} className="image-tile" aria-label={`插入图片：${item.path}`} onClick={() => addImageBlock(item.url)} title={item.path}>
+            <img src={`/assets/${item.path}`} alt="" loading="lazy" />
           </button>
         ))}
         {loading && <PanelState title="正在加载素材" loading />}
-        {error && <PanelState title="素材加载失败" detail={error} action="重新加载" onAction={() => setRetry(v => v + 1)} />}
-        {!loading && !error && items.length === 0 && <PanelState title={query ? '没有匹配的图片' : '素材库还没有图片'} detail={query ? '换一个关键词，或清空搜索看看。' : '可从顶栏上传图片，或在「我的图库」选择团队图片。'} action={query ? '清空搜索' : undefined} onAction={() => setQuery('')} />}
-
+        {error && <PanelState tone="error" icon="alert" title="素材加载失败" detail={error} action="重新加载" onAction={() => setRetry(v => v + 1)} />}
+        {!loading && !error && items.length === 0 && <PanelState icon="image" title={query ? '没有匹配的图片' : '素材库还没有图片'} detail={query ? '换一个关键词，或清空搜索看看。' : '可用底部「上传」添加图片，或在「图库」选择团队图片。'} action={query ? '清空搜索' : undefined} onAction={() => setQuery('')} />}
       </div>
     </section>
   );

@@ -1,6 +1,6 @@
 import { Icon } from './Icon.tsx';
-import { ArticleSettings } from './ArticleSettings.tsx';
 import { BlockToolbar } from './BlockToolbar.tsx';
+import { Dock } from './Dock.tsx';
 import { isPlaceholder } from '../lib/template-style.ts';
 import { useEffect, useRef, useState } from 'react';
 import { uploadImage } from '../api.ts';
@@ -18,7 +18,6 @@ export function Canvas() {
   const zoom = useStore((state) => state.zoom);
   const setZoom = useStore((state) => state.setZoom);
   const setTitle = useStore((state) => state.setTitle);
-  const setDigest = useStore((state) => state.setDigest);
   const updateSlot = useStore((state) => state.updateSlot);
   const updateHtml = useStore((state) => state.updateHtml);
   const updateNative = useStore((state) => state.updateNative);
@@ -127,39 +126,42 @@ export function Canvas() {
   };
 
   return (
-    <main
-      className="editor-canvas flex-1 min-w-0 overflow-y-auto"
-      onClick={() => setMenu(null)}
-      onDragOver={(event) => {
-        if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault();
-      }}
-      onDrop={(event) => {
-        if (!event.dataTransfer.files?.length) return;
-        event.preventDefault();
-        void onFileDrop(event.dataTransfer.files[0]).catch(error=>useStore.setState({message:error.message}));
-      }}
-    >
-      <div className="flex justify-center px-6 py-6">
-        <div
-          className="w-[430px] shrink-0 transition-transform"
-          style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
-        >
-          <div
-            ref={previewRef}
-            className="rounded-xl shadow-[0_8px_30px_rgba(18,21,28,0.10)] bg-white min-h-[720px] px-5 py-6"
-          >
-            <ArticleSettings />
+    <div className="canvas-area">
+      <main
+        className="editor-canvas"
+        onClick={() => { setMenu(null); select(null); }}
+        onDragOver={(event) => {
+          if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault();
+        }}
+        onDrop={(event) => {
+          if (!event.dataTransfer.files?.length) return;
+          event.preventDefault();
+          void onFileDrop(event.dataTransfer.files[0]).catch(error=>useStore.setState({message:error.message}));
+        }}
+      >
+        <div className="paper-scale" style={{ zoom: zoom / 100 }}>
+          <div ref={previewRef} className="paper">
+            <textarea
+              className="paper-title"
+              aria-label="文章标题"
+              rows={1}
+              maxLength={64}
+              value={doc.title}
+              placeholder="写一个让人想读的标题"
+              onChange={event => setTitle(event.target.value.replace(/\n/g, ' '))}
+              onFocus={() => select(null)}
+            />
 
-            {doc.blocks.length === 0 && (
-              <div className="h-[600px] flex flex-col items-center justify-center text-center gap-2 text-ink-600/40">
-                <Icon name="template" size={34} />
-                <p className="text-[13px]">从左侧点击模板，或使用顶部工具插入基础块</p>
-              </div>
-            )}
+            {doc.blocks.length === 0 && <EmptyPaper />}
 
-            {doc.blocks.map((block, index) => (
+            {doc.blocks.map((block, index) => {
+              const isSelected = selected === index || selectedIds.includes(block.id);
+              return (
               <div
                 data-editor-block={block.id}
+                data-selected={isSelected}
+                data-drop={drag?.over === index}
+                data-dragging={drag?.from === index}
                 key={block.id}
                 ref={(element) => {
                   if (element) blockRefs.current.set(index, element);
@@ -221,19 +223,11 @@ export function Canvas() {
                   setDrag(null);
                 }}
                 onDragEnd={() => setDrag(null)}
-                className={`group relative cursor-pointer transition rounded ${
-                  (selected === index || selectedIds.includes(block.id)) ? 'block-selected' : 'hover:outline hover:outline-1 hover:outline-accent-400/40'
-                } ${drag?.over === index ? 'outline outline-2 outline-accent-500' : ''} ${
-                  drag?.from === index ? 'opacity-40' : ''
-                }`}
+                className="editor-block"
               >
-                <div
-                  className={`absolute -top-3 right-0 z-10 hidden group-hover:flex items-center gap-1 bg-white border border-mist-200 rounded shadow-sm px-1.5 py-1 ${
-                    editing || selected === index ? '!hidden' : ''
-                  }`}
-                >
+                {!editing && !isSelected && <div className="block-quick">
                   <button
-                    title="上移" disabled={index === 0}
+                    type="button" aria-label="上移" data-tip="上移" disabled={index === 0}
                     onClick={(event) => {
                       event.stopPropagation();
                       if (index > 0) {
@@ -241,12 +235,12 @@ export function Canvas() {
                         select(index - 1);
                       }
                     }}
-                    className="block-tool text-ink-600 hover:text-ink-900"
+                    className="block-tool"
                   >
-                    <Icon name="arrow" size={16} style={{ transform: 'rotate(90deg)' }} />
+                    <Icon name="up" size={16} />
                   </button>
                   <button
-                    title="下移" disabled={index === doc.blocks.length - 1}
+                    type="button" aria-label="下移" data-tip="下移" disabled={index === doc.blocks.length - 1}
                     onClick={(event) => {
                       event.stopPropagation();
                       if (index < doc.blocks.length - 1) {
@@ -254,84 +248,85 @@ export function Canvas() {
                         select(index + 1);
                       }
                     }}
-                    className="block-tool text-ink-600 hover:text-ink-900"
+                    className="block-tool"
                   >
-                    <Icon name="arrow" size={16} style={{ transform: 'rotate(-90deg)' }} />
+                    <Icon name="down" size={16} />
                   </button>
                   <button
-                    title="复制"
+                    type="button" aria-label="原地复制" data-tip="原地复制"
                     onClick={(event) => {
                       event.stopPropagation();
                       duplicateBlock(index);
                     }}
-                    className="block-tool text-ink-600 hover:text-ink-900"
+                    className="block-tool"
                   >
                     <Icon name="copy" size={16} />
                   </button>
                   <button
-                    title="删除"
+                    type="button" aria-label="删除" data-tip="删除"
                     onClick={(event) => {
                       event.stopPropagation();
                       removeBlock(index);
                     }}
-                    className="block-tool block-tool-delete text-ink-600 hover:text-red-600"
+                    className="block-tool is-danger"
                   >
                     <Icon name="trash" size={16} />
                   </button>
-                </div>
+                </div>}
                 <div
                   data-block-content
                   onClick={event => { if((event.target as HTMLElement).closest('a'))event.preventDefault(); }}
                   dangerouslySetInnerHTML={{ __html: previews[block.id] ?? '' }}
                 />
               </div>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-center gap-2 mt-3 text-[11px] text-ink-600/50">
-            <span>{doc.blocks.length} 个块</span>
-            <span className="text-ink-600/20">|</span>
-            <button aria-label="缩小画布" onClick={() => setZoom(zoom - 10)} className="px-1 hover:text-ink-900">
-              −
-            </button>
-            <span className="w-10 text-center">{zoom}%</span>
-            <button aria-label="放大画布" onClick={() => setZoom(zoom + 10)} className="px-1 hover:text-ink-900">
-              +
-            </button>
-            <button onClick={() => setZoom(100)} className="px-1 hover:text-ink-900" title="复位">
-              复位
-            </button>
+              );
+            })}
           </div>
         </div>
-      </div>
 
-      <BlockToolbar />
+        <BlockToolbar />
+      </main>
+      <Dock />
       {menu && (
         <div
-          className="canvas-context-menu fixed z-40 w-[164px] py-1 rounded-lg border border-mist-200 bg-white shadow-xl text-[12px] text-ink-800"
-          style={{ left: Math.max(8, Math.min(menu.x, window.innerWidth - 180)), top: Math.max(8, Math.min(menu.y, window.innerHeight - 210)) }}
+          className="canvas-context-menu glass-pop"
+          style={{ left: Math.max(8, Math.min(menu.x, window.innerWidth - 188)), top: Math.max(8, Math.min(menu.y, window.innerHeight - 226)) }}
           onClick={(event) => event.stopPropagation()}
         >
           {[
-            { label: '复制到剪贴板', hint: 'Ctrl/Cmd+C', run: () => copyBlock(menu.block) },
-            { label: '原地复一份', hint: 'Ctrl+D', run: () => duplicateBlock(menu.block) },
+            { label: '复制到剪贴板', hint: 'Ctrl/⌘ C', run: () => copyBlock(menu.block) },
+            { label: '原地复制一份', hint: 'Ctrl/⌘ D', run: () => duplicateBlock(menu.block) },
             { label: '前插空行', hint: '', run: () => addNative('text', menu.block) },
             { label: '后插空行', hint: '', run: () => addNative('text', menu.block + 1) },
             { label: '删除', hint: 'Del', run: () => removeBlock(menu.block), danger: true },
           ].map((item) => (
-            <button
-              key={item.label}
-              onClick={() => runMenu(item.run)}
-              className={`w-full px-3 py-1.5 flex items-center justify-between hover:bg-mist-100 ${
-                item.danger ? 'text-red-600' : ''
-              }`}
-            >
+            <button type="button" key={item.label} data-danger={item.danger} onClick={() => runMenu(item.run)}>
               <span>{item.label}</span>
-              <span className="text-[10px] text-ink-600/40">{item.hint}</span>
+              <kbd>{item.hint}</kbd>
             </button>
           ))}
         </div>
       )}
-    </main>
+    </div>
   );
+}
+
+/** The first screen teaches the loop: pick on the left, or start from one of these. */
+function EmptyPaper() {
+  const addNative = useStore((state) => state.addNative);
+  return <div className="empty-paper">
+    <svg width="132" height="96" viewBox="0 0 132 96" fill="none" aria-hidden="true">
+      <rect x="10" y="20" width="62" height="62" rx="16" transform="rotate(-10 10 20)" fill="#bcd8ff" fillOpacity=".75" />
+      <rect x="64" y="10" width="58" height="58" rx="15" transform="rotate(9 64 10)" fill="#ffc8de" fillOpacity=".78" />
+      <rect x="39" y="30" width="58" height="58" rx="15" fill="#d8ccff" fillOpacity=".7" />
+      <rect x="39.500" y="30.500" width="57" height="57" rx="14.500" stroke="#fff" strokeOpacity=".9" />
+      <path d="M53 50h30M53 60h30M53 70h18" stroke="#fff" strokeWidth="3.500" strokeLinecap="round" />
+    </svg>
+    <h3>从一个模板开始</h3>
+    <p>在左侧点一下模板，它就会落到这张纸上。也可以直接写：</p>
+    <div>
+      <button type="button" className="btn btn-tint" onClick={() => addNative('heading')}><Icon name="heading" size={16} />写标题</button>
+      <button type="button" className="btn btn-tint" onClick={() => addNative('text')}><Icon name="text" size={16} />写正文</button>
+    </div>
+  </div>;
 }

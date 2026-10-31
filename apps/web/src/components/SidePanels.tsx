@@ -5,14 +5,11 @@ import { useEffect, useState } from 'react';
 import { listUploads, previewUrl } from '../api.ts';
 import { useStore } from '../store.ts';
 
-function PanelShell({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+function PanelShell({ title, hint, label, children, action }: { title: string; hint?: string; label: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <section className="library-panel w-[360px] shrink-0 bg-mist-50 text-ink-600 flex flex-col min-h-0">
-      <div className="panel-heading flex items-center justify-between">
-        <h2>{title}</h2>
-        {hint && <span className="text-[11px] text-ink-600">{hint}</span>}
-      </div>
-      <div className="flex-1 overflow-y-auto p-3">{children}</div>
+    <section className="library-panel" aria-label={label}>
+      <div className="panel-top"><header className="panel-heading"><h2>{title}</h2><span>{hint}</span>{action}</header></div>
+      <div className="panel-scroll">{children}</div>
     </section>
   );
 }
@@ -25,33 +22,22 @@ export function FavoritesPanel() {
   const toggleFavorite = useStore((state) => state.toggleFavorite);
 
   return (
-    <PanelShell title="图文收藏" hint={`${favorites.length + favoriteBlocks.length} 个`}>
+    <PanelShell label="图文收藏" title="图文收藏" hint={`${favorites.length + favoriteBlocks.length} 个`}>
       {favorites.length + favoriteBlocks.length === 0 && (
-        <PanelState title="留住喜欢的排版" detail="选中内容，点击工具栏「收藏」，下次可连同文字和样式一起使用。" />
+        <PanelState icon="star" title="留住喜欢的排版" detail="选中内容，点工具条上的星标；模板卡片右上角也能收藏。" />
       )}
-      <div className="grid grid-cols-2 gap-2">
-        {favoriteBlocks.map(block => <div key={block.id} className="saved-card">
-          <div className="h-[110px] overflow-hidden"><iframe title="收藏内容预览" className="preview-frame" sandbox="" tabIndex={-1} srcDoc={renderDocument({ ...doc, blocks: [block] }).html} /></div>
-          <p className="saved-card-title" title={blockSummary(block)}>{blockSummary(block)}</p><div className="saved-card-actions"><button onClick={() => useStore.getState().insertFavorite(block.id)}>使用</button><button onClick={() => useStore.getState().toggleBlockFavorite(block)}>移除</button></div>
-        </div>)}
+      <div className="saved-grid">
+        {favoriteBlocks.map(block => <article key={block.id} className="saved-card">
+          <div className="saved-preview"><iframe title="收藏内容预览" className="preview-frame" sandbox="" tabIndex={-1} srcDoc={renderDocument({ ...doc, blocks: [block] }).html} /></div>
+          <p title={blockSummary(block)}>{blockSummary(block)}</p>
+          <div className="saved-actions"><button type="button" onClick={() => useStore.getState().insertFavorite(block.id)}>使用</button><button type="button" onClick={() => useStore.getState().toggleBlockFavorite(block)}>移除</button></div>
+        </article>)}
         {favorites.map((id) => (
-          <div key={id} className="saved-card">
-            <div className="h-[110px] overflow-hidden">
-              <iframe title="收藏模板预览" className="preview-frame" src={previewUrl(id)} loading="lazy" sandbox="" tabIndex={-1} />
-            </div>
-            <p className="saved-card-title">图文模板</p><div className="saved-card-actions">
-              <button
-                className="text-[11px] text-ink-800 truncate"
-                onClick={() => void insertTemplate(id)}
-                title={id}
-              >
-                使用
-              </button>
-              <button className="text-[11px] text-ink-600/50" onClick={() => toggleFavorite(id)}>
-                移除
-              </button>
-            </div>
-          </div>
+          <article key={id} className="saved-card">
+            <div className="saved-preview"><iframe title="收藏模板预览" className="preview-frame" src={previewUrl(id)} loading="lazy" sandbox="" tabIndex={-1} /></div>
+            <p>图文模板</p>
+            <div className="saved-actions"><button type="button" onClick={() => void insertTemplate(id)} title={id}>使用</button><button type="button" onClick={() => toggleFavorite(id)}>移除</button></div>
+          </article>
         ))}
       </div>
     </PanelShell>
@@ -64,28 +50,15 @@ export function ClipboardPanel() {
   const clearClipboard = useStore((state) => state.clearClipboard);
 
   return (
-    <PanelShell title="剪贴板" hint={`${clipboard.length} 项`}>
-      <div className="flex justify-end mb-2">
-        <button className="text-[11px] text-ink-600 hover:text-ink-900" disabled={clipboard.length === 0} onClick={clearClipboard}>
-          清空
-        </button>
-      </div>
+    <PanelShell label="剪贴板" title="剪贴板" hint={`${clipboard.length} 项`} action={clipboard.length > 0 ? <button type="button" className="text-action" onClick={clearClipboard}>清空</button> : undefined}>
       {clipboard.length === 0 && (
-        <PanelState title="随手收集，跨稿复用" detail="选中内容，点击「复制到剪贴板」，再到这里粘贴到当前文稿。" />
+        <PanelState icon="clipboard" title="随手收集，跨稿复用" detail="选中内容后按 Ctrl/⌘ C，或在工具条选「复制到块剪贴板」。" />
       )}
-      <div className="space-y-2">
+      <div className="clipboard-list">
         {clipboard.map((block, index) => (
-          <div
-            key={`${block.id}-${index}`}
-            className="clipboard-item"
-          >
-            <div className="clipboard-content"><span>{blockKind(block)}</span><p title={blockSummary(block)}>{blockSummary(block)}</p></div>
-            <button
-              className="text-[11px] text-accent-400"
-              onClick={() => insertClipboard(index)}
-            >
-              粘贴
-            </button>
+          <div key={`${block.id}-${index}`} className="clipboard-item">
+            <div><span>{blockKind(block)}</span><p title={blockSummary(block)}>{blockSummary(block)}</p></div>
+            <button type="button" className="btn btn-tint" onClick={() => insertClipboard(index)}>粘贴</button>
           </div>
         ))}
       </div>
@@ -112,7 +85,7 @@ export function GalleryPanel() {
     setLoading(true); setError('');
     listUploads()
       .then((items) => { if (alive) setItems(items); })
-      .catch(() => { if (alive) setError('请先在「团队与文稿」登录并选择团队；已选择团队时可重试。'); })
+      .catch(() => { if (alive) setError('请先在左上角登录并选择团队；已选择团队时可重试。'); })
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
@@ -120,22 +93,16 @@ export function GalleryPanel() {
   }, [retry]);
 
   return (
-    <PanelShell title="我的图库" hint={loading ? '加载中…' : `${items.length} 张`}>
+    <PanelShell label="我的图库" title="我的图库" hint={loading ? '加载中' : `${items.length} 张`}>
       {loading && <PanelState title="正在加载团队图库" loading />}
-      {error && <PanelState title="图库暂时无法读取" detail={error} action="重试" onAction={() => setRetry(v => v + 1)} />}
+      {error && <PanelState tone="error" icon="alert" title="图库暂时无法读取" detail={error} action="重试" onAction={() => setRetry(v => v + 1)} />}
       {!loading && !error && items.length === 0 && (
-        <PanelState title="建立团队的图片库" detail="使用顶栏「上传图片」添加，团队成员可在这里一起选用。" />
+        <PanelState icon="gallery" title="建立团队的图片库" detail="用底部「上传」添加图片，团队成员可在这里一起选用。" />
       )}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="image-grid is-flush">
         {!loading && !error && items.map((item) => (
-          <button
-            key={item.url}
-            aria-label={`插入图片：${item.name}`}
-            title={item.name}
-            onClick={() => addImageBlock(item.url)}
-            className="h-[100px] rounded border border-mist-200 bg-white/5 overflow-hidden hover:border-accent-400 cursor-pointer"
-          >
-            <img src={item.url} alt="" loading="lazy" className="w-full h-full object-cover" />
+          <button type="button" key={item.url} className="image-tile" aria-label={`插入图片：${item.name}`} title={item.name} onClick={() => addImageBlock(item.url)}>
+            <img src={item.url} alt="" loading="lazy" />
           </button>
         ))}
       </div>

@@ -18,6 +18,7 @@ async function openEditor(page: import('@playwright/test').Page) {
   await page.locator('[data-editor-block="one"]').click();
 }
 const toolbar = (page: import('@playwright/test').Page) => page.getByRole('toolbar', { name: '内容块工具栏' });
+const menu = (page: import('@playwright/test').Page, label: string) => toolbar(page).locator(`summary[aria-label="${label}"]`);
 const content = (page: import('@playwright/test').Page) => page.locator('[data-editor-block="one"] [data-block-content]');
 
 test('toolbar formats nested text, persists source and supports undo', async ({ page }) => {
@@ -25,10 +26,10 @@ test('toolbar formats nested text, persists source and supports undo', async ({ 
   await toolbar(page).getByLabel('字号', { exact: true }).fill('24');
   await expect(content(page).locator('p').first()).toHaveCSS('font-size', '24px');
   await expect(content(page).locator('a')).toHaveCSS('font-size', '24px');
-  await toolbar(page).getByText('对齐', { exact: true }).click();
+  await menu(page, '对齐').click();
   await toolbar(page).getByRole('button', { name: '居中对齐' }).click();
   await expect(content(page).locator('p').first()).toHaveCSS('text-align', 'center');
-  await toolbar(page).getByText('间距', { exact: true }).click();
+  await menu(page, '间距').click();
   await toolbar(page).getByLabel('字间距', { exact: true }).fill('3');
   await expect(content(page).locator('p').first()).toHaveCSS('letter-spacing', '3px');
   await page.getByRole('button', { name: '撤销', exact: true }).click();
@@ -42,7 +43,7 @@ test('toolbar formats nested text, persists source and supports undo', async ({ 
 
 test('effects, replacement, link cleanup and image batch are real document edits', async ({ page }) => {
   await openEditor(page);
-  await toolbar(page).getByText('更多', { exact: true }).click();
+  await menu(page, '更多').click();
   await toolbar(page).getByLabel('旋转', { exact: true }).fill('20');
   await toolbar(page).getByRole('button', { name: '左右翻转' }).click();
   await toolbar(page).getByLabel('不透明度', { exact: true }).fill('70');
@@ -63,12 +64,12 @@ test('effects, replacement, link cleanup and image batch are real document edits
 
 test('blank insertion and metadata survive local reload; dialogs contain focus', async ({ page }) => {
   await openEditor(page);
-  await toolbar(page).getByText('插入空行', { exact: true }).click();
+  await menu(page, '更多').click();
   await toolbar(page).getByRole('button', { name: '前插空行' }).click();
   await expect(page.locator('[data-editor-block]')).toHaveCount(3);
   await page.getByLabel('文章标题', { exact: true }).fill('完整标题');
+  await page.getByRole('button', { name: '图文', exact: true }).click();
   await page.getByLabel('分享摘要', { exact: true }).fill('摘要已保存');
-  await page.getByText('更多设置', { exact: true }).click();
   await page.getByLabel('作者', { exact: true }).fill('编辑');
   await page.reload();
   await expect(page.getByLabel('文章标题', { exact: true })).toHaveValue('完整标题');
@@ -93,12 +94,12 @@ for (const width of [1280, 1440, 1920]) test(`toolbar remains within canvas at $
 
 test('Escape closes focused menus and block favorites keep edited contents', async ({ page }) => {
   await openEditor(page);
-  await toolbar(page).getByText('更多', { exact: true }).click();
+  await menu(page, '更多').click();
   await toolbar(page).getByLabel('查找文字').focus();
   await page.keyboard.press('Escape');
   await expect(toolbar(page).locator('details[open]')).toHaveCount(0);
   await expect(toolbar(page)).toBeVisible();
-  await toolbar(page).getByText('更多', { exact: true }).click();
+  await menu(page, '更多').click();
   await toolbar(page).getByRole('button', { name: '左右翻转' }).focus();
   await page.keyboard.press('Escape');
   await expect(toolbar(page).locator('details[open]')).toHaveCount(0);
@@ -109,7 +110,7 @@ test('Escape closes focused menus and block favorites keep edited contents', asy
   await expect(page.locator('[data-editor-block]').last()).toContainText('第二段文字');
 });
 
-test('1280px toolbar has exactly two rows and clears selected text', async ({ page }) => {
+test('1280px toolbar stays on one row and clears selected text', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 }); await openEditor(page);
   await expect.poll(async () => toolbar(page).evaluate(el => {
     const rows = [...el.querySelectorAll('.toolbar-row')];
@@ -138,6 +139,7 @@ test('asset failures offer retry and image cards support keyboard insertion', as
 
 test('outline uses content labels and keyboard selection with bounded move actions', async ({ page }) => {
   await openEditor(page);
+  await page.getByRole('button', { name: '大纲', exact: true }).click();
   const outline = page.getByLabel('文稿内容列表');
   const second = outline.getByRole('button', { name: /独立内容保持不变/ });
   await second.focus();

@@ -10,11 +10,11 @@ export function ConfirmAction({ label, question, busy, onConfirm }: {
     setConfirming(false);
     requestAnimationFrame(() => trigger.current?.focus());
   };
-  if (!confirming) return <button ref={trigger} disabled={busy} className="danger-link" onClick={() => setConfirming(true)}>{label}</button>;
+  if (!confirming) return <button type="button" ref={trigger} disabled={busy} className="text-action is-danger" onClick={() => setConfirming(true)}>{label}</button>;
   return <div className="inline-confirmation" data-confirmation role="group" aria-label={question} onKeyDown={event => {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (!busy) cancel(); }
   }}>
     <p>{question}</p>
-    <div><button autoFocus disabled={busy} onClick={cancel}>取消</button><button className="confirm-destructive" disabled={busy} onClick={async () => { await onConfirm(); cancel(); }}>{busy ? '处理中…' : `确认${label}`}</button></div>
+    <div><button type="button" className="btn btn-plain" autoFocus disabled={busy} onClick={cancel}>取消</button><button type="button" className="btn btn-danger" disabled={busy} onClick={async () => { await onConfirm(); cancel(); }}>{busy ? '处理中…' : `确认${label}`}</button></div>
   </div>;
 }

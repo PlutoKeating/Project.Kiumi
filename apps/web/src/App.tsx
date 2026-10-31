@@ -1,31 +1,20 @@
-import { Modal } from './components/Modal.tsx';
 import { renderDocument as renderLocal } from '@kiumi/core';
-import { useEffect, useRef, useState } from 'react';
-import { copyRichHtml, fetchSession, renderDocument, uploadImage, type SessionState } from './api.ts';
+import { useEffect, useState } from 'react';
+import { copyRichHtml, fetchSession, renderDocument, type SessionState } from './api.ts';
 import { AssetsPanel } from './components/AssetsPanel.tsx';
-import { ClipboardPanel, FavoritesPanel, GalleryPanel } from './components/SidePanels.tsx';
 import { Canvas } from './components/Canvas.tsx';
 import { Inspector } from './components/Inspector.tsx';
-import { LeftRail } from './components/LeftRail.tsx';
+import { ResourceIsland } from './components/ResourceIsland.tsx';
+import { Modal } from './components/Modal.tsx';
+import { ClipboardPanel, FavoritesPanel, GalleryPanel } from './components/SidePanels.tsx';
 import { TemplateBrowser } from './components/TemplateBrowser.tsx';
-import { ImportPanel } from './components/ImportPanel.tsx';
-import { WechatPanel } from './components/WechatPanel.tsx';
-import { Workspace } from './components/Workspace.tsx';
+import { Toast } from './components/Toast.tsx';
+import { Topbar } from './components/Topbar.tsx';
+import { SheetHeader } from './components/ui.tsx';
 import { useStore } from './store.ts';
-
-const THEME_SWATCHES = ['#718d86', '#9a8eb0', '#c99485', '#9ba9c4', '#baaa7d', '#444e53'];
-
-const NATIVE_TOOLS = [
-  { kind: 'heading', label: '标题' },
-  { kind: 'text', label: '正文' },
-  { kind: 'image', label: '图片' },
-  { kind: 'divider', label: '分割线' },
-  { kind: 'spacer', label: '间距' },
-] as const;
 
 export function App() {
   const ready = useStore((state) => state.ready);
-  const message = useStore((state) => state.message);
   const [session, setSession] = useState<SessionState | null>(null);
   useEffect(() => {
     void fetchSession().then(setSession);
@@ -33,21 +22,12 @@ export function App() {
   const doc = useStore((state) => state.doc);
   const boot = useStore((state) => state.boot);
   const save = useStore((state) => state.save);
-  const newDoc = useStore((state) => state.newDoc);
-  const setTitle = useStore((state) => state.setTitle);
-  const addNative = useStore((state) => state.addNative);
-  const addImageBlock = useStore((state) => state.addImageBlock);
   const undo = useStore((state) => state.undo);
   const redo = useStore((state) => state.redo);
-  const canUndo = useStore((state) => state.past.length > 0);
-  const canRedo = useStore((state) => state.future.length > 0);
   const selected = useStore((state) => state.selected);
   const removeBlock = useStore((state) => state.removeBlock);
   const duplicateBlock = useStore((state) => state.duplicateBlock);
   const select = useStore((state) => state.select);
-  const themeColor = useStore((state) => state.themeColor);
-  const applyTheme = useStore((state) => state.applyTheme);
-  const formatBrush = useStore((state) => state.formatBrush);
   const takeFormat = useStore((state) => state.takeFormat);
   const brushFormat = useStore((state) => state.brushFormat);
   const clearFormat = useStore((state) => state.clearFormat);
@@ -56,7 +36,6 @@ export function App() {
   const [rail, setRail] = useState('templates');
   const [collapsed, setCollapsed] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const show = () => { setRail('templates'); setCollapsed(false); };
@@ -176,162 +155,20 @@ export function App() {
   const onPreview = async () => setPreview(renderLocal(useStore.getState().doc).html);
 
   return (
-    <div className="workbench h-full flex flex-col">
-      <header className="workbench-header shrink-0 bg-white border-b border-mist-200">
-        <div className="flex items-center gap-2 px-4 py-2 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="w-7 h-7 rounded-md bg-accent-500 text-white grid place-items-center text-[13px] font-semibold">
-            K
-          </span>
-          <span className="text-[13px] font-medium text-ink-900">Kiumi</span>
-        </div>
+    <div className="workbench" data-section={rail} data-collapsed={collapsed}>
+      <div className="ambient" aria-hidden="true"><i /><i /><i /></div>
 
-        <input
-          aria-label="文稿名称"
-          value={doc.title}
-          onChange={(event) => setTitle(event.target.value)}
-          className="w-[160px] min-w-[90px] shrink text-[13px] px-2 py-1.5 rounded border border-transparent hover:border-mist-200 focus:border-accent-400 focus:outline-none"
-        />
+      <Topbar
+        session={session}
+        workspaceVersion={workspaceVersion}
+        onWorkspaceChange={() => setWorkspaceVersion((value) => value + 1)}
+        onPreview={() => void onPreview()}
+        onCopy={onCopy}
+        onExport={onExport}
+      />
 
-          <span role="status" title={message} className="min-w-0 flex-1 truncate text-[11px] text-ink-600/60">{message}</span>
-        <div className="document-actions" aria-label="文稿操作">
-          <button onClick={newDoc} className="secondary-action">
-            新建
-          </button>
-          <button onClick={() => void save()} className="secondary-action">
-            保存
-          </button>
-          <button
-            onClick={() => void onPreview()}
-            className="secondary-action"
-          >
-            预览
-          </button>
-          <button
-            onClick={() => void onCopy().catch(error => useStore.setState({message: `复制失败：${error.message}`}))}
-            className="primary-action"
-          >
-            复制到公众号
-          </button>
-          <button
-            onClick={() => void onExport().catch(error => useStore.setState({message: `导出失败：${error.message}`}))}
-            className="secondary-action"
-          >
-            导出 HTML
-          </button>
-        </div>
-        {session && !session.unavailable && session.loginEnabled && (
-          <div className="ml-auto flex shrink-0 items-center gap-2 pl-3 border-l border-mist-200 whitespace-nowrap">
-            {session.user ? (
-              <>
-                <span className="w-6 h-6 rounded-full bg-ink-900 text-white grid place-items-center text-[11px]">
-                  {userLabel(session.user).slice(0, 1).toUpperCase()}
-                </span>
-                <span className="text-[12px] text-ink-600 max-w-[92px] truncate">
-                  {userLabel(session.user)}
-                </span>
-                <a href="/auth/logout" className="text-[12px] text-ink-600/60 hover:text-ink-900">
-                  退出
-                </a>
-              </>
-            ) : (
-              <a
-                href={`/auth/login?next=${encodeURIComponent(window.location.pathname)}`}
-                className="text-[12px] px-3 py-1.5 rounded border border-accent-500 text-accent-500 hover:bg-accent-500/10"
-              >
-                登录
-              </a>
-            )}
-          </div>
-        )}
-        </div>
-        <div className="workbench-tools flex items-center gap-2 px-4 py-2 border-t border-mist-200 overflow-x-auto">
-        <div className="flex shrink-0 items-center gap-1.5 pl-2 border-l border-mist-200 text-[12px] text-ink-600 whitespace-nowrap">
-          <span>主题色</span>
-          {THEME_SWATCHES.map((color) => (
-            <button
-              key={color}
-              onClick={() => applyTheme(color)}
-              title={color}
-              aria-label={`主题色 ${color}`}
-              className={`w-5 h-5 rounded-full border transition ${
-                themeColor.toLowerCase() === color.toLowerCase()
-                  ? 'border-ink-900 scale-110'
-                  : 'border-mist-200 hover:scale-105'
-              }`}
-              style={{ background: color }}
-            />
-          ))}
-        </div>
-
-        <div className="hidden md:flex shrink-0 items-center gap-1 pl-2 border-l border-mist-200 whitespace-nowrap">
-          {NATIVE_TOOLS.map((tool) => (
-            <button
-              key={tool.kind}
-              onClick={() => addNative(tool.kind)}
-              className="text-[12px] px-2.5 py-1.5 rounded text-ink-600 hover:bg-mist-100"
-            >
-              {tool.label}
-            </button>
-          ))}
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="text-[12px] px-2.5 py-1.5 rounded text-ink-600 hover:bg-mist-100"
-          >
-            上传图片
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={async (event) => {
-              const file = event.target.files?.[0];
-              event.target.value = '';
-              if (!file) return;
-              try {
-                const uploaded = await uploadImage(file);
-                addImageBlock(uploaded.url);
-              } catch (error) {
-                useStore.setState({ message: `上传失败：${(error as Error).message}。请重新选择图片重试。` });
-              }
-            }}
-          />
-        </div>
-
-        <div className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap">
-          {formatBrush && (
-            <span className="text-[11px] px-1.5 py-0.5 rounded bg-accent-500/10 text-accent-500">
-              格式刷已就绪
-            </span>
-          )}
-
-          <button
-            onClick={undo}
-            disabled={!canUndo}
-            title="撤销 (Cmd/Ctrl+Z)"
-            className="text-[12px] px-2.5 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-50 disabled:opacity-35 disabled:hover:bg-transparent"
-          >
-            撤销
-          </button>
-          <button
-            onClick={redo}
-            disabled={!canRedo}
-            title="重做 (Cmd/Ctrl+Shift+Z)"
-            className="text-[12px] px-2.5 py-1.5 rounded border border-mist-200 text-ink-600 hover:bg-mist-50 disabled:opacity-35 disabled:hover:bg-transparent"
-          >
-            重做
-          </button>
-          <ImportPanel />
-          <WechatPanel key={workspaceVersion} />
-          <Workspace session={session} onChange={() => setWorkspaceVersion(v => v + 1)} />
-
-        </div>
-        </div>
-      </header>
-
-      <div className="flex-1 flex min-h-0">
-        <LeftRail
+      <div className="stage">
+        <ResourceIsland
           active={rail}
           onSelect={(key) => {
             setRail(key);
@@ -339,58 +176,46 @@ export function App() {
           }}
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed((value) => !value)}
-        />
-        {collapsed ? null : rail === 'templates' ? (
-          <TemplateBrowser />
-        ) : rail === 'assets' ? (
-          <AssetsPanel />
-        ) : rail === 'favorites' ? (
-          <FavoritesPanel />
-        ) : rail === 'clipboard' ? (
-          <ClipboardPanel />
-        ) : (
-          <GalleryPanel key={workspaceVersion} />
-        )}
+        >
+          {rail === 'templates' ? (
+            <TemplateBrowser />
+          ) : rail === 'assets' ? (
+            <AssetsPanel />
+          ) : rail === 'favorites' ? (
+            <FavoritesPanel />
+          ) : rail === 'clipboard' ? (
+            <ClipboardPanel />
+          ) : (
+            <GalleryPanel key={workspaceVersion} />
+          )}
+        </ResourceIsland>
         <Canvas />
         <Inspector />
       </div>
 
+      <Toast />
+
       {preview !== null && (
         <Modal onClose={() => setPreview(null)}>
-          <div
-            role="dialog" aria-modal="true" aria-label="文章预览" className="bg-white rounded-xl overflow-hidden w-[420px] max-h-full flex flex-col"
+          <section
+            role="dialog" aria-modal="true" aria-label="文章预览" className="sheet sheet-preview"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-4 py-2 border-b border-mist-200">
-              <span className="text-[12px] text-ink-600">预览</span>
-              <button className="text-[12px] text-ink-600/60" onClick={() => setPreview(null)}>
-                关闭
-              </button>
-            </div>
+            <SheetHeader title="预览" detail={doc.title} onClose={() => setPreview(null)} />
             <iframe
-              className="article-preview-frame w-full flex-1 min-h-[600px]"
+              className="article-preview-frame"
               referrerPolicy="no-referrer"
               title="preview"
               sandbox=""
               srcDoc={`<body style="background:#fff;margin:0;padding:16px;max-width:677px;font-family:-apple-system,'PingFang SC',sans-serif">${preview}</body>`}
             />
-          </div>
+          </section>
         </Modal>
       )}
 
-      {!ready && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 text-[12px] bg-ink-900 text-white px-3 py-1.5 rounded">
-          正在加载…
-        </div>
-      )}
+      {!ready && <div className="boot-pill" role="status">正在加载…</div>}
     </div>
   );
-}
-
-function userLabel(user: { sub: string; name?: string; email?: string }): string {
-  if (user.name && user.name !== user.sub) return user.name;
-  if (user.email) return user.email;
-  return '已登录';
 }
 
 function escapeHtml(text: string): string {
