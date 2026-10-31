@@ -30,14 +30,14 @@ React + Zustand。左上角团队入口提供创建/加入/切换团队、成员
 
 ## 界面结构
 
-`App.tsx` 组织键盘、导出与预览；`Topbar.tsx`、`ResourceIsland.tsx`、`Canvas.tsx`（含 `Dock.tsx`、`BlockToolbar.tsx`）、`Inspector.tsx`、`Toast.tsx` 各管一块。`ui.tsx` 提供共用的 `useDroplet`/`Droplet` 选中液滴、`Segmented`、`IconButton`、`SheetHeader`、`PopMenu`；`Modal.tsx` 统一 portal、焦点循环、Escape 与焦点恢复。
+`App.tsx` 组织键盘、导出与预览；`Topbar.tsx`、`ResourceIsland.tsx`、`Canvas.tsx`（含 `Dock.tsx`、`BlockToolbar.tsx`）、`Inspector.tsx`、`Toast.tsx` 各管一块。`ui.tsx` 提供共用的 `useDroplet`/`Droplet` 选中液滴、`Segmented`、`IconButton`、`SheetHeader`、`PopMenu`、`Select`、`ColorPicker`；`Modal.tsx` 统一 portal、焦点循环、Escape 与焦点恢复。
 
-界面 tokens 在 `tokens.css`，组件规则在 `styles.css`（已替换旧的层叠覆盖，不再用 Tailwind 工具类写组件，只保留其基础样式与 `sr-only`）。玻璃的模糊放在伪元素上，这样溢出的菜单能采样到页面，而不是父级。文章正文不继承界面主题。规范见 [DESIGN.md](../DESIGN.md)，功能和平台限制见 [编辑工作台](../../../docs/EDITOR_DESIGN.md)。
+界面 tokens 在 `tokens.css`，组件规则在 `styles.css`（已替换旧的层叠覆盖；Tailwind 只导入 theme 与 utilities，不含 preflight，外壳 reset 止于文章内容）。玻璃的模糊放在伪元素上，这样溢出的菜单能采样到页面，而不是父级。文章正文不继承界面主题。规范见 [DESIGN.md](../DESIGN.md)，功能和平台限制见 [编辑工作台](../../../docs/EDITOR_DESIGN.md)。
 
 `BlockToolbar.tsx` 跟随选中内容，`lib/block-edit.ts` 从源 HTML 执行文本/样式/图片操作，通过 store commit 保留撤销；原生块 DOM 编辑后转为保留 ID 的 HTML 块。`ArticleSettings.tsx` 管理封面、摘要、作者、标签、主题色与发布前检查；公众号草稿默认采用此封面。收藏和剪贴板用 `lib/block-label.ts` 展示正文摘要而非内部 ID；`lib/template-name.ts` 过滤目录编号，`lib/glint.ts` 让主按钮高光跟随指针。删除文稿和解除绑定用 `ConfirmAction.tsx` 就地确认。
 
 ## 视觉检查复现
 
-启动前端后运行 `pnpm --filter @kiumi/web capture:ui`（默认连接 `http://127.0.0.1:5184`，可用 `KIUMI_UI_URL` 指定本机开发地址）。脚本在独立浏览器上下文拦截 API，使用明确标为示例的内容，生成三种桌面宽度、资源面板、检查器标签、全部工具菜单和弹窗及异常、登录、低高度、减少动效和模拟玻璃回退共 37 张截图至忽略目录 `.impeccable/review/current/`；不会请求真实团队数据或同步公众号。需使用开发服务器，因为脚本读取开发态 store 来准备固定内容；热更新过 `store.ts` 后要重启开发服务器，否则脚本取到的是另一份 store 实例。
+启动前端后运行 `pnpm --filter @kiumi/web capture:ui`（默认连接 `http://127.0.0.1:5184`，可用 `KIUMI_UI_URL` 指定本机开发地址）。脚本在独立浏览器上下文拦截 API，使用明确标为示例的内容，生成三种桌面宽度、资源面板、检查器标签、全部工具菜单、玻璃下拉和弹窗及异常、登录、低高度、减少动效和模拟玻璃回退共 39 张截图至忽略目录 `.impeccable/review/current/`；不会请求真实团队数据或同步公众号。需使用开发服务器，因为脚本读取开发态 store 来准备固定内容；热更新过 `store.ts` 后要重启开发服务器，否则脚本取到的是另一份 store 实例。
 
 `verify:ui` 串联类型检查、全量浏览器回归和生产构建。无新增依赖、生产环境变量或部署步骤；真实公众号发布未执行。
