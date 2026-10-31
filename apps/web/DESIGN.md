@@ -3,23 +3,23 @@ name: "Kiumi"
 description: "晨光上的 iOS 式磨砂玻璃工作台：小圆角、蓝粉马卡龙，白纸文章与界面彻底隔离。"
 colors:
   sky: "#bcd8ff"
-  sky-deep: "#2f5fb8"
+  sky-deep: "#2a54a8"
   sky-wash: "rgb(120 170 255 / 16%)"
   blush: "#ffc8de"
-  blush-deep: "#b03a78"
+  blush-deep: "#9f2f68"
   blush-wash: "rgb(255 130 185 / 15%)"
   lilac: "#d8ccff"
-  lilac-deep: "#6245b8"
+  lilac-deep: "#5639a8"
   mint: "#bff0de"
-  mint-deep: "#17705a"
+  mint-deep: "#125f4c"
   mint-wash: "rgb(90 210 170 / 16%)"
   apricot: "#ffdcc2"
-  apricot-deep: "#a4561f"
+  apricot-deep: "#8f4917"
   butter: "#fff0bc"
   ink-900: "#232c4b"
   ink-700: "#3c4668"
-  ink-500: "#566083"
-  ink-placeholder: "#5e698d"
+  ink-500: "#4c5678"
+  ink-placeholder: "#545e82"
   hairline: "rgb(92 108 170 / 15%)"
   hairline-strong: "rgb(92 108 170 / 26%)"
   ground: "#f3f5fd"
@@ -34,10 +34,10 @@ colors:
   field-fill-focus: "rgb(255 255 255 / 94%)"
   focus: "#5b8cf0"
   selected-wash: "rgb(112 158 255 / 16%)"
-  danger: "#b92f5e"
+  danger: "#a3254f"
   danger-hover: "#a02650"
   danger-wash: "rgb(240 90 140 / 13%)"
-  warn: "#8a5a0d"
+  warn: "#744a06"
   warn-wash: "rgb(255 205 110 / 24%)"
   tooltip: "rgb(38 47 84 / 90%)"
   backdrop: "rgb(96 112 180 / 20%)"
@@ -281,14 +281,14 @@ components:
 ### Primary
 
 - **晴空蓝** (`sky` #bcd8ff)：模板分区光色，也是环境光默认色和糖果渐变的起点。
-- **操作深蓝** (`sky-deep` #2f5fb8)：文字操作、光标、复选框、列表当前项、按下的工具按钮；语义上就是 action。
+- **操作深蓝** (`sky-deep` #2a54a8)：文字操作、光标、复选框、列表当前项、按下的工具按钮；语义上就是 action。
 - **晨雾蓝底** (`sky-wash`)：浅蓝按钮的底、文字操作的悬停底。
 - **焦点蓝** (`focus` #5b8cf0)：键盘焦点、选中内容块、卡片悬停轮廓、拖放落点。只作线和轮廓，不作文字色。
 - **选中蓝底** (`selected-wash`)：菜单和工具按钮的悬停底、提示条底。
 
 ### Secondary
 
-- **樱粉** (`blush` #ffc8de) 与 **樱粉深** (`blush-deep` #b03a78)：收藏分区。已收藏的星标用樱粉填充、樱粉深描线；`blush-wash` 是收藏操作的底。
+- **樱粉** (`blush` #ffc8de) 与 **樱粉深** (`blush-deep` #9f2f68)：收藏分区。已收藏的星标用樱粉填充、樱粉深描线；`blush-wash` 是收藏操作的底。
 - **糖果渐变**（`--candy`，100° 从 #bcd8ff 到 #ffcbe0，悬停 `--candy-hover`）：蓝粉双主色的唯一控件形态，全屏只给「复制到公众号」这一个主操作。Dock 和其他按钮不得使用。
 
 ### Tertiary
@@ -380,6 +380,8 @@ components:
 ### Named Rules
 
 **The 整体缩放 Rule.** 界面用根级 `zoom`（`--ui-scale`）等比放大：窗口 ≤1360 为 1.04，常规 1.08，≥1800 为 1.1。文中所有 px 都是缩放前的值。按测量定位的浮层必须走 `lib/ui-scale.ts`，视口单位必须用 `--vh`、`--vw`，否则位置和高度都会偏移。
+
+**The 看得清 Rule.** 对比度按屏幕实际像素算，不按色值算：`pnpm --filter @kiumi/web audit:contrast` 在全部状态里实测每段文字和图标，正文 ≥4.5，大字和图标 ≥3，禁用 ≥3，含深色与高饱和文章压在玻璃下的压力状态。禁用用 `--ink-disabled` 换色，不用 opacity 变淡。中间胶囊、Dock 和工具条用 `--glass-blur-float` 提亮背后的深色内容，中间胶囊和 Dock 的次要文字比面板深一档。提示气泡不得盖住已打开的菜单。
 
 **The 克制玻璃 Rule.** 玻璃是一块有光泽的薄片：通透填充、强模糊、顶边 1px 细高光、顶部 56px 淡光、两层靛蓝投影，到此为止。质感只在边缘和顶部出现，任何暗示球面、粗厚边缘或随指针移动的光都不属于这个世界。
 

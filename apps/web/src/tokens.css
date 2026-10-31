@@ -15,34 +15,35 @@
   /* Ink: deep indigo, never pure black, so glass stays soft. */
   --ink-900: #232c4b;
   --ink-700: #3c4668;
-  --ink-500: #566083;
-  --ink-placeholder: #5e698d;
+  --ink-500: #4c5678;
+  --ink-disabled: #737c9c;
+  --ink-placeholder: #545e82;
   --hairline: rgb(92 108 170 / 15%);
   --hairline-strong: rgb(92 108 170 / 26%);
 
   /* Macaron: one light per resource section, each with a readable deep partner. */
   --sky: #bcd8ff;
-  --sky-deep: #2f5fb8;
+  --sky-deep: #2a54a8;
   --sky-wash: rgb(120 170 255 / 16%);
   --blush: #ffc8de;
-  --blush-deep: #b03a78;
+  --blush-deep: #9f2f68;
   --blush-wash: rgb(255 130 185 / 15%);
   --lilac: #d8ccff;
-  --lilac-deep: #6245b8;
+  --lilac-deep: #5639a8;
   --mint: #bff0de;
-  --mint-deep: #17705a;
+  --mint-deep: #125f4c;
   --mint-wash: rgb(90 210 170 / 16%);
   --apricot: #ffdcc2;
-  --apricot-deep: #a4561f;
+  --apricot-deep: #8f4917;
   --butter: #fff0bc;
 
   /* Semantic */
   --action: var(--sky-deep);
   --focus: #5b8cf0;
   --selected-wash: rgb(112 158 255 / 16%);
-  --danger: #b92f5e;
+  --danger: #a3254f;
   --danger-wash: rgb(240 90 140 / 13%);
-  --warn: #8a5a0d;
+  --warn: #744a06;
   --warn-wash: rgb(255 205 110 / 24%);
   --success: var(--mint-deep);
   --success-wash: var(--mint-wash);
@@ -57,6 +58,8 @@
   --glass-solid: #f8f8fe;
   --glass-edge: inset 0 1px 0 rgb(255 255 255 / 88%), inset 0 0 0 1px rgb(255 255 255 / 40%);
   --glass-blur: blur(32px) saturate(200%);
+  /* Floating bars pass over articles: lift dark content so ink stays readable, white paper is unchanged. */
+  --glass-blur-float: blur(28px) saturate(160%) contrast(.5) brightness(1.82);
   --glass-blur-sheet: blur(44px) saturate(180%);
   --glass-sheen: linear-gradient(180deg, rgb(255 255 255 / 24%), rgb(255 255 255 / 0%) 56px);
   --field-fill: rgb(255 255 255 / 48%);
