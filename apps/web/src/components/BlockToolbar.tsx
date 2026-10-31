@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useStore } from '../store.ts';
 import { copyRichHtml, renderDocument } from '../api.ts';
 import { editBlock, styleBlock } from '../lib/block-edit.ts';
+import { layoutRect, layoutViewport, uiScale } from '../lib/ui-scale.ts';
 import { Icon } from './Icon.tsx';
 import { ColorPicker, Select } from './ui.tsx';
 
@@ -42,11 +43,11 @@ export function BlockToolbar() {
       const canvas = document.querySelector('.editor-canvas');
       const target = document.querySelector(`[data-editor-block="${CSS.escape(block.id)}"]`);
       if (!canvas || !target) return;
-      const area = canvas.getBoundingClientRect(), rect = target.getBoundingClientRect();
+      const area = layoutRect(canvas), rect = layoutRect(target);
       const width = toolbar.current?.offsetWidth || 600, height = toolbar.current?.offsetHeight || 56;
       const ceiling = area.top + TOP_CLEARANCE, floor = area.bottom - height - BOTTOM_CLEARANCE;
       // Never cover the article title: above the block, else below it, else tucked inside its top edge.
-      const title = document.querySelector('.paper-title')?.getBoundingClientRect();
+      const titleNode = document.querySelector('.paper-title'), title = titleNode && layoutRect(titleNode);
       const safe = title && title.bottom > ceiling ? title.bottom + 6 : ceiling;
       const above = rect.top - height - 12, below = rect.bottom + 12;
       const top = pinned ? safe : above >= safe ? Math.min(above, floor) : below <= floor ? below : Math.min(floor, Math.max(safe, rect.top + 8));
@@ -62,10 +63,10 @@ export function BlockToolbar() {
     if (!block || pinned) return;
     const canvas = document.querySelector('.editor-canvas'), target = document.querySelector(`[data-editor-block="${CSS.escape(block.id)}"]`);
     if (!canvas || !target) return;
-    const area = canvas.getBoundingClientRect(), rect = target.getBoundingClientRect(), height = toolbar.current?.offsetHeight || 56;
-    const title = document.querySelector('.paper-title')?.getBoundingClientRect();
+    const area = layoutRect(canvas), rect = layoutRect(target), height = toolbar.current?.offsetHeight || 56;
+    const titleNode = document.querySelector('.paper-title'), title = titleNode && layoutRect(titleNode);
     const above = rect.top - height - 12, ceiling = area.top + TOP_CLEARANCE, safe = title && title.bottom > ceiling ? title.bottom + 6 : ceiling;
-    if (above < safe && rect.bottom + 12 > area.bottom - BOTTOM_CLEARANCE - height) canvas.scrollBy({ top: above - ceiling });
+    if (above < safe && rect.bottom + 12 > area.bottom - BOTTOM_CLEARANCE - height) canvas.scrollBy({ top: (above - ceiling) * uiScale() });
   }, [block?.id, pinned]);
   const present = block !== null;
   useEffect(() => {
@@ -101,7 +102,7 @@ export function BlockToolbar() {
   };
   const transformNumber = (key: string, fallback: number) => Number(css('transform', '', true).match(new RegExp(`${key}\\((-?[\\d.]+)`))?.[1] ?? fallback);
   const barHeight = toolbar.current?.offsetHeight || 56;
-  const roomAbove = position.top - TOP_CLEARANCE - 12, roomBelow = window.innerHeight - position.top - barHeight - 24;
+  const roomAbove = position.top - TOP_CLEARANCE - 12, roomBelow = layoutViewport().height - position.top - barHeight - 24;
   const openUp = roomAbove > roomBelow;
   const popHeight = Math.max(160, openUp ? roomAbove : roomBelow);
   const align = css('text-align', 'left');
@@ -112,7 +113,7 @@ export function BlockToolbar() {
     if (current.open) toolbar.current?.querySelectorAll('details[open]').forEach(el => { if (el !== current) el.removeAttribute('open'); });
   }}>
     <div className="toolbar-row">
-      <Select variant="chip" label="字体" value={css('font-family', '').includes('serif') && !css('font-family', '').includes('sans-serif') ? 'serif' : css('font-family', '').includes('monospace') ? 'monospace' : 'sans-serif'} onChange={value => apply('font-family', value)} options={[{ value: 'sans-serif', label: '默认字体' }, { value: 'serif', label: '宋体 / 衬线' }, { value: 'monospace', label: '等宽字体' }]} />
+      <Select variant="chip" label="字体" value={css('font-family', '').includes('serif') && !css('font-family', '').includes('sans-serif') ? 'serif' : css('font-family', '').includes('monospace') ? 'monospace' : 'sans-serif'} onChange={value => apply('font-family', value)} options={[{ value: 'sans-serif', label: '默认' }, { value: 'serif', label: '宋体' }, { value: 'monospace', label: '等宽' }]} />
       <input className="font-size" aria-label="字号" data-tip="字号" type="number" min={8} max={96} value={number('font-size', 16)} onChange={e => { if (e.target.value) apply('font-size', `${Math.max(8, Math.min(96, Number(e.target.value)))}px`); }} />
       <Menu label="文字颜色" icon={<span className="color-dot" style={{ background: textColor }} />}><ColorPicker label="文字颜色" value={textColor} onChange={color => apply('color', color)} /></Menu>
       <button type="button" aria-label="加粗" data-tip="加粗" aria-pressed={['bold','700'].includes(css('font-weight', ''))} onClick={() => toggle('font-weight', 'bold', 'normal')}><b>B</b></button>

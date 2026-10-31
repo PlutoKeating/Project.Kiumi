@@ -4,6 +4,7 @@ import { Dock } from './Dock.tsx';
 import { isPlaceholder } from '../lib/template-style.ts';
 import { useEffect, useRef, useState } from 'react';
 import { uploadImage } from '../api.ts';
+import { layoutViewport, uiScale } from '../lib/ui-scale.ts';
 import { cleanHtml } from '../lib/import.ts';
 import { primaryTextSlot } from '../lib/slots.ts';
 import { useStore } from '../store.ts';
@@ -189,7 +190,7 @@ export function Canvas() {
                   event.preventDefault();
                   event.stopPropagation();
                   select(index);
-                  setMenu({ x: event.clientX, y: event.clientY, block: index });
+                  setMenu({ x: event.clientX / uiScale(), y: event.clientY / uiScale(), block: index });
                 }}
                 onBlur={(event) => {
                   if (editing?.block === index) {
@@ -291,7 +292,7 @@ export function Canvas() {
       {menu && (
         <div
           className="canvas-context-menu glass-pop"
-          style={{ left: Math.max(8, Math.min(menu.x, window.innerWidth - 188)), top: Math.max(8, Math.min(menu.y, window.innerHeight - 226)) }}
+          style={{ left: Math.max(8, Math.min(menu.x, layoutViewport().width - 188)), top: Math.max(8, Math.min(menu.y, layoutViewport().height - 226)) }}
           onClick={(event) => event.stopPropagation()}
         >
           {[

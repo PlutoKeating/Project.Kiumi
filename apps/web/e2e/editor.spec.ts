@@ -247,7 +247,7 @@ test('glass listbox supports keyboard, mouse and Escape without closing its dial
   await openEditor(page);
   const font = toolbar(page).getByRole('combobox', { name: '字体' });
   await font.click();
-  await page.getByRole('option', { name: '宋体 / 衬线' }).click();
+  await page.getByRole('option', { name: '宋体' }).click();
   await expect(content(page).locator('p').first()).toHaveCSS('font-family', 'serif');
   await font.focus();
   await page.keyboard.press('ArrowDown');

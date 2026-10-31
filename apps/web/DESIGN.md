@@ -24,13 +24,13 @@ colors:
   hairline-strong: "rgb(92 108 170 / 26%)"
   ground: "#f3f5fd"
   paper: "#ffffff"
-  glass-fill: "rgb(255 255 255 / 44%)"
-  glass-fill-toolbar: "rgb(255 255 255 / 56%)"
-  glass-fill-strong: "rgb(255 255 255 / 68%)"
-  glass-fill-sheet: "rgb(255 255 255 / 84%)"
+  glass-fill: "rgb(255 255 255 / 32%)"
+  glass-fill-toolbar: "rgb(255 255 255 / 44%)"
+  glass-fill-strong: "rgb(255 255 255 / 58%)"
+  glass-fill-sheet: "rgb(255 255 255 / 76%)"
   glass-solid: "#f8f8fe"
   glass-edge: "rgb(255 255 255 / 88%)"
-  field-fill: "rgb(255 255 255 / 66%)"
+  field-fill: "rgb(255 255 255 / 48%)"
   field-fill-focus: "rgb(255 255 255 / 94%)"
   focus: "#5b8cf0"
   selected-wash: "rgb(112 158 255 / 16%)"
@@ -304,7 +304,7 @@ components:
 - **次级墨** (`ink-700`)：控件默认文字。**弱墨** (`ink-500`)：次要说明、计数、未选导航。**占位墨** (`ink-placeholder`)：只给 placeholder。
 - **细线** (`hairline` / `hairline-strong`)：分隔线、字段描边、列表界线；strong 用于字段悬停和拖放区。
 - **底色** (`ground`)：环境光下的基底。**白纸** (`paper`)：文章、模板预览和缩略图的底。
-- **玻璃填充** (`glass-fill` 44%、胶囊与 Dock 42%、`glass-fill-toolbar` 56%、`glass-fill-strong` 68%、`glass-fill-sheet` 84%)：岛和胶囊、跟随工具条、弹出层、弹窗，越靠上层越实。**玻璃回退** (`glass-solid`)：浏览器不支持 backdrop-filter 时使用。**玻璃边** (`glass-edge`)：四周均匀的 1px 细边。
+- **玻璃填充** (`glass-fill` 32%、胶囊与 Dock 30%、`glass-fill-toolbar` 44%、`glass-fill-strong` 58%、`glass-fill-sheet` 76%)：岛和胶囊、跟随工具条、弹出层、弹窗，越靠上层越实。**玻璃回退** (`glass-solid`)：浏览器不支持 backdrop-filter 时使用。**玻璃边** (`glass-edge`)：四周均匀的 1px 细边。
 - **状态** (`danger` / `danger-hover` / `danger-wash`、`warn` / `warn-wash`)：破坏性操作和发布前警告，文字色在对应浅底上保持可读。
 - **工具提示墨** (`tooltip`)、**遮罩** (`backdrop`)：工具提示底和弹窗遮罩。
 - **文章墨** (`article-ink` #3f3f3f)：文章默认字色，属于文章，不属于界面。
@@ -359,7 +359,7 @@ components:
 
 ## Elevation & Depth
 
-深度来自四件事：环境光、一层磨砂、顶边细高光、两层投影。所有玻璃面共用 `--glass-blur`（`blur(30px) saturate(190%)`，弹窗用更重的 `--glass-blur-sheet`（`blur(44px) saturate(180%)`））、1px 均匀玻璃边和按层级递增的填充不透明度；不支持 backdrop-filter 时回退到 `glass-solid`。弹窗几乎不透明，避免长表单被背景干扰；遮罩是 `backdrop` 加 `blur(10px) saturate(130%)`。
+深度来自四件事：环境光、一层磨砂、顶边细高光、两层投影。所有玻璃面共用 `--glass-blur`（`blur(32px) saturate(200%)`，弹窗用更重的 `--glass-blur-sheet`（`blur(44px) saturate(180%)`））、1px 均匀玻璃边和按层级递增的填充不透明度；不支持 backdrop-filter 时回退到 `glass-solid`。弹窗几乎不透明，避免长表单被背景干扰；遮罩是 `backdrop` 加 `blur(10px) saturate(130%)`。
 
 层级从低到高：跟随块快捷工具 5、岛 10、Dock 30、跟随工具条 35、顶栏 40、右键菜单 45、弹出菜单 50、Toast 55、弹窗 60、工具提示 80、下拉列表 90。
 
@@ -378,6 +378,8 @@ components:
 一条曲线 `--ease-out`（`cubic-bezier(.16, 1, .3, 1)`，无过冲），三档时长：150ms 用于颜色和描边，220ms 用于弹出和淡入，420ms 用于滑动、弹窗入场和岛的展开。一切位移和缩放都减速落定；纯颜色和透明度的淡变可以用 `ease`。环境光换色 900ms、加载微光 1.5s 线性循环是仅有的两个例外。按下缩到 .97。减少动态偏好下关闭动画，过渡缩短到 1ms。
 
 ### Named Rules
+
+**The 整体缩放 Rule.** 界面用根级 `zoom`（`--ui-scale`）等比放大：窗口 ≤1360 为 1.04，常规 1.08，≥1800 为 1.1。文中所有 px 都是缩放前的值。按测量定位的浮层必须走 `lib/ui-scale.ts`，视口单位必须用 `--vh`、`--vw`，否则位置和高度都会偏移。
 
 **The 克制玻璃 Rule.** 玻璃是一块有光泽的薄片：通透填充、强模糊、顶边 1px 细高光、顶部 56px 淡光、两层靛蓝投影，到此为止。质感只在边缘和顶部出现，任何暗示球面、粗厚边缘或随指针移动的光都不属于这个世界。
 

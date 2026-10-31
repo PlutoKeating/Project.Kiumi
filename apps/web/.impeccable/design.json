@@ -320,7 +320,7 @@
       "glass-fill": {
         "role": "neutral",
         "displayName": "玻璃填充",
-        "canonical": "rgb(255 255 255 / 44%)",
+        "canonical": "rgb(255 255 255 / 32%)",
         "tonalRamp": [
           "oklch(15% 0.0000 0)",
           "oklch(25% 0.0000 0)",
@@ -335,7 +335,7 @@
       "glass-fill-toolbar": {
         "role": "neutral",
         "displayName": "工具条玻璃",
-        "canonical": "rgb(255 255 255 / 56%)",
+        "canonical": "rgb(255 255 255 / 44%)",
         "tonalRamp": [
           "oklch(15% 0.0000 0)",
           "oklch(25% 0.0000 0)",
@@ -350,7 +350,7 @@
       "glass-fill-strong": {
         "role": "neutral",
         "displayName": "弹出层玻璃",
-        "canonical": "rgb(255 255 255 / 68%)",
+        "canonical": "rgb(255 255 255 / 58%)",
         "tonalRamp": [
           "oklch(15% 0.0000 0)",
           "oklch(25% 0.0000 0)",
@@ -365,7 +365,7 @@
       "glass-fill-sheet": {
         "role": "neutral",
         "displayName": "弹窗玻璃",
-        "canonical": "rgb(255 255 255 / 84%)",
+        "canonical": "rgb(255 255 255 / 76%)",
         "tonalRamp": [
           "oklch(15% 0.0000 0)",
           "oklch(25% 0.0000 0)",
@@ -409,7 +409,7 @@
       "field-fill": {
         "role": "neutral",
         "displayName": "字段底",
-        "canonical": "rgb(255 255 255 / 66%)",
+        "canonical": "rgb(255 255 255 / 48%)",
         "tonalRamp": [
           "oklch(15% 0.0000 0)",
           "oklch(25% 0.0000 0)",
@@ -646,7 +646,7 @@
     "materials": [
       {
         "name": "glass-blur",
-        "value": "blur(30px) saturate(190%)",
+        "value": "blur(32px) saturate(200%)",
         "purpose": "所有玻璃面的 backdrop-filter，放在 ::before。"
       },
       {

@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
+import { layoutRect, layoutViewport } from '../lib/ui-scale.ts';
 import { Icon, type IconName } from './Icon.tsx';
 
 /** The signature move: one selection marker slides to the active item, shared by every switcher. */
@@ -85,11 +86,11 @@ export function Select<T extends string | number>({ label, value, options, onCha
 }) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null), list = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false), [active, setActive] = useState(0), [box, setBox] = useState<DOMRect | null>(null);
+  const [open, setOpen] = useState(false), [active, setActive] = useState(0), [box, setBox] = useState<ReturnType<typeof layoutRect> | null>(null);
   const currentIndex = options.findIndex(option => option.value === value);
   const show = () => {
     if (disabled || !trigger.current) return;
-    setBox(trigger.current.getBoundingClientRect()); setActive(Math.max(0, currentIndex)); setOpen(true);
+    setBox(layoutRect(trigger.current)); setActive(Math.max(0, currentIndex)); setOpen(true);
   };
   const close = () => { setOpen(false); trigger.current?.focus(); };
   const choose = (index: number) => {
@@ -123,13 +124,14 @@ export function Select<T extends string | number>({ label, value, options, onCha
     else if (event.key === 'End') { event.preventDefault(); setActive(step(options.length, -1)); }
     else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); choose(active); }
   };
-  const below = box ? window.innerHeight - box.bottom : 0, flip = box ? below < 220 && box.top > below : false;
+  const screen = layoutViewport();
+  const below = box ? screen.height - box.bottom : 0, flip = box ? below < 220 && box.top > below : false;
   const width = box ? Math.max(box.width, 168) : 168;
   return <>
     <button ref={trigger} type="button" role="combobox" className={`select-trigger is-${variant}`} aria-label={label} aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? id : undefined} aria-activedescendant={open ? `${id}-${active}` : undefined} data-value={value} disabled={disabled} onClick={() => (open ? setOpen(false) : show())} onKeyDown={onKey}>
       <span>{options[currentIndex]?.label ?? ''}</span><Icon name="chevron" size={13} />
     </button>
-    {open && box && createPortal(<div ref={list} id={id} role="listbox" aria-label={label} className="listbox glass-pop" data-flip={flip} style={{ left: Math.max(8, Math.min(box.left, window.innerWidth - width - 8)), width, maxHeight: Math.min(300, (flip ? box.top : below) - 16), ...(flip ? { bottom: window.innerHeight - box.top + 6 } : { top: box.bottom + 6 }) }}>
+    {open && box && createPortal(<div ref={list} id={id} role="listbox" aria-label={label} className="listbox glass-pop" data-flip={flip} style={{ left: Math.max(8, Math.min(box.left, screen.width - width - 8)), width, maxHeight: Math.min(300, (flip ? box.top : below) - 16), ...(flip ? { bottom: screen.height - box.top + 6 } : { top: box.bottom + 6 }) }}>
       {options.map((option, index) => <button type="button" role="option" tabIndex={-1} id={`${id}-${index}`} data-index={index} key={String(option.value)} aria-selected={option.value === value} data-active={index === active} disabled={option.disabled} onPointerMove={() => setActive(index)} onClick={() => choose(index)}>
         <span>{option.label}</span>{option.value === value && <Icon name="check" size={15} />}
       </button>)}
