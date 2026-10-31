@@ -67,6 +67,7 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
   transition: --tint 900ms var(--ease-out);
 }
 .workbench[data-collapsed="true"] { --resource-width: 68px; }
+.workbench[data-collapsed="true"] .resource-island { overflow: visible; }
 .workbench[data-section="assets"] { --tint: var(--mint); }
 .workbench[data-section="favorites"] { --tint: var(--blush); }
 .workbench[data-section="clipboard"] { --tint: var(--butter); }

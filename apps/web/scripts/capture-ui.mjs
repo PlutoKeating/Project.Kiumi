@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url';
 const output = fileURLToPath(new URL('../.impeccable/review/current/', import.meta.url));
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] });
+const page = await context.newPage();
 page.setDefaultTimeout(10000);
 const source = '<section style="padding:20px;background:#edf3fc;border-radius:12px"><h2 style="font-size:22px;color:#355d9b">给生活留一点空白</h2><p>带一本喜欢的书，在午后的树荫下慢慢读。</p><img src="/assets/review-0.svg" style="width:100%;margin-top:12px;border-radius:10px"></section>';
 const templates = ['清晨蓝调', '周末来信', '春日手记', '留白时刻'].map((displayName, i) => ({ atomTplId: `review-${i}`, displayName, room: 'demo:header', accessibility: 'Public', hasSvg: false, hasAnimation: false, byteSize: 200 }));
@@ -20,6 +21,9 @@ await page.route('**/api/**', async route => {
  if (path === '/api/uploads' && signedOut) return route.fulfill({status:401,json:{ok:false,error:{message:'请先登录'}}});
  if (path === '/api/me' && signedOut) return route.fulfill({json:{ok:true,data:{user:null,loginEnabled:true}}});
  if (path === '/api/import/url') { await new Promise(resolve => setTimeout(resolve, 1000)); return route.fulfill({status:503,json:{ok:false,error:{message:'网页暂时无法读取，请稍后重试'}}}); }
+ if (path === '/api/render') return route.fulfill({json:{ok:true,data:{html:'<p>示例</p>',issues:[],bytes:12}}});
+ if (path === '/api/wechat/draft') return route.fulfill({json:{ok:true,data:{mediaId:'demo-media-id-0001',verified:true}}});
+ if (path.startsWith('/api/documents') && route.request().method() !== 'GET') return route.fulfill({json:{ok:true,data:{id:'demo-document',meta:{createdAt:'2026-10-30T00:00:00Z'}}}});
  const data = path === '/api/me' ? { user: { sub: 'reviewer', name: '示例编辑' }, loginEnabled: true }
   : path === '/api/teams' ? [{ id: 'review-team', name: '示例编辑部', role: 'owner' }]
   : path === '/api/teams/members' ? [{ id:'reviewer',name:'示例编辑',role:'owner' }]
@@ -47,7 +51,7 @@ async function recordContrast(name) {
  const items = await page.evaluate(() => {
   const out = [], skip = '[data-block-content],.import-item-body,.import-preview [data-import-block] > div:last-child,iframe';
   const alpha = el => { let a = 1; for (let n = el; n; n = n.parentElement) a *= Number(getComputedStyle(n).opacity); return a; };
-  const shown = (el, r) => { if (r.width < 1 || r.height < 1 || r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth) return false; const s = getComputedStyle(el); if (s.visibility !== 'visible' || alpha(el) < .05) return false; const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!hit && (el.contains(hit) || hit.contains(el)); };
+  const shown = (el, r) => { if (r.width < 1 || r.height < 1 || r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth) return false; if (!el.checkVisibility({ visibilityProperty: true, contentVisibilityAuto: true }) || alpha(el) < .05) return false; if (el.closest('.toast')) return true; const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); if (!hit) return false; const control = el.closest('button,summary,label,a,[role=textbox]'); return el.contains(hit) || (!!control && control.contains(hit)); };
   const push = (el, r, text, color, kind) => { const s = getComputedStyle(el); out.push({ text: text.slice(0, 40), kind, color, alpha: alpha(el), size: parseFloat(s.fontSize) * (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale')) || 1), weight: Number(s.fontWeight), disabled: !!el.closest(':disabled,[aria-disabled="true"]'), where: (el.closest('[class]')?.getAttribute('class') || el.tagName).split(' ').slice(0, 2).join('.'), rect: [r.left, r.top, r.right, r.bottom] }); };
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -122,19 +126,29 @@ await page.getByRole('button',{name:'导入内容',exact:true}).click();await pa
 await page.setViewportSize({width:1440,height:900});
 await page.locator('[data-editor-block="review-body"]').click();
 await page.getByRole('button',{name:'图文模板',exact:true}).click();await page.locator('.tpl').nth(1).hover();await capture('tile-hover');
-await page.getByRole('button',{name:'插入分割线'}).hover();await capture('dock-hover');
+for (const [tool,name] of [['插入分割线','dock-hover'],['插入间距','dock-hover-blush'],['插入图片','dock-hover-mint'],['插入正文','dock-hover-lilac']]) {
+ await page.getByRole('button',{name:tool}).hover();await capture(name);
+}
 await bar.getByRole('button',{name:'收藏',exact:true}).click();await page.locator('.toast[data-visible="true"]').waitFor();await capture('toast-ok');
-await bar.locator('summary[aria-label="变换组件"]').click();await bar.getByRole('button',{name:'从模板库换样式'}).click();await capture('toolbar-notice');
-await page.locator('[data-editor-block="review-text"]').click({button:'right',force:true});await capture('context-menu');await page.keyboard.press('Escape');
-await page.getByRole('button',{name:'收起资源面板'}).click({force:true});await capture('collapsed');await page.getByRole('button',{name:'展开资源面板'}).click({force:true});
-for (const [name,colors] of [['stress-dark',['#101a3c','#1d1d1f','#0d3b2e','#3b0d2a']],['stress-vivid',['#ff5a3c','#ffd400','#00b386','#2a6bff']]]) {
+await bar.locator('summary[aria-label="变换组件"]').click();await bar.getByRole('button',{name:'从模板库换样式'}).click();await page.mouse.move(700,860);await capture('toolbar-notice');
+await page.keyboard.press('Escape');await bar.getByRole('button',{name:'关闭提示'}).click();await page.mouse.move(700,860);
+await page.locator('[data-editor-block="review-body"]').click({button:'right'});await page.locator('.canvas-context-menu').waitFor();await capture('context-menu');
+await page.locator('.canvas-context-menu button[data-danger]').hover();await capture('context-menu-danger');await page.keyboard.press('Escape');
+await page.getByRole('button',{name:'复制到公众号',exact:true}).click();await page.locator('.btn-candy[data-state="done"]').waitFor();await capture('copy-done');
+await page.getByRole('button',{name:'收起资源面板'}).click();await capture('collapsed');await page.locator('.rail-collapse').hover();await page.waitForTimeout(600);await capture('tooltip-collapsed');await page.getByRole('button',{name:'展开资源面板'}).click();await page.mouse.move(700,860);
+await page.getByRole('button',{name:'公众号草稿',exact:true}).click();let draft=page.getByRole('dialog',{name:'公众号草稿'});
+await draft.getByRole('button',{name:/^选择封面/}).first().click();await draft.getByRole('button',{name:'保存并同步草稿'}).click();await draft.locator('.sync-result').waitFor();await capture('wechat-sync-success');
+if(await draft.getByRole('button',{name:'管理团队公众号'}).getAttribute('aria-expanded')!=='true')await draft.getByRole('button',{name:'管理团队公众号'}).click();await draft.getByLabel('公众号名称',{exact:true}).fill('周末编辑室');await draft.getByLabel('AppID',{exact:true}).fill('demo');await draft.getByLabel('AppSecret',{exact:true}).fill('demo');await draft.getByRole('button',{name:'验证并绑定'}).click();await draft.getByText('公众号已连接',{exact:true}).waitFor();await capture('wechat-connected');await page.keyboard.press('Escape');
+for (const [name,colors] of [['stress-vivid',['#ff5a3c','#ffd400','#00b386','#2a6bff']],['stress-dark',['#101a3c','#1d1d1f','#0d3b2e','#3b0d2a']]]) {
  await page.evaluate(async colors => {
   const {useStore}=await import('/src/store.ts');const s=useStore.getState();
   s.loadDoc({...s.doc,title:'压力测试（示例）',blocks:Array.from({length:12},(_,i)=>({kind:'library',id:`stress-${i}`,tplId:'review-0',matrix:[],html:`<section style="height:220px;padding:24px;background:${colors[i%colors.length]};color:#fff"><h2>玻璃下的内容 ${i+1}</h2><p>深色或高饱和的模板穿过玻璃时，上面的文字也要看得清。</p></section>`}))});
  }, colors);
- await page.waitForTimeout(300);await page.locator('.editor-canvas').evaluate(el=>{el.scrollTop=420;});
- await page.locator('[data-editor-block="stress-3"]').click({force:true});await capture(name);
+ await page.waitForTimeout(300);await page.locator('.editor-canvas').evaluate(el=>{el.scrollTop=420;});await page.waitForTimeout(100);
+ await page.locator('[data-editor-block="stress-3"]').click();await page.mouse.move(700,300);await capture(name);
 }
+await page.evaluate(async()=>{(await import('/src/store.ts')).useStore.setState({message:'保存失败：网络连接已中断，请重试'});});await page.locator('.toast[data-tone="error"][data-visible="true"]').waitFor();await capture('toast-error');
+await page.getByRole('button',{name:'保存',exact:true}).hover();await page.waitForTimeout(600);await capture('tooltip-dark');await page.mouse.move(700,300);
 await page.setViewportSize({width:1280,height:680});
 await page.evaluate(async source => {const {useStore}=await import('/src/store.ts');const s=useStore.getState();s.loadDoc({...s.doc,title:'周末阅读计划（示例）',blocks:[{kind:'library',id:'review-body',tplId:'review-0',html:source,matrix:[]}]});},source);
 await page.emulateMedia({reducedMotion:'reduce'});await page.waitForTimeout(300);await page.locator('[data-editor-block="review-body"]').click({force:true});await bar.locator('summary[aria-label="间距"]').click();await capture('reduced-motion');await page.keyboard.press('Escape');await bar.locator('summary[aria-label="间距"]').click();

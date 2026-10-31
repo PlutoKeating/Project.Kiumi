@@ -45,4 +45,4 @@
 - `pnpm --filter @kiumi/web test:e2e`：以上与原 Word/缓存/样式移植回归。
 - `pnpm typecheck`、`pnpm test`、`pnpm build:web`。
 
-无新增运行时依赖、密钥或数据库迁移。`capture:ui` 用拦截 API 的示例数据复现 47 个状态，`audit:contrast` 在这些状态上按实际像素测量文字对比度，截图位于忽略目录 `.impeccable/review/current/`；无 backdrop-filter 截图是 CSS 回退模拟，不是旧浏览器兼容认证，静态截图也不证明动画质量或真实公众号发布。
+无新增运行时依赖、密钥或数据库迁移。`capture:ui` 用拦截 API 的示例数据复现 57 个状态，`audit:contrast` 在这些状态上按实际像素测量文字对比度，截图位于忽略目录 `.impeccable/review/current/`；无 backdrop-filter 截图是 CSS 回退模拟，不是旧浏览器兼容认证，静态截图也不证明动画质量或真实公众号发布。
