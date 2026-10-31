@@ -48,4 +48,4 @@ Word/WPS 导入在浏览器内使用按需加载的 Mammoth + JSZip，经过 OOX
 
 ## 工作台界面与编辑操作
 
-界面皮肤与文章 HTML 隔离。块工具栏从原始文稿 HTML 编辑 DOM，再经 core 清理并提交 store 历史；无需新增后端编辑接口。模态弹窗和工具栏通过 portal 脱离顶栏滚动容器。头部封面、标签采用文稿可选 meta 字段，兼容旧文稿。详见 [编辑工作台](EDITOR_DESIGN.md)。
+界面皮肤与文章 HTML 隔离。块工具栏从原始文稿 HTML 编辑 DOM，再经 core 清理并提交 store 历史；无需新增后端编辑接口。模态弹窗和工具条通过 portal 脱离滚动容器和磨砂层。头部封面、标签采用文稿可选 meta 字段，兼容旧文稿。详见 [编辑工作台](EDITOR_DESIGN.md)。

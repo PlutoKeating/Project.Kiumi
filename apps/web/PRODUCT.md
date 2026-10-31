@@ -15,7 +15,7 @@ Kiumi 是桌面公众号图文工作台：选择模板、修改内容、导入�
 React + Zustand + Tailwind，复用 core 渲染与已有团队 API。保留模板、SVG、Word 导入、撤销、本地恢复、团队隔离与微信导出。只做桌面编辑器；不自动发布文章。正文样式独立于编辑器界面。
 
 ## Brand Commitments
-当前需求指定优雅、清爽、iOS 液态磨砂玻璃、蓝粉与低饱和马卡龙色系，整体柔和明亮。全面重构工作台组件、布局和交互反馈。该要求替代此前的米白/鼠尾草方向；正文与模板原有视觉仍独立于工作台。
+优雅、清爽的 iOS 液态磨砂玻璃，蓝粉为主，低饱和马卡龙色系点缀，整体柔和明亮、不刺眼。正文与模板原有视觉独立于工作台。
 
 ## Evidence on Hand
-README.md、docs/ARCHITECTURE.md、docs/API.md 与 apps/web 现有实现。当前方向合同在 `.impeccable/surfaces/src-app-tsx.md`。本轮尚在实现和分区验证中，完整设计系统文档与独立视觉审查待完成。
+README.md、docs/ARCHITECTURE.md、docs/API.md 与 apps/web 现有实现。方向合同在 `.impeccable/surfaces/src-app-tsx.md`，设计系统在 DESIGN.md。
