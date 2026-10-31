@@ -152,3 +152,40 @@ test('outline uses content labels and keyboard selection with bounded move actio
   await page.getByRole('button', { name: '剪贴板', exact: true }).click();
   await expect(page.getByRole('button', { name: '粘贴', exact: true })).toBeVisible();
 });
+
+test('team and publishing forms expose labels, cover selection and narrow-height layout', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 680 });
+  await page.route('**/assets/cover.png', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="#e8effb"/><rect x="20" y="20" width="80" height="80" rx="12" fill="#f4dfe9"/></svg>' }));
+  await page.route('**/api/**', route => {
+    const path = new URL(route.request().url()).pathname;
+    const data = path === '/api/me' ? { user: { sub: 'editor', name: '编辑' }, loginEnabled: true }
+      : path === '/api/teams' ? [{ id: 'team', name: '内容编辑部', role: 'owner' }]
+      : path === '/api/accounts' ? [{ id: 'account', name: '周末编辑室', appId: 'demo' }]
+      : path === '/api/uploads' ? [{ id: 'cover', name: '春日封面', url: '/assets/cover.png', bytes: 12 }]
+      : [];
+    return route.fulfill({ json: { ok: true, data } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: '内容编辑部', exact: true }).click();
+  const teamDialog = page.getByRole('dialog', { name: '团队工作空间' });
+  await expect(teamDialog.getByLabel('当前团队')).toHaveValue('team');
+  await expect(teamDialog.getByLabel('新团队名称')).toBeVisible();
+  await expect(teamDialog.getByLabel('团队邀请码')).toBeVisible();
+  await teamDialog.screenshot({ path: 'test-results/team-dialog.png' });
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '公众号草稿', exact: true }).click();
+  const draft = page.getByRole('dialog', { name: '公众号草稿' });
+  const cover = draft.getByRole('button', { name: '选择封面：春日封面' });
+  await cover.click();
+  await expect(cover).toHaveAttribute('aria-pressed', 'true');
+  await draft.getByRole('button', { name: '管理团队公众号' }).click();
+  await expect(draft.getByLabel('公众号名称', { exact: true })).toBeVisible();
+  await expect(draft.getByLabel('AppID', { exact: true })).toBeVisible();
+  await expect(draft.getByLabel('AppSecret', { exact: true })).toHaveAttribute('type', 'password');
+  const box = await draft.boundingBox();
+  expect(box!.y).toBeGreaterThanOrEqual(20);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(660);
+  await draft.screenshot({ path: 'test-results/wechat-dialog.png' });
+  await draft.getByLabel('AppSecret', { exact: true }).focus();
+  await draft.screenshot({ path: 'test-results/wechat-account-fields.png' });
+});

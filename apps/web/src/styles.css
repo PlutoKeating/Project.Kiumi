@@ -185,8 +185,6 @@ input, textarea { caret-color: var(--color-accent-500); }
 .modal-backdrop button.bg-accent-500 { background: #3e68ad; color: white; }
 .modal-backdrop input[type="file"] { width: 100%; font-size: 12px; color: #617087; }
 .modal-backdrop input[type="file"]::file-selector-button { background: #edf2fa; border: 0; border-radius: 6px; padding: 8px 12px; color: #355d9b; margin-right: 12px; }
-.workspace-dialog form { padding: 14px; background: #f0f4fb; border-radius: 10px; }
-.workspace-dialog form:nth-child(2) { background: #f0f4fb; }
 .workspace-dialog .grid-cols-\[1fr_240px\] { grid-template-columns: minmax(0, 1fr) 220px; }
 .workspace-dialog .grid-cols-\[1fr_240px\] > div:last-child { border-left: 1px solid #dce3ef; padding-left: 24px; }
 .workspace-dialog .grid-cols-\[1fr_240px\] > div:first-child > div:first-child { flex-wrap: wrap; gap: 8px; }
@@ -326,3 +324,23 @@ input, textarea { caret-color: var(--color-accent-500); }
 .clipboard-content > span { font-size: 11px; color: var(--color-ink-600); }
 .clipboard-content p { font-size: 12px; color: var(--color-ink-800); margin-top: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .clipboard-item > button { color: var(--color-accent-500); padding: 6px 10px; border-radius: 8px; background: var(--surface-action); }
+
+/* Team and publishing tasks share the same readable form rhythm. */
+.workspace-welcome { padding: 28px 0 12px; display: grid; justify-items: start; gap: 24px; }
+.workspace-welcome p { color: var(--color-ink-600); line-height: 1.8; }
+.modal-backdrop .dialog-primary { background: var(--color-accent-500); color: white; border-color: transparent; }
+.workspace-switcher { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 24px; }
+.workspace-switcher > label { font-size: 13px; font-weight: 500; }
+.workspace-join { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px; }
+.workspace-dialog .workspace-team-form { display: flex; align-items: end; gap: 10px; padding: 0; background: transparent; }
+.workspace-team-form label, .dialog-field { display: grid; gap: 8px; font-size: 12px; color: var(--color-ink-700); min-width: 0; flex: 1; }
+.workspace-team-form input { min-height: 40px; }
+.workspace-team-form button { min-height: 40px; white-space: nowrap; }
+.wechat-draft-fields { min-width: 0; }
+.cover-grid { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 10px; max-height: 200px; overflow: auto; padding: 4px; margin: 0 -4px 16px; }
+.cover-grid button { border-radius: 10px; }
+.cover-grid button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--color-accent-500); }
+.cover-upload { display: inline-flex; align-items: center; cursor: pointer; margin-bottom: 24px; color: var(--color-accent-500); }
+.cover-upload:focus-within { outline: 2px solid var(--color-accent-400); outline-offset: 3px; }
+.wechat-dialog .dialog-field input { min-height: 40px; }
+@media (max-height: 700px) { .modal-backdrop { padding: 20px; } .modal-backdrop > [role="dialog"] { max-height: calc(100vh - 40px); } }
