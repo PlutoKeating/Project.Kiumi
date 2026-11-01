@@ -208,9 +208,20 @@ export async function prepareText(source: string, kind: 'html' | 'markdown' | 't
   } catch (error) { releasePreview(preview); throw error; }
 }
 
+/** Office clipboards get normalized; layout editors (Xiumi, 135, WeChat articles) keep their sections and SVG. */
+export function isLayoutHtml(html: string) {
+  if (/mso-|class=["']Mso|schemas-microsoft-com|wps/i.test(html)) return false;
+  return /<(section|svg)\b/i.test(html);
+}
+
+export function prepareClipboard(html: string, text: string, files: File[] = []): Promise<ImportPreview> {
+  if (html && isLayoutHtml(html)) return prepareRichHtml(html, undefined, '粘贴内容');
+  return prepareText(html || text, html ? 'html' : 'text', files);
+}
+
 /** Keep existing HTML/webpage layout and SVG import behavior separate from Office normalization. */
-export async function prepareRichHtml(source: string, baseUrl?: string): Promise<ImportPreview> {
-  const preview = previewModel('导入网页'); preview.preserveLayout = true;
+export async function prepareRichHtml(source: string, baseUrl?: string, fallbackTitle = '导入网页'): Promise<ImportPreview> {
+  const preview = previewModel(fallbackTitle); preview.preserveLayout = true;
   try {
     if (source.length > 20 * 1024 * 1024 || /^PK[\x03\x05\x07]|\x00/.test(source)) throw new Error('HTML 文件过大或包含二进制内容，请核对文件格式。');
     const parsed = parse(source);

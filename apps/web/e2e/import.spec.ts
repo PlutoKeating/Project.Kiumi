@@ -293,6 +293,27 @@ test('generic HTML keeps SVG layout while Office equations and tracked changes a
   expect(JSON.stringify(result.issues)).toContain('修订');
 });
 
+test('clipboard from layout editors keeps sections and SVG as one block; Office clipboard is still normalized', async ({ page }) => {
+  await harness(page);
+  const result = await page.evaluate(async () => {
+    const mod = await import('/src/lib/word-import/index.ts');
+    const xiumi = '<section style="background-color: rgb(255, 251, 246); font-size: 16px;"><section style="display: grid; width: 100%;"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3" fill="#c33"/></svg><section style="text-align:center;color:rgb(89,140,56)"><p>直播助力非遗传承</p></section></section><section style="padding: 12px; border: 1px dashed rgb(255, 193, 7);"><p>在华南农业大学珠江学院开展研学实践活动。</p></section></section>';
+    const layout = await mod.prepareClipboard(xiumi, '直播助力非遗传承');
+    const office = await mod.prepareClipboard('<p class="MsoNormal"><b>标题</b></p><p class="MsoNormal">正文</p>', '标题\n正文');
+    const plain = await mod.prepareClipboard('', '只有文字');
+    return {
+      layout: { count: layout.items.length, label: layout.items[0].label, html: layout.items[0].block.html, issues: layout.issues, preserve: layout.preserveLayout, title: layout.title },
+      office: { count: office.items.length, labels: office.items.map((i: any) => i.label), preserve: office.preserveLayout },
+      plain: plain.items.length,
+    };
+  });
+  expect(result.layout).toMatchObject({ count: 1, label: 'HTML 布局', preserve: true, title: '粘贴内容' });
+  expect(result.layout.html).toContain('<svg'); expect(result.layout.html).toContain('rgb(89, 140, 56)'); expect(result.layout.html).toContain('直播助力非遗传承');
+  expect(result.layout.html).not.toContain('公式/图形待核对'); expect(result.layout.issues).toEqual([]);
+  expect(result.office).toMatchObject({ count: 2, labels: ['段落', '段落'] }); expect(result.office.preserve).toBeFalsy();
+  expect(result.plain).toBe(1);
+});
+
 // Optional private sample: never copy a user's source document into the repository.
 test('provided Word sample preserves every nonempty source paragraph', async ({ page }) => {
   const path = process.env.KIUMI_WORD_SAMPLE;

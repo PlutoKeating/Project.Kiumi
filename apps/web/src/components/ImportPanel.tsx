@@ -4,10 +4,10 @@ import * as api from '../api.ts';
 import { useStore } from '../store.ts';
 import { Icon } from './Icon.tsx';
 import { Segmented, Select, SheetHeader } from './ui.tsx';
-import { prepareFile, prepareText, prepareRichHtml, releasePreview, setHeading, uploadPreview, type ImportPreview } from '../lib/word-import/index.ts';
+import { prepareClipboard, prepareFile, prepareText, prepareRichHtml, releasePreview, setHeading, uploadPreview, type ImportPreview } from '../lib/word-import/index.ts';
 
 type Mode = 'paste' | 'markdown' | 'html' | 'url';
-const SOURCES = [{ value: 'paste', label: '粘贴 Word / WPS / 飞书' }, { value: 'markdown', label: 'Markdown' }, { value: 'html', label: 'HTML' }, { value: 'url', label: '网页地址' }] as const;
+const SOURCES = [{ value: 'paste', label: '粘贴 Word / WPS / 秀米' }, { value: 'markdown', label: 'Markdown' }, { value: 'html', label: 'HTML' }, { value: 'url', label: '网页地址' }] as const;
 
 export function ImportPanel() {
   const [open, setOpen] = useState(false), [mode, setMode] = useState<Mode>('paste');
@@ -86,15 +86,15 @@ export function ImportPanel() {
             <input aria-label="选择导入文件" type="file" accept=".docx,.zip,.md,.markdown,.html,.htm,.txt" disabled={busy} className="sr-only" onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) void prepare(() => prepareFile(file)); }} />
           </label>
           <Segmented label="导入方式" value={mode} disabled={busy} options={SOURCES} onChange={next => { setMode(next); setValue(''); setMessage(''); }} />
-          {mode === 'paste' ? <div role="textbox" aria-label="粘贴内容" className="field paste-box" contentEditable={!busy} suppressContentEditableWarning data-placeholder="在这里粘贴，先预览再导入。若粘贴图片缺失，请改用 DOCX 文件。" onPaste={e => {
+          {mode === 'paste' ? <div role="textbox" aria-label="粘贴内容" className="field paste-box" contentEditable={!busy} suppressContentEditableWarning data-placeholder="在这里粘贴，先预览再导入。秀米等排版编辑器复制的内容会保留原排版；Word 若粘贴图片缺失，请改用 DOCX 文件。" onPaste={e => {
             e.preventDefault(); if (busy) return;
             const html = e.clipboardData.getData('text/html'), text = e.clipboardData.getData('text/plain');
             const files = [...e.clipboardData.files].filter(f => f.type.startsWith('image/'));
-            void prepare(() => prepareText(html || text, html ? 'html' : 'text', files));
+            void prepare(() => prepareClipboard(html, text, files));
           }} /> : <textarea disabled={busy} aria-label="导入文本" className="field paste-box" placeholder={mode === 'url' ? 'https://…' : '粘贴内容'} value={value} onChange={e => setValue(e.target.value)} />}
           {mode !== 'paste' && <footer className="sheet-actions"><button type="button" className="btn btn-candy" disabled={busy || !value.trim()} onClick={() => void prepareValue()}>生成预览</button></footer>}
         </> : <>
-          <p className="sheet-lead">{preview.galleryOnly ? `${preview.assets.length} 张图片将进入团队图库，不自动插入正文。` : `${preview.items.length} 个内容块 · ${preview.assets.length} 张待上传图片。按公众号样式统一排版，不保留 Word 分页。`}</p>
+          <p className="sheet-lead">{preview.galleryOnly ? `${preview.assets.length} 张图片将进入团队图库，不自动插入正文。` : `${preview.items.length} 个内容块 · ${preview.assets.length} 张待上传图片。${preview.preserveLayout ? '保留原排版与 SVG，图片上传到团队图库。' : '按公众号样式统一排版，不保留 Word 分页。'}`}</p>
           <div className="import-preview">
             {preview.galleryOnly ? <div className="import-gallery">{preview.assets.map(asset => <figure key={asset.url}><img src={asset.url} alt={asset.file.name} /><figcaption>{asset.file.name}</figcaption></figure>)}</div> : preview.items.map((item, i) => <div key={item.block.id} className="import-item" data-import-block>
               <div className="import-item-head"><span>块 {i + 1} · {item.label}{item.candidate ? ' · 疑似标题' : ''}</span>
