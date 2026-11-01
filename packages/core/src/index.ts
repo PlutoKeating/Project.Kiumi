@@ -19,6 +19,7 @@ export type {
   StyleValue,
   TemplateIndexEntry,
   TemplateRecord,
+  ShopProvenance,
   Warning,
 } from './types.ts';
 

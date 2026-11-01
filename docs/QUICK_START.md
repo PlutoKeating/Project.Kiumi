@@ -54,6 +54,21 @@ XIUMI_COOKIE='<cookie 头>' pnpm kiumi crawl templates
 
 Cookie 只从环境变量或 `--cookie` 读取，不写盘、不进日志。
 
+秀米「风格排版」店铺（需要登录 Cookie；完整分页与搜索都依赖登录态）：
+
+```bash
+# 1) 先枚举店铺列表；每页 72，约 1,361 页
+pnpm kiumi crawl shop-list --price all --show-type paper --rps 3
+
+# 2) 抓正文。owned = 免费 + 账号已购；all 需要运营方确认再分发授权
+pnpm kiumi crawl shop --scope free --max-items 20 --merge     # 先跑 20 条验证
+pnpm kiumi crawl shop --scope owned --rps 3 --concurrency 3   # 可反复续跑
+pnpm kiumi shop merge                                         # 手动合并索引
+```
+
+店铺条目写入 `data/catalog/modern/`，分类为「风格排版」，复用现有模板浏览、
+编辑、预览和导出；`shop` 字段保留价格、作者、原站链接与授权标记。
+
 ## 浏览
 
 ```bash

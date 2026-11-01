@@ -136,6 +136,31 @@ GET /api/templates/items?atom_tpl_id=<id>[&atom_tpl_id=...]
 因此本项目对这类模板采用保真兜底：矩阵渲染若丢失 `<svg>`，直接回用官方成品 HTML，
 并给出 `SVG_ENGINE_FALLBACK` 警告。实测输出与上游逐字节一致（14,918 B，4 个 `<svg>`、6 个 `animate`）。
 
+### 2.4.3 风格排版店铺（studio shop）
+
+编辑器顶部「风格排版」不是内置模板库，而是设计师寄售店铺，数据在另一组接口：
+
+```
+GET /api/show_goods/tags_tree?show_type=paper&tag_level_from=2&tag_level_to=0&show_goods=false
+GET /api/show_goods/goodses?limit=72&page=0&price_scope=all&showgoods_type=paper
+                     &by_nearest=1&tpl_flag=0&show_type=paper
+GET /api/show_goods/goodses/{show_goods_id}
+GET /api/show_goods/my/purchased/goodses?limit=72&page=0
+```
+
+- 列表每页上限 72，`page` 从 0 开始；`show_type=paper` 才是图文正文模板，
+  不加时还会混入 `tablet`（H5 整页）。
+- 实测 2026-11-01：`paper` 共 **97,937** 条（免费 3,749，付费 94,188）。
+- 未登录时列表只能翻前 3 页（216 条），搜索返回 401；完整分页需要登录 Cookie。
+- `show.show_url` 是公开预览页（`https://v.xiumius.cn/board/v5/...`），页面内
+  `injectedData.showInfo` 是 URI 编码的 JSON，`show_data_url` 指向完整 show JSON。
+- show JSON 没有 `matrix` / `renderer_accelerate`；正文在
+  `cubes[].pages[].layers[]._$raHTML`，`paper` 类型实测为 1 cube / 1 page / 1 layer，
+  单条 HTML 约 120–370 KB。
+- 本项目用 `atomTplId = shop:paper/{show_goods_id}` 写入 `catalog/modern/`，把店铺
+  条目并入 `modern-index.json`，分类名为「风格排版」，复用现有编辑、预览、导出链路。
+- 价格、作者、原站链接保存在记录的 `shop` 字段；免费条目标 `Free`，付费标 `Paid`。
+
 ### 2.5 需登录的接口（本期通过注入 Cookie 抓取）
 
 | 端点 | 用途 | 未登录响应 |

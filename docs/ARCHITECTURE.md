@@ -10,7 +10,7 @@ Worker 通过 VPC/Tunnel 连接自建数据服务。模板与镜像素材目录�
 ## 模块
 
 - `packages/core`：纯函数文档模型、模板水合、原始 HTML 保真编辑、清理和微信校验。
-- `packages/catalog`：来源数据抓取、归一化、素材镜像与目录索引。
+- `packages/catalog`：来源数据抓取、归一化、素材镜像与目录索引；内置模板走 `crawl templates` / `crawl tags`，秀米「风格排版」店铺走 `crawl shop-list` / `crawl shop`，店铺记录并入 `catalog/modern/` 与 `modern-index.json`，分类为「风格排版」。店铺单条引用几十张图，首轮不逐张镜像，由 `/api/shop-image` 同源代理并在边缘缓存；后续可分批镜像。
 - `packages/sdk`：文件目录和文档操作门面；CLI、MCP、本地 Fastify 服务复用。
 - `apps/edge`：生产 HTTP API，依赖 core 与 D1/数据服务适配器。
 - `apps/web`：React + Zustand 工作台，core 在浏览器同步渲染；公开模板通过 Cache Storage 持久缓存，团队数据通过 HTTP 调用 Worker。

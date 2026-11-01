@@ -55,6 +55,17 @@ function safeJoin(root: string, relative: string): string {
   return target;
 }
 
+const SHOP_IMAGE_HOST = /(^|\.)(xiumi\.us|xiumius\.cn|qpic\.cn|qq\.com)$/i;
+const shopImageProxy = (url: string): string | null => {
+  try {
+    return SHOP_IMAGE_HOST.test(new URL(url).hostname)
+      ? `/api/shop-image?url=${encodeURIComponent(url)}`
+      : null;
+  } catch {
+    return null;
+  }
+};
+
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const dataDir = path.resolve(options.dataDir);
   const kiumi = new KiumiClient({ dataDir });
@@ -133,10 +144,17 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   });
 
   app.get('/api/template', async (request) => {
-    const { id } = request.query as { id?: string };
+    const { id, localAssets } = request.query as { id?: string; localAssets?: string };
     if (!id) throw new ApiError('INVALID_BODY', 'missing ?id=');
     const record = await kiumi.get(decodeURIComponent(id));
     if (!record) throw new ApiError('TEMPLATE_NOT_FOUND', `no template ${id}`, 404);
+    if (localAssets === 'true' && record.shop) {
+      const rewritten = rewriteAssetUrlsStrict(record.html, await manifest(), {
+        strict: false,
+        fallback: shopImageProxy,
+      });
+      return envelope({ ...record, html: rewritten.html });
+    }
     return envelope(record);
   });
 
@@ -148,12 +166,33 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     reply.header('content-type', 'text/html; charset=utf-8');
     reply.header('cache-control', 'public, max-age=300');
     const rewritten = rewriteAssetUrlsStrict(record.html, await manifest(), {
-      strict: strictAssets,
+      // Shop layouts reference hundreds of images each; stream unmirrored
+      // images through the same-origin proxy instead of deleting them.
+      strict: record.shop ? false : strictAssets,
+      fallback: record.shop ? shopImageProxy : undefined,
     });
     if (rewritten.missing.length) {
       reply.header('x-kiumi-missing-assets', String(rewritten.missing.length));
     }
     return rewritten.html;
+  });
+
+  app.get('/api/shop-image', async (request, reply) => {
+    const { url } = request.query as { url?: string };
+    if (!url) throw new ApiError('INVALID_BODY', 'missing ?url=');
+    let target: URL;
+    try { target = new URL(url); } catch { throw new ApiError('INVALID_BODY', 'invalid image url'); }
+    if (target.protocol !== 'https:' || !SHOP_IMAGE_HOST.test(target.hostname)) {
+      throw new ApiError('FORBIDDEN', 'unsupported image host', 403);
+    }
+    const response = await fetch(target.href, { headers: { accept: 'image/*' } });
+    if (!response.ok) throw new ApiError('UPSTREAM_ERROR', `image ${response.status}`, 502);
+    const type = response.headers.get('content-type') ?? 'image/png';
+    if (!type.startsWith('image/')) throw new ApiError('UPSTREAM_ERROR', 'not an image', 502);
+    const body = Buffer.from(await response.arrayBuffer());
+    if (body.byteLength > 10 * 1024 * 1024) throw new ApiError('UPSTREAM_ERROR', 'image too large', 502);
+    reply.header('content-type', type).header('cache-control', 'public, max-age=31536000, immutable');
+    return body;
   });
 
   app.get('/api/search', async (request) => {
@@ -248,7 +287,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     }
 
     if (body.localAssets) {
-      const rewritten = rewriteAssetUrlsStrict(html, await manifest(), { strict: strictAssets });
+      const shopRender = Boolean(
+        body.tplId?.startsWith('shop:') ||
+        body.document?.blocks?.some((block) => block.kind === 'library' && String(block.tplId).startsWith('shop:')),
+      );
+      const rewritten = rewriteAssetUrlsStrict(html, await manifest(), {
+        strict: shopRender ? false : strictAssets,
+        fallback: shopRender ? shopImageProxy : undefined,
+      });
       if (rewritten.missing.length) reply.header('x-kiumi-missing-assets', String(rewritten.missing.length));
       html = rewritten.html;
     }

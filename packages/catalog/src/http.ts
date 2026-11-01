@@ -91,7 +91,18 @@ export async function fetchText(
 
       if (!response.ok) {
         if (RETRYABLE_STATUS.has(response.status) && attempt < retries) {
-          await backoff(attempt);
+          // The shop API rate-limits per minute. A short exponential backoff
+          // burns the remaining retries before the window resets, so honour
+          // Retry-After or wait a full minute for 429/503 bursts.
+          if (response.status === 429) {
+            const retryAfter = Number(response.headers.get('retry-after'));
+            const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+              ? Math.min(120_000, retryAfter * 1000)
+              : 30_000 + Math.random() * 15_000;
+            await sleep(waitMs);
+          } else {
+            await backoff(attempt);
+          }
           continue;
         }
         throw new HttpError(`HTTP ${response.status} for ${url}`, response.status, url);

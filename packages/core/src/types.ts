@@ -70,6 +70,22 @@ export interface Comp {
 }
 
 /** One catalog record, as stored on disk and served by the API. */
+/** Provenance for an entry crawled from the xiumi studio shop (风格排版). */
+export interface ShopProvenance {
+  showGoodsId: number;
+  showId: number;
+  price: number;
+  seller?: string;
+  sellerId?: string;
+  sellerUrl?: string;
+  showUrl?: string;
+  cover?: string;
+  desc?: string;
+  type?: string;
+  /** `free`, `purchased-or-free`, or `operator-confirmed`. */
+  rights?: string;
+}
+
 export interface TemplateRecord {
   atomTplId: string;
   templateId?: number;
@@ -105,6 +121,8 @@ export interface TemplateRecord {
   tags?: string[];
   /** Cover thumbnail advertised by the API. */
   thumbUri?: string;
+  /** Present when the record came from the studio shop rather than the built-in library. */
+  shop?: ShopProvenance;
 }
 
 export interface TemplateIndexEntry {

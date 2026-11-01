@@ -90,6 +90,7 @@ Base: `/api`。响应统一信封：
 |---|---|---|
 | GET | `/assets/*` | 本地镜像素材（带 `ETag`，`immutable`） |
 | GET | `/api/assets` | 镜像素材列表。`?q=&limit=&offset=` |
+| GET | `/api/shop-image?url=…` | 店铺模板图片同源代理。只允许秀米/微信图片域名；服务端无 Referer 拉取后缓存，避免上游 403 |
 | GET | `/uploads/*` | 上传图片访问 |
 | GET | `/api/uploads` | 上传图片列表（按时间倒序） |
 | POST | `/api/assets/upload` | `multipart/form-data` → `{ sha256, url, bytes }` |
@@ -142,6 +143,11 @@ const { html, issues, bytes } = kiumi.render(doc.toJSON());
 kiumi crawl templates [--house <h>] [--cookie <c>] [--public-only] [--no-skeletons] [--rps <n>]
 kiumi crawl assets    [--concurrency <n>] [--rps <n>] [--limit <n>]
 kiumi crawl all
+
+kiumi crawl shop-list [--price all|free|paid] [--show-type paper|tablet] [--rps <n>] [--max-pages <n>] [--refresh]
+kiumi crawl shop      [--scope free|owned|all] [--rights-confirmed] [--show-type paper|tablet]
+                      [--max-items <n>] [--rps <n>] [--concurrency <n>] [--force] [--merge]
+kiumi shop merge
 
 kiumi stats [--json]
 kiumi list  [--room <tag>] [--q <text>] [--has-svg] [--limit n] [--offset n] [--json]

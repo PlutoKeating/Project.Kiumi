@@ -206,6 +206,7 @@ export default {
       if (path === '/api/fill' && request.method === 'POST') return await fill(env, request);
       if (path === '/api/assets') return await assetsList(env, url);
       if (path === '/api/assets/coverage') return await coverage(env);
+      if (path === '/api/shop-image') return await shopImage(request);
       if (path.startsWith('/assets/')) return await serveR2(env, `assets/${path.slice('/assets/'.length)}`);
       if (path === '/assets/__missing.svg') return missingPlaceholder();
 
@@ -276,7 +277,9 @@ async function template(env: Env, url: URL): Promise<Response> {
   if (!id) return fail('INVALID_BODY', 'missing ?id=');
   const record = await getRecord(env, id);
   if (!record) return fail('TEMPLATE_NOT_FOUND', `no template ${id}`, 404);
-  return json(url.searchParams.get('localAssets') === 'true' ? {...record, html: localizeAssets(sanitizeHtml(record.html), await manifest(env))} : record);
+  return json(url.searchParams.get('localAssets') === 'true'
+    ? {...record, html: localizeAssets(sanitizeHtml(record.html), await manifest(env), '', false, Boolean(record.shop))}
+    : record);
 }
 
 // Template markup relies on the upstream stylesheet; reproduce the parts that
@@ -295,7 +298,7 @@ async function preview(env: Env, url: URL): Promise<Response> {
   if (!id) return fail('INVALID_BODY', 'missing ?id=');
   const record = await getRecord(env, id);
   if (!record) return fail('TEMPLATE_NOT_FOUND', `no template ${id}`, 404);
-  const body = localizeAssets(sanitizeHtml(record.html), await manifest(env));
+  const body = localizeAssets(sanitizeHtml(record.html), await manifest(env), '', false, Boolean(record.shop));
   return new Response(
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">${PREVIEW_STYLE}</head><body>${body}</body></html>`,
     { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } },
@@ -321,16 +324,50 @@ async function search(env: Env, url: URL): Promise<Response> {
   );
 }
 
+/** Same-origin image proxy: the xiumi CDN 403s browser requests from our domain. */
+async function shopImage(request: Request): Promise<Response> {
+  const raw = new URL(request.url).searchParams.get('url');
+  if (!raw) return fail('INVALID_BODY', 'missing ?url=');
+  let target: URL;
+  try { target = new URL(raw); } catch { return fail('INVALID_BODY', 'invalid image url'); }
+  if (target.protocol !== 'https:' || !/(^|\.)(xiumi\.us|xiumius\.cn|qpic\.cn|qq\.com)$/i.test(target.hostname)) {
+    return fail('FORBIDDEN', 'unsupported image host', 403);
+  }
+  const cache = (caches as unknown as { default: Cache }).default;
+  const key = new Request(`https://kiumi.internal/shop-image/${encodeURIComponent(target.href)}`);
+  const cached = await cache.match(key);
+  if (cached) return cached;
+  const upstream = await fetch(target.href, { headers: { accept: 'image/*' } });
+  if (!upstream.ok) return fail('UPSTREAM_ERROR', `image ${upstream.status}`, 502);
+  const type = upstream.headers.get('content-type') ?? 'image/png';
+  if (!type.startsWith('image/')) return fail('UPSTREAM_ERROR', 'not an image', 502);
+  const bytes = await upstream.arrayBuffer();
+  if (bytes.byteLength > 10 * 1024 * 1024) return fail('UPSTREAM_ERROR', 'image too large', 502);
+  const response = new Response(bytes, {
+    headers: { 'content-type': type, 'cache-control': 'public, max-age=31536000, immutable' },
+  });
+  await cache.put(key, response.clone());
+  return response;
+}
+
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
 
-function localizeAssets(html: string, map: Record<string, { path: string }>, origin='', forWechat=false): string {
+function localizeAssets(html: string, map: Record<string, { path: string }>, origin='', forWechat=false, allowRemote=false): string {
   return rewriteHtmlAssets(html,raw=>{
     if (/^\/assets\//.test(raw) && origin) return `${origin}${raw}`;
     const normalized=raw.startsWith('//')?`https:${raw}`:raw.replace(/^http:\/\//,'https://');
     const entry=map[normalized];
     if(entry)return forWechat?normalized:`${origin}/assets/${entry.path}`;
+    // Shop layouts can reference hundreds of images each. The CDN rejects
+    // hotlinks from our origin, so stream xiumi/WeChat images through the
+    // same-origin proxy; unrelated external images keep their URL.
+    if(allowRemote){
+      if(/^https?:\/\/[^/]*(?:xiumi\.us|xiumius\.cn|qpic\.cn|qq\.com)\//i.test(normalized))
+        return `${origin}/api/shop-image?url=${encodeURIComponent(normalized)}`;
+      return normalized;
+    }
     if(/^https?:\/\/[^/]*(?:xiumi\.us|xiumius\.cn)\//i.test(normalized))return null;
     return raw;
   });
@@ -398,7 +435,11 @@ async function render(env: Env, request: Request): Promise<Response> {
     return fail('INVALID_BODY', 'provide document, tplId or matrix');
   }
 
-  html = localizeAssets(html, map, body.localAssets ? '' : new URL(request.url).origin, body.forWechat);
+  const shopRender = Boolean(
+    body.tplId?.startsWith('shop:') ||
+    body.document?.blocks?.some((block) => block.kind === 'library' && String(block.tplId).startsWith('shop:')),
+  );
+  html = localizeAssets(html, map, body.localAssets ? '' : new URL(request.url).origin, body.forWechat, shopRender);
   if (!body.localAssets && !body.forWechat) html = await exportImages(html, request, env);
   return json({ html, bytes: html.length, warnings, issues: validateHtml(body.localAssets ? rewriteHtmlAssets(html, raw => /^\/(?:uploads|assets)\//.test(raw) ? new URL(raw, request.url).href : raw) : html) });
 }

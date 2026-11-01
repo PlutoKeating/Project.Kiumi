@@ -154,6 +154,11 @@ export interface StrictRewriteResult {
   missing: string[];
 }
 
+/** Same-origin proxy for upstream images the browser cannot hotlink. */
+export function shopImageProxyUrl(url: string, origin = ''): string {
+  return `${origin}/api/shop-image?url=${encodeURIComponent(url)}`;
+}
+
 /**
  * Rewrite every remote asset to the local mirror. In strict mode anything that
  * is not mirrored is replaced by a local placeholder and reported, so the page
@@ -162,7 +167,13 @@ export interface StrictRewriteResult {
 export function rewriteAssetUrlsStrict(
   html: string,
   manifest: AssetManifest,
-  options: { prefix?: string; strict?: boolean; placeholder?: string } = {},
+  options: {
+    prefix?: string;
+    strict?: boolean;
+    placeholder?: string;
+    /** Used for unmirrored URLs before the strict placeholder is applied. */
+    fallback?: (url: string) => string | null;
+  } = {},
 ): StrictRewriteResult {
   const prefix = options.prefix ?? '/assets';
   const placeholder = options.placeholder ?? `${prefix}/__missing.svg`;
@@ -172,6 +183,8 @@ export function rewriteAssetUrlsStrict(
     const normalized = raw.startsWith('//') ? `https:${raw}` : raw.replace(/^http:\/\//, 'https://');
     const entry = manifest[normalized] ?? manifest[raw];
     if (entry) return `${prefix}/${entry.path}`;
+    const fallback = options.fallback?.(normalized);
+    if (fallback) return fallback;
     missing.push(normalized);
     return options.strict ? placeholder : raw;
   });

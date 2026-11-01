@@ -7,6 +7,9 @@ import {
   crawlCatalog,
   loadCatalog,
   crawlTagCorpus,
+  crawlShopList,
+  crawlShop,
+  mergeShopIntoModern,
   probeMemberEndpoints,
   type HouseFloor,
 } from '@kiumi/catalog';
@@ -182,6 +185,96 @@ crawl
       log: (line) => console.error(line),
     });
     console.log(JSON.stringify(report, null, 2));
+  });
+
+crawl
+  .command('shop-list')
+  .description('enumerate the studio shop (风格排版) list into data/catalog/shop/goodses.json')
+  .option('--price <scope>', 'all | free | paid', 'all')
+  .option('--show-type <type>', 'paper | tablet', 'paper')
+  .option('--rps <n>', 'requests per second', '3')
+  .option('--max-pages <n>', 'stop after N list pages (0 = all)')
+  .option('--refresh', 'ignore cached list pages')
+  .option('--cookie <cookie>', 'cookie header (or XIUMI_COOKIE)')
+  .action(async (flags) => {
+    const cookie = flags.cookie ?? process.env.XIUMI_COOKIE;
+    if (!cookie) {
+      console.error('crawl shop-list needs a logged-in cookie: pass --cookie or set XIUMI_COOKIE');
+      process.exitCode = 1;
+      return;
+    }
+    const price = String(flags.price);
+    if (!['all', 'free', 'paid'].includes(price)) throw new Error('--price must be all, free or paid');
+    const showType = String(flags.showType);
+    if (!['paper', 'tablet'].includes(showType)) throw new Error('--show-type must be paper or tablet');
+    const report = await crawlShopList({
+      dataDir: dataDir(),
+      cookie,
+      priceScope: price as 'all' | 'free' | 'paid',
+      showType: showType as 'paper' | 'tablet',
+      rps: Number(flags.rps),
+      maxPages: flags.maxPages ? Number(flags.maxPages) : undefined,
+      refresh: Boolean(flags.refresh),
+      log: (line) => console.error(line),
+    });
+    console.log(JSON.stringify(report, null, 2));
+  });
+
+crawl
+  .command('shop')
+  .description('fetch recorded HTML for shop entries into the modern catalog')
+  .option('--scope <scope>', 'free | owned | all', 'owned')
+  .option('--rights-confirmed', 'confirm redistribution rights before scope=all')
+  .option('--show-type <type>', 'paper | tablet', 'paper')
+  .option('--max-items <n>', 'stop after N candidates (0 = all)', '0')
+  .option('--rps <n>', 'requests per second', '3')
+  .option('--concurrency <n>', 'parallel workers', '3')
+  .option('--force', 're-fetch records that already exist')
+  .option('--merge', 'merge into modern-index.json when finished')
+  .option('--cookie <cookie>', 'cookie header (or XIUMI_COOKIE)')
+  .action(async (flags) => {
+    const cookie = flags.cookie ?? process.env.XIUMI_COOKIE;
+    if (!cookie) {
+      console.error('crawl shop needs a logged-in cookie: pass --cookie or set XIUMI_COOKIE');
+      process.exitCode = 1;
+      return;
+    }
+    const scope = String(flags.scope);
+    if (!['free', 'owned', 'all'].includes(scope)) throw new Error('--scope must be free, owned or all');
+    const showType = String(flags.showType);
+    if (!['paper', 'tablet'].includes(showType)) throw new Error('--show-type must be paper or tablet');
+    if (scope === 'all' && !flags.rightsConfirmed) {
+      console.error('scope=all copies paid third-party templates; re-run with --rights-confirmed only after the operator confirms redistribution rights');
+      process.exitCode = 2;
+      return;
+    }
+    const report = await crawlShop({
+      dataDir: dataDir(),
+      cookie,
+      scope: scope as 'free' | 'owned' | 'all',
+      rightsConfirmed: Boolean(flags.rightsConfirmed),
+      showType: showType as 'paper' | 'tablet',
+      maxItems: Number(flags.maxItems) || 0,
+      rps: Number(flags.rps),
+      concurrency: Number(flags.concurrency),
+      force: Boolean(flags.force),
+      log: (line) => console.error(line),
+    });
+    if (flags.merge) {
+      const merged = await mergeShopIntoModern(dataDir());
+      console.error(`merged: shop=${merged.shop} total=${merged.total} rooms=${merged.rooms}`);
+    }
+    console.log(JSON.stringify(report, null, 2));
+  });
+
+program
+  .command('shop')
+  .description('shop catalog maintenance')
+  .command('merge')
+  .description('merge data/catalog/shop/index.json into the modern catalog')
+  .action(async () => {
+    const merged = await mergeShopIntoModern(dataDir());
+    console.log(JSON.stringify(merged, null, 2));
   });
 
 crawl
