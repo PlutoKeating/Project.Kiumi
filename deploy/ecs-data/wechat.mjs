@@ -5,6 +5,7 @@ import https from 'node:https';
 import http from 'node:http';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { decodeBody } from './import.mjs';
 import sharp from 'sharp';
 
 sharp.cache(false);
@@ -33,28 +34,33 @@ function publicAddress(address) {
   const [a,b]=address.split('.').map(Number);
   return !(a===0 || a===10 || a===127 || a>=224 || (a===169&&b===254) || (a===172&&b>=16&&b<=31) || (a===192&&b===168) || (a===100&&b>=64&&b<=127) || (a===198&&(b===18||b===19)));
 }
-export async function fetchPublicImage(source) {
+/** Fetch a public HTTP(S) resource with the private-network guard; returns decoded bytes and the final URL. */
+export async function fetchPublic(source,{maxBytes=MAX_IMAGE,headers={}}={}) {
   let url=new URL(source.startsWith('//')?'https:'+source:source);
   for(let redirects=0;redirects<4;redirects++) {
-    if(!['https:','http:'].includes(url.protocol)||url.username||url.password)throw new Error('不支持的图片地址');
+    if(!['https:','http:'].includes(url.protocol)||url.username||url.password)throw new Error('不支持的地址');
     const addresses=await lookup(url.hostname,{all:true,family:4});
-    if(!addresses.length||addresses.some(a=>!publicAddress(a.address)))throw new Error('不能读取内网图片');
+    if(!addresses.length||addresses.some(a=>!publicAddress(a.address)))throw new Error('不能读取内网地址');
     // Pin the validated address so a second DNS lookup cannot reach private hosts.
     const result=await new Promise((resolve,reject)=>{
       const transport=url.protocol==='https:'?https:http;
-      const req=transport.get(url,{family:4,lookup:(_host,_options,callback)=>callback(null,addresses[0].address,4)},res=>{
+      const req=transport.get(url,{family:4,headers,lookup:(_host,_options,callback)=>callback(null,addresses[0].address,4)},res=>{
         if(res.statusCode>=300&&res.statusCode<400){res.resume();resolve({redirect:res.headers.location});return;}
-        if(res.statusCode!==200){res.resume();reject(new Error('图片下载失败'));return;}
+        if(res.statusCode!==200){res.resume();reject(new Error(`下载失败（${res.statusCode}）`));return;}
         let size=0;const chunks=[];
-        res.on('data',chunk=>{size+=chunk.length;if(size>MAX_IMAGE){req.destroy(new Error('图片大于 10 MB'));return;}chunks.push(chunk);});
-        res.on('error',reject);res.on('end',()=>resolve({bytes:Buffer.concat(chunks)}));
+        res.on('data',chunk=>{size+=chunk.length;if(size>maxBytes){req.destroy(new Error(`内容大于 ${Math.round(maxBytes/1024/1024)} MB`));return;}chunks.push(chunk);});
+        res.on('error',reject);res.on('end',()=>resolve({bytes:Buffer.concat(chunks),encoding:res.headers['content-encoding'],type:res.headers['content-type']||''}));
       });
-      req.setTimeout(20_000,()=>req.destroy(new Error('图片下载超时')));req.on('error',reject);
+      req.setTimeout(20_000,()=>req.destroy(new Error('下载超时')));req.on('error',reject);
     });
     if(result.redirect){url=new URL(result.redirect,url);continue;}
-    return result.bytes;
+    return {bytes:decodeBody(result.bytes,result.encoding,maxBytes),type:result.type,url:url.href};
   }
-  throw new Error('图片重定向次数过多');
+  throw new Error('重定向次数过多');
+}
+export async function fetchPublicImage(source) {
+  try {return (await fetchPublic(source)).bytes;}
+  catch(error) {throw new Error(`图片：${error.message}`);}
 }
 
 async function imageBytes(source,root,assets) {

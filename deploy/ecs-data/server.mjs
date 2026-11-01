@@ -5,7 +5,8 @@ import { stat, mkdir, writeFile, rename, unlink, readFile } from 'node:fs/promis
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import path from 'node:path';
-import { wechatAction, fetchPublicImage } from './wechat.mjs';
+import { wechatAction, fetchPublic } from './wechat.mjs';
+import { fetchPublicPage } from './import.mjs';
 
 const ROOT = path.resolve(process.env.KIUMI_DATA_DIR ?? '/data');
 const KEY = process.env.KIUMI_DATA_KEY ?? '';
@@ -67,7 +68,7 @@ const server = createServer(async (req, res) => {
       const chunks=[];let size=0;
       for await(const chunk of req) {size+=chunk.length;if(size>5_000_000)return send(res,413,{ok:false,error:'request too large'});chunks.push(chunk);}
       const input=JSON.parse(Buffer.concat(chunks).toString('utf8'));
-      const result=url.pathname==='/import' ? {html:(await fetchPublicImage(input.url)).toString('utf8'),url:input.url} : await wechatAction(input,ROOT);
+      const result=url.pathname==='/import' ? await fetchPublicPage(input.url,fetchPublic) : await wechatAction(input,ROOT);
       return send(res,200,{ok:true,data:result});
     } catch(error) {return send(res,502,{ok:false,error:error.message});}
   }

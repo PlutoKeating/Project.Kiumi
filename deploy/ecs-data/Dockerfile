@@ -2,7 +2,7 @@ FROM node:24-alpine
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
-COPY server.mjs wechat.mjs ./
+COPY server.mjs wechat.mjs import.mjs ./
 USER node
 ENV KIUMI_DATA_DIR=/data
 EXPOSE 8080

@@ -13,7 +13,7 @@
     "kiumi": "node --env-file-if-exists=.env --env-file-if-exists=.env.local packages/cli/src/index.ts",
     "mcp": "node --env-file-if-exists=.env --env-file-if-exists=.env.local packages/mcp/src/index.ts",
     "dev:server": "node apps/server/src/index.ts",
-    "test": "node --test packages/*/test/*.test.ts apps/*/test/*.test.ts",
+    "test": "node --test packages/*/test/*.test.ts apps/*/test/*.test.ts deploy/ecs-data/test/*.test.mjs",
     "dev": "pnpm --parallel --filter @kiumi/server --filter @kiumi/web dev",
     "serve": "node --env-file-if-exists=.env --env-file-if-exists=.env.local apps/server/src/index.ts",
     "build:web": "pnpm --filter @kiumi/web build",
