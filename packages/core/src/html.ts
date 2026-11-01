@@ -72,6 +72,8 @@ export function placateTemplateText(html: string): string {
     if (node.getAttribute('title') !== undefined) node.setAttribute('title', '');
     if (node.getAttribute('aria-label') !== undefined) node.setAttribute('aria-label', '');
   }
+  // Destination URLs often contain the source copy (search links, Baidu baike).
+  for (const node of root.querySelectorAll('a[href]')) node.removeAttribute('href');
   return root.toString();
 }
 

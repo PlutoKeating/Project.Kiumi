@@ -689,6 +689,7 @@ export async function crawlShopAssets(options: ShopAssetOptions): Promise<ShopAs
   if (options.limit && options.limit > 0) urls = urls.slice(0, options.limit);
   if (!urls.length) throw new Error('no shop records found; run "kiumi crawl shop" first');
   const existing = (await readJson<AssetManifest>(catalog.assetsManifest)) ?? {};
+  const manifestPath = options.manifest ? path.resolve(options.manifest) : catalog.assetsManifest;
   let flushChain: Promise<unknown> = Promise.resolve();
   const result = await mirrorAssets(urls, {
     assetsDir: catalog.assets,
@@ -703,13 +704,12 @@ export async function crawlShopAssets(options: ShopAssetOptions): Promise<ShopAs
       if (done % 1_000 === 0) {
         const payload = structuredClone(snapshot);
         flushChain = flushChain
-          .then(() => writeJson(catalog.assetsManifest, payload, false))
+          .then(() => writeJson(manifestPath, payload, false))
           .catch(() => undefined);
       }
     },
   });
   await flushChain;
-  const manifestPath = options.manifest ? path.resolve(options.manifest) : catalog.assetsManifest;
   await writeJson(manifestPath, result.manifest, false);
   const missing = urls.filter((url) => !result.manifest[url]);
   const report: ShopAssetReport = {
@@ -754,7 +754,7 @@ export async function localizeShopRecords(dataDir: string): Promise<ShopLocalize
       await rm(path.join(paths.records, file)).catch(() => undefined);
       continue;
     }
-    let html = normalizeRemoteProtocols(record.html);
+    let html = placateTemplateText(normalizeRemoteProtocols(record.html));
     for (const url of htmlUrls) {
       const entry = manifest[url];
       if (entry) html = html.split(url).join(`/assets/${entry.path}`);

@@ -116,7 +116,7 @@ test('rewriteAssetUrlsStrict uses the fallback for unmirrored shop images', () =
 });
 
 test('placateTemplateText keeps structure and styles, replaces copy', () => {
-  const html = '<h1 style="color:red"><span>原标题</span></h1><p><span>A</span><span>B</span></p><img alt="配图" src="https://img.xiumi.us/a.png">';
+  const html = '<h1 style="color:red"><span>原标题</span></h1><p><span>A</span><span>B</span></p><img alt="配图" src="https://img.xiumi.us/a.png"><a href="https://baike.baidu.com/item/原标题">链接</a>';
   const out = placateTemplateText(html);
   assert.match(out, /<h1 style="color:red">/);
   assert.match(out, /标题/);
@@ -124,5 +124,6 @@ test('placateTemplateText keeps structure and styles, replaces copy', () => {
   assert.match(out, /正文/);
   assert.doesNotMatch(out, />A<|>B</);
   assert.match(out, /<img alt/);
+  assert.doesNotMatch(out, /baike\.baidu/);
   assert.match(out, /src="https:\/\/img\.xiumi\.us\/a\.png"/);
 });
