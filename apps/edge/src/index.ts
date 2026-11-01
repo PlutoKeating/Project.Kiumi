@@ -79,7 +79,7 @@ async function fetchFromEcs(env: Env, key: string): Promise<Response | null> {
   return response.ok ? response : null;
 }
 
-const CACHE_TTL = 300;
+const CACHE_TTL = 86_400;
 
 /** R2 stays supported, but the ECS mirror is the source of truth. */
 async function readObject(env: Env, key: string): Promise<Response | null> {
@@ -277,6 +277,9 @@ async function template(env: Env, url: URL): Promise<Response> {
   if (!id) return fail('INVALID_BODY', 'missing ?id=');
   const record = await getRecord(env, id);
   if (!record) return fail('TEMPLATE_NOT_FOUND', `no template ${id}`, 404);
+  if (url.searchParams.get('localAssets') === 'true' && record.shop) {
+    return json({ ...record, html: sanitizeHtml(record.html) });
+  }
   return json(url.searchParams.get('localAssets') === 'true'
     ? {...record, html: localizeAssets(sanitizeHtml(record.html), await manifest(env))}
     : record);
@@ -298,7 +301,7 @@ async function preview(env: Env, url: URL): Promise<Response> {
   if (!id) return fail('INVALID_BODY', 'missing ?id=');
   const record = await getRecord(env, id);
   if (!record) return fail('TEMPLATE_NOT_FOUND', `no template ${id}`, 404);
-  const body = localizeAssets(sanitizeHtml(record.html), await manifest(env));
+  const body = record.shop ? sanitizeHtml(record.html) : localizeAssets(sanitizeHtml(record.html), await manifest(env));
   return new Response(
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">${PREVIEW_STYLE}</head><body>${body}</body></html>`,
     { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } },
@@ -382,8 +385,16 @@ async function render(env: Env, request: Request): Promise<Response> {
     localAssets?: boolean;
     forWechat?: boolean;
   };
-  const skeletonsMap = await skeletons(env);
-  const map = await manifest(env);
+  const shopOnly = Boolean(
+    (body.tplId?.startsWith('shop:') && !body.document) ||
+    (body.document?.blocks?.length &&
+      body.document.blocks.every((block) => block.kind === 'library' && String(block.tplId).startsWith('shop:'))),
+  );
+  // Shop records already carry local /assets URLs and recorded HTML. Loading
+  // the whole skeleton pack and asset manifest here made every canvas edit a
+  // multi-second VPC round trip.
+  const skeletonsMap = shopOnly ? {} : await skeletons(env);
+  const map = shopOnly ? {} : await manifest(env);
 
   let html: string;
   let warnings: unknown[] = [];
@@ -503,15 +514,24 @@ async function coverage(env: Env): Promise<Response> {
 }
 
 async function serveR2(env: Env, key: string): Promise<Response> {
+  // Asset requests are immutable. Cache them in the colo so a shop preview
+  // does not pay a VPC round trip for every one of its 20-30 images.
+  const cache = (caches as unknown as { default: Cache }).default;
+  const cacheKey = new Request(`https://kiumi.internal/assets/${key}`);
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
   const upstream = await fetchFromEcs(env, key);
   if (upstream) {
-    return new Response(upstream.body, {
+    const response = new Response(upstream.body, {
       headers: {
         'content-type': upstream.headers.get('content-type') ?? mimeOf(key),
         'cache-control': 'public, max-age=31536000, immutable',
         etag: upstream.headers.get('etag') ?? '',
       },
     });
+    await cache.put(cacheKey, response.clone());
+    return response;
   }
   if (!env.DATA) return missingPlaceholder();
   const object = await env.DATA.get(key);
@@ -519,13 +539,15 @@ async function serveR2(env: Env, key: string): Promise<Response> {
     if (key.startsWith('assets/')) return missingPlaceholder();
     return fail('NOT_FOUND', key, 404);
   }
-  return new Response(object.body, {
+  const response = new Response(object.body, {
     headers: {
       'content-type': mimeOf(key),
       'cache-control': 'public, max-age=31536000, immutable',
       etag: object.httpEtag,
     },
   });
+  await cache.put(cacheKey, response.clone());
+  return response;
 }
 
 function missingPlaceholder(): Response {

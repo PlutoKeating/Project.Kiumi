@@ -23,12 +23,24 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
   useEffect(() => {
     if (!visible) return;
     let alive = true;
+    let attempts = 0;
+    let retry: ReturnType<typeof setTimeout> | undefined;
     const load = () => { void fetchTemplate(item.atomTplId).then(record => {
       if (alive) { setHtml(sanitizeHtml(record.html)); setError(''); }
-    }).catch(() => { if (alive) setError('模板暂未加载，点击重试'); }); };
+    }).catch(() => {
+      if (!alive) return;
+      // The first request after a data deploy can miss the edge cache; retry
+      // quickly instead of leaving an empty card until the user clicks.
+      if (attempts++ < 2) {
+        setError('模板加载中…');
+        retry = setTimeout(load, 1200 * attempts);
+      } else {
+        setError('模板暂未加载，点击重试');
+      }
+    }); };
     const updated = (event: Event) => { if ((event as CustomEvent<string>).detail === `/api/template?id=${encodeURIComponent(item.atomTplId)}&localAssets=true`) load(); };
     load(); window.addEventListener(CATALOG_UPDATED, updated);
-    return () => { alive = false; window.removeEventListener(CATALOG_UPDATED, updated); };
+    return () => { alive = false; if (retry) clearTimeout(retry); window.removeEventListener(CATALOG_UPDATED, updated); };
   }, [visible, item.atomTplId]);
 
   // Dozens of previews on one screen: mount the frame only when the card comes

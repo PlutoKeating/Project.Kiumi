@@ -18,7 +18,10 @@ export async function syncCatalog() {
     report('正在同步模板目录…');
     const index = await cachedCatalog<TemplateIndexEntry[]>('/api/catalog/index', true);
     await saveCatalogIndex(index);
-    const entries = [...new Map(index.map(item => [item.atomTplId, item])).values()];
+    // Shop records are large and image-heavy; caching all of them in the
+    // background competes with the first card renders. They load on demand.
+    const entries = [...new Map(index.map(item => [item.atomTplId, item])).values()]
+      .filter(item => !item.atomTplId.startsWith('shop:'));
     for (const entry of entries) {
         while (paused || document.hidden || !navigator.onLine) await new Promise(resolve => setTimeout(resolve, 1000));
         // Leave network and main-thread time for interaction; only one background record at a time.
