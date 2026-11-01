@@ -1,6 +1,7 @@
-import { mkdir, readdir } from 'node:fs/promises';
+import { mkdir, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
-import type { ShopProvenance, TemplateIndexEntry, TemplateRecord } from '@kiumi/core';
+import { placateTemplateText, type ShopProvenance, type TemplateIndexEntry, type TemplateRecord } from '@kiumi/core';
+import { mirrorAssets, type AssetManifest } from './assets.ts';
 import { fetchJson, fetchText, HttpError, RateLimiter, sleep } from './http.ts';
 import { assetUrl, extractAssetUrls } from './source.ts';
 import { catalogPaths, readJson, slugOf, writeJson } from './store.ts';
@@ -152,8 +153,12 @@ export interface ShopContentOptions {
   /** Explicit operator assertion required before `scope: "all"` is accepted. */
   rightsConfirmed?: boolean;
   maxItems?: number;
+  offset?: number;
   force?: boolean;
   showType?: 'paper' | 'tablet';
+  /** Parallel shards write records only; the parent rebuilds the shared index. */
+  writeIndex?: boolean;
+  shard?: string;
   log?: (line: string) => void;
 }
 
@@ -261,7 +266,9 @@ export function htmlFromShowData(data: ShopShowData): string {
 export function normalizeRemoteProtocols(html: string): string {
   return html
     .replace(/(\b(?:src|href|xlink:href|data-src|poster)\s*=\s*["'])\/\//gi, '$1https://')
-    .replace(/url\(\s*(["']?)\/\//gi, 'url($1https://');
+    .replace(/(\b(?:src|href|xlink:href|data-src|poster)\s*=\s*["'])http:\/\//gi, '$1https://')
+    .replace(/url\(\s*(["']?)\/\//gi, 'url($1https://')
+    .replace(/url\(\s*(["']?)http:\/\//gi, 'url($1https://');
 }
 
 const ANIMATION = /<(?:animate|animateTransform|animateMotion|animateColor|set)\b/i;
@@ -271,7 +278,7 @@ export function normalizeShopRecord(
   data: ShopShowData,
   context: ShopCrawlContext,
 ): TemplateRecord {
-  const html = normalizeRemoteProtocols(htmlFromShowData(data));
+  const html = placateTemplateText(normalizeRemoteProtocols(htmlFromShowData(data)));
   const assets = extractAssetUrls(html);
   for (const raw of [good.show.cover, data.cover]) {
     if (typeof raw === 'string' && raw.trim()) assets.add(assetUrl(raw));
@@ -531,7 +538,10 @@ export async function crawlShop(options: ShopContentOptions): Promise<ShopConten
     if (scope === 'owned') return Number(good.price) === 0 || purchased.has(good.show_goods_id);
     return true;
   });
+  const offset = Math.max(0, options.offset ?? 0);
+  if (offset) candidates = candidates.slice(offset);
   if (options.maxItems && options.maxItems > 0) candidates = candidates.slice(0, options.maxItems);
+  const writeIndex = options.writeIndex !== false;
 
   let existingIndex = (await readJson<ShopIndexEntry[]>(paths.index)) ?? [];
   const recordFiles = (await readdir(paths.records).catch(() => [] as string[])).filter(
@@ -547,6 +557,7 @@ export async function crawlShop(options: ShopContentOptions): Promise<ShopConten
   let done = 0;
   let flushChain: Promise<unknown> = Promise.resolve();
   const flushIndex = (): Promise<unknown> => {
+    if (!writeIndex) return flushChain;
     const snapshot = [...indexById.values()];
     flushChain = flushChain
       .then(() => writeJson(paths.index, snapshot, false))
@@ -598,7 +609,7 @@ export async function crawlShop(options: ShopContentOptions): Promise<ShopConten
   await Promise.all(Array.from({ length: Math.max(1, options.concurrency ?? 3) }, () => worker()));
   await flushChain;
   const index = [...indexById.values()].sort((a, b) => a.atomTplId.localeCompare(b.atomTplId));
-  await writeJson(paths.index, index, false);
+  if (writeIndex) await writeJson(paths.index, index, false);
   const report: ShopContentReport = {
     startedAt,
     finishedAt: new Date().toISOString(),
@@ -610,8 +621,165 @@ export async function crawlShop(options: ShopContentOptions): Promise<ShopConten
     purchased: purchased.size,
     errors: errors.slice(0, 200),
   };
-  await writeJson(path.join(paths.root, 'content-report.json'), report);
+  await writeJson(path.join(paths.root, `content-report${options.shard ? `-${options.shard}` : ''}.json`), report);
   log(`shop content done: written=${written} skipped=${skipped} failed=${failed} indexed=${index.length}`);
+  return report;
+}
+
+export interface ShopAssetOptions {
+  dataDir: string;
+  concurrency?: number;
+  rps?: number;
+  /** Total bytes allowed for newly downloaded shop assets. */
+  budgetBytes?: number;
+  offset?: number;
+  limit?: number;
+  /** Write this shard's manifest here; merge shards into assets-manifest.json later. */
+  manifest?: string;
+  shard?: string;
+  log?: (line: string) => void;
+}
+
+export interface ShopAssetReport {
+  records: number;
+  urls: number;
+  downloaded: number;
+  skipped: number;
+  failed: number;
+  bytes: number;
+  stoppedByBudget: boolean;
+  missing: number;
+  coverage: number;
+  failedUrls: { url: string; error: string }[];
+}
+
+export interface ShopLocalizeReport {
+  records: number;
+  localized: number;
+  pruned: number;
+  prunedIds: string[];
+  remoteLeft: number;
+}
+
+/** Download every image referenced by shop records, writing each file as it arrives. */
+export async function crawlShopAssets(options: ShopAssetOptions): Promise<ShopAssetReport> {
+  const log = options.log ?? (() => {});
+  const paths = shopPaths(options.dataDir);
+  const catalog = catalogPaths(options.dataDir);
+  const files = (await readdir(paths.records).catch(() => [] as string[])).filter((file) =>
+    /^shop__.+\.json$/.test(file),
+  );
+  const records: TemplateRecord[] = [];
+  for (const file of files) {
+    const record = await readJson<TemplateRecord>(path.join(paths.records, file));
+    if (record) records.push(record);
+  }
+  // Budgeted runs spend the 20 GiB on the highest-priority templates first.
+  const selection = (await readJson<ShopGoods[]>(paths.goodses)) ?? [];
+  const order = new Map(selection.map((good, index) => [good.show_goods_id, index]));
+  records.sort((a, b) =>
+    (order.get(a.shop?.showGoodsId ?? -1) ?? Number.MAX_SAFE_INTEGER) -
+    (order.get(b.shop?.showGoodsId ?? -1) ?? Number.MAX_SAFE_INTEGER),
+  );
+  const ordered = new Set<string>();
+  for (const record of records) for (const url of record.assetUrls) ordered.add(url);
+  let urls = [...ordered];
+  const offset = Math.max(0, options.offset ?? 0);
+  if (offset) urls = urls.slice(offset);
+  if (options.limit && options.limit > 0) urls = urls.slice(0, options.limit);
+  if (!urls.length) throw new Error('no shop records found; run "kiumi crawl shop" first');
+  const existing = (await readJson<AssetManifest>(catalog.assetsManifest)) ?? {};
+  let flushChain: Promise<unknown> = Promise.resolve();
+  const result = await mirrorAssets(urls, {
+    assetsDir: catalog.assets,
+    concurrency: options.concurrency ?? 8,
+    rps: options.rps ?? 8,
+    existing,
+    budgetBytes: options.budgetBytes ?? 20 * 1024 ** 3,
+    breakerThreshold: 8,
+    breakerCooldownMs: 60_000,
+    onProgress: (done, total, _url, snapshot) => {
+      if (done % 25 === 0 || done === total) log(`assets ${done}/${total}`);
+      if (done % 1_000 === 0) {
+        const payload = structuredClone(snapshot);
+        flushChain = flushChain
+          .then(() => writeJson(catalog.assetsManifest, payload, false))
+          .catch(() => undefined);
+      }
+    },
+  });
+  await flushChain;
+  const manifestPath = options.manifest ? path.resolve(options.manifest) : catalog.assetsManifest;
+  await writeJson(manifestPath, result.manifest, false);
+  const missing = urls.filter((url) => !result.manifest[url]);
+  const report: ShopAssetReport = {
+    records: records.length,
+    urls: urls.length,
+    downloaded: result.downloaded,
+    skipped: result.skipped,
+    failed: result.failed.length,
+    bytes: result.bytesDownloaded,
+    stoppedByBudget: result.stoppedByBudget,
+    missing: missing.length,
+    coverage: urls.length ? Number(((urls.length - missing.length) / urls.length).toFixed(4)) : 1,
+    failedUrls: result.failed.slice(0, 200),
+  };
+  await writeJson(path.join(paths.root, `asset-report${options.shard ? `-${options.shard}` : ''}.json`), report);
+  log(`assets done: urls=${urls.length} downloaded=${result.downloaded} missing=${missing.length} coverage=${report.coverage} bytes=${result.bytesDownloaded}`);
+  return report;
+}
+
+/**
+ * Rewrite every shop record to local `/assets/...` paths and remove records
+ * whose images are not fully mirrored. This is the guarantee that the editor
+ * never reaches the xiumi CDN at runtime.
+ */
+export async function localizeShopRecords(dataDir: string): Promise<ShopLocalizeReport> {
+  const paths = shopPaths(dataDir);
+  const catalog = catalogPaths(dataDir);
+  const manifest = (await readJson<Record<string, { path: string }>>(catalog.assetsManifest)) ?? {};
+  const files = (await readdir(paths.records).catch(() => [] as string[])).filter((file) =>
+    /^shop__.+\.json$/.test(file),
+  );
+  const prunedIds: string[] = [];
+  let localized = 0;
+  let remoteLeft = 0;
+  for (const file of files) {
+    const record = await readJson<TemplateRecord>(path.join(paths.records, file));
+    if (!record) continue;
+    const htmlUrls = new Set<string>(record.assetUrls);
+    const missing = [...htmlUrls].filter((url) => !manifest[url]);
+    if (missing.length) {
+      prunedIds.push(record.atomTplId);
+      await rm(path.join(paths.records, file)).catch(() => undefined);
+      continue;
+    }
+    let html = normalizeRemoteProtocols(record.html);
+    for (const url of htmlUrls) {
+      const entry = manifest[url];
+      if (entry) html = html.split(url).join(`/assets/${entry.path}`);
+    }
+    if (/https?:\/\/[^"']*(?:xiumi\.us|xiumius\.cn)\//i.test(html)) {
+      remoteLeft++;
+      prunedIds.push(record.atomTplId);
+      await rm(path.join(paths.records, file)).catch(() => undefined);
+      continue;
+    }
+    const thumbKey = record.thumbUri ? assetUrl(record.thumbUri) : undefined;
+    const thumbEntry = thumbKey ? manifest[thumbKey] : undefined;
+    const next: TemplateRecord = {
+      ...record,
+      html,
+      thumbUri: thumbEntry ? `/assets/${thumbEntry.path}` : record.thumbUri,
+      byteSize: Buffer.byteLength(html, 'utf8'),
+    };
+    await writeJson(path.join(paths.records, file), next, false);
+    localized++;
+  }
+  const report: ShopLocalizeReport = { records: files.length, localized, pruned: prunedIds.length, prunedIds: prunedIds.slice(0, 200), remoteLeft };
+  await writeJson(path.join(paths.root, 'localize-report.json'), report);
+  await rebuildShopIndex(dataDir);
+  await mergeShopIntoModern(dataDir);
   return report;
 }
 

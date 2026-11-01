@@ -64,7 +64,14 @@ pnpm kiumi crawl shop-list --price all --show-type paper --rps 3
 pnpm kiumi crawl shop --scope free --max-items 20 --merge     # 先跑 20 条验证
 pnpm kiumi crawl shop --scope owned --rps 3 --concurrency 3   # 可反复续跑
 pnpm kiumi shop merge                                         # 手动合并索引
+
+# 3) 图片流式下载到 data/assets（20 GiB 预算），完成后重写为本地路径并剪掉缺图记录
+pnpm kiumi crawl shop-assets --concurrency 8 --rps 8 --budget-gb 20
+pnpm kiumi shop localize
 ```
+
+并行抓正文时用 `--offset/--max-items` 分片，并加 `--no-index`，最后由主进程跑一次
+`pnpm kiumi shop localize` 重建索引；不要同时跑多个 `shop merge`。
 
 店铺条目写入 `data/catalog/modern/`，分类为「风格排版」，复用现有模板浏览、
 编辑、预览和导出；`shop` 字段保留价格、作者、原站链接与授权标记。

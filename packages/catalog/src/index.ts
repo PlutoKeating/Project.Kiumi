@@ -83,6 +83,8 @@ export {
   toShopIndexEntry,
   crawlShopList,
   crawlShop,
+  crawlShopAssets,
+  localizeShopRecords,
   fetchShopRecord,
   mergeShopIntoModern,
   rebuildShopIndex,
@@ -98,5 +100,8 @@ export {
   type ShopListReport,
   type ShopContentOptions,
   type ShopContentReport,
+  type ShopAssetOptions,
+  type ShopAssetReport,
+  type ShopLocalizeReport,
   type ShopIndexEntry,
 } from './shop.ts';

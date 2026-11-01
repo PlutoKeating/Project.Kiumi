@@ -278,7 +278,7 @@ async function template(env: Env, url: URL): Promise<Response> {
   const record = await getRecord(env, id);
   if (!record) return fail('TEMPLATE_NOT_FOUND', `no template ${id}`, 404);
   return json(url.searchParams.get('localAssets') === 'true'
-    ? {...record, html: localizeAssets(sanitizeHtml(record.html), await manifest(env), '', false, Boolean(record.shop))}
+    ? {...record, html: localizeAssets(sanitizeHtml(record.html), await manifest(env))}
     : record);
 }
 
@@ -298,7 +298,7 @@ async function preview(env: Env, url: URL): Promise<Response> {
   if (!id) return fail('INVALID_BODY', 'missing ?id=');
   const record = await getRecord(env, id);
   if (!record) return fail('TEMPLATE_NOT_FOUND', `no template ${id}`, 404);
-  const body = localizeAssets(sanitizeHtml(record.html), await manifest(env), '', false, Boolean(record.shop));
+  const body = localizeAssets(sanitizeHtml(record.html), await manifest(env));
   return new Response(
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">${PREVIEW_STYLE}</head><body>${body}</body></html>`,
     { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } },
@@ -435,11 +435,7 @@ async function render(env: Env, request: Request): Promise<Response> {
     return fail('INVALID_BODY', 'provide document, tplId or matrix');
   }
 
-  const shopRender = Boolean(
-    body.tplId?.startsWith('shop:') ||
-    body.document?.blocks?.some((block) => block.kind === 'library' && String(block.tplId).startsWith('shop:')),
-  );
-  html = localizeAssets(html, map, body.localAssets ? '' : new URL(request.url).origin, body.forWechat, shopRender);
+  html = localizeAssets(html, map, body.localAssets ? '' : new URL(request.url).origin, body.forWechat);
   if (!body.localAssets && !body.forWechat) html = await exportImages(html, request, env);
   return json({ html, bytes: html.length, warnings, issues: validateHtml(body.localAssets ? rewriteHtmlAssets(html, raw => /^\/(?:uploads|assets)\//.test(raw) ? new URL(raw, request.url).href : raw) : html) });
 }

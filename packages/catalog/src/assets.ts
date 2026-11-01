@@ -29,6 +29,8 @@ export interface MirrorOptions extends FetchOptions {
   /** Consecutive failures before the mirror pauses; the CDN soft-blocks bursts. */
   breakerThreshold?: number;
   breakerCooldownMs?: number;
+  /** Stop accepting new downloads after this many bytes in this run. */
+  budgetBytes?: number;
 }
 
 export interface MirrorResult {
@@ -36,6 +38,8 @@ export interface MirrorResult {
   downloaded: number;
   skipped: number;
   failed: { url: string; error: string }[];
+  bytesDownloaded: number;
+  stoppedByBudget: boolean;
 }
 
 /** Download every asset once, verifying by digest and reusing prior results. */
@@ -48,6 +52,8 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
   let skipped = 0;
   let cursor = 0;
   let done = 0;
+  let bytesDownloaded = 0;
+  let stoppedByBudget = false;
   let consecutiveFailures = 0;
   let cooldown: Promise<void> | null = null;
   const threshold = options.breakerThreshold ?? 15;
@@ -68,9 +74,14 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
 
   const worker = async (): Promise<void> => {
     for (;;) {
+      if (stoppedByBudget) return;
       const index = cursor++;
       const url = urls[index];
       if (!url) return;
+      if (options.budgetBytes && bytesDownloaded >= options.budgetBytes) {
+        stoppedByBudget = true;
+        return;
+      }
       if (cooldown) await cooldown;
       const target = path.join(options.assetsDir, localPathFor(url));
       try {
@@ -101,6 +112,7 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
         });
         await mkdir(path.dirname(target), { recursive: true });
         await writeFile(target, bytes);
+        bytesDownloaded += bytes.byteLength;
         manifest[url] = {
           path: localPathFor(url),
           sha256: createHash('sha256').update(bytes).digest('hex'),
@@ -128,7 +140,7 @@ export async function mirrorAssets(urls: string[], options: MirrorOptions): Prom
   };
 
   await Promise.all(Array.from({ length: concurrency }, () => worker()));
-  return { manifest, downloaded, skipped, failed };
+  return { manifest, downloaded, skipped, failed, bytesDownloaded, stoppedByBudget };
 }
 
 /**

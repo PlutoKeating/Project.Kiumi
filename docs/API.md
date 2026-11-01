@@ -146,7 +146,11 @@ kiumi crawl all
 
 kiumi crawl shop-list [--price all|free|paid] [--show-type paper|tablet] [--rps <n>] [--max-pages <n>] [--refresh]
 kiumi crawl shop      [--scope free|owned|all] [--rights-confirmed] [--show-type paper|tablet]
-                      [--max-items <n>] [--rps <n>] [--concurrency <n>] [--force] [--merge]
+                      [--offset <n>] [--max-items <n>] [--rps <n>] [--concurrency <n>]
+                      [--force] [--no-index] [--shard <name>] [--merge]
+kiumi crawl shop-assets [--concurrency <n>] [--rps <n>] [--budget-gb <n>]
+                        [--offset <n>] [--limit <n>] [--manifest <path>] [--shard <name>]
+kiumi shop localize
 kiumi shop merge
 
 kiumi stats [--json]

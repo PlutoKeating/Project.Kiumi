@@ -9,6 +9,8 @@ import {
   crawlTagCorpus,
   crawlShopList,
   crawlShop,
+  crawlShopAssets,
+  localizeShopRecords,
   mergeShopIntoModern,
   probeMemberEndpoints,
   type HouseFloor,
@@ -227,9 +229,12 @@ crawl
   .option('--rights-confirmed', 'confirm redistribution rights before scope=all')
   .option('--show-type <type>', 'paper | tablet', 'paper')
   .option('--max-items <n>', 'stop after N candidates (0 = all)', '0')
+  .option('--offset <n>', 'skip the first N candidates (for parallel shards)', '0')
   .option('--rps <n>', 'requests per second', '3')
   .option('--concurrency <n>', 'parallel workers', '3')
   .option('--force', 're-fetch records that already exist')
+  .option('--no-index', 'write records only; rebuild/merge the index separately')
+  .option('--shard <name>', 'suffix for the shard report file')
   .option('--merge', 'merge into modern-index.json when finished')
   .option('--cookie <cookie>', 'cookie header (or XIUMI_COOKIE)')
   .action(async (flags) => {
@@ -255,9 +260,12 @@ crawl
       rightsConfirmed: Boolean(flags.rightsConfirmed),
       showType: showType as 'paper' | 'tablet',
       maxItems: Number(flags.maxItems) || 0,
+      offset: Number(flags.offset) || 0,
       rps: Number(flags.rps),
       concurrency: Number(flags.concurrency),
       force: Boolean(flags.force),
+      writeIndex: flags.index !== false,
+      shard: flags.shard ? String(flags.shard) : undefined,
       log: (line) => console.error(line),
     });
     if (flags.merge) {
@@ -267,9 +275,44 @@ crawl
     console.log(JSON.stringify(report, null, 2));
   });
 
-program
+crawl
+  .command('shop-assets')
+  .description('download every shop template image into the local asset mirror (streamed per file)')
+  .option('--concurrency <n>', 'parallel downloads', '8')
+  .option('--rps <n>', 'requests per second', '8')
+  .option('--budget-gb <n>', 'maximum bytes to download in this run', '20')
+  .option('--offset <n>', 'skip the first N URLs (parallel shards)', '0')
+  .option('--limit <n>', 'download at most N URLs (0 = all)', '0')
+  .option('--manifest <path>', 'shard manifest output path')
+  .option('--shard <name>', 'suffix for the shard report file')
+  .action(async (flags) => {
+    const report = await crawlShopAssets({
+      dataDir: dataDir(),
+      concurrency: Number(flags.concurrency),
+      rps: Number(flags.rps),
+      budgetBytes: Math.max(1, Number(flags.budgetGb)) * 1024 ** 3,
+      offset: Number(flags.offset) || 0,
+      limit: Number(flags.limit) || 0,
+      manifest: flags.manifest ? String(flags.manifest) : undefined,
+      shard: flags.shard ? String(flags.shard) : undefined,
+      log: (line) => console.error(line),
+    });
+    console.log(JSON.stringify(report, null, 2));
+  });
+
+const shopMaintenance = program
   .command('shop')
-  .description('shop catalog maintenance')
+  .description('shop catalog maintenance');
+
+shopMaintenance
+  .command('localize')
+  .description('rewrite shop HTML to local /assets paths and drop records with missing images')
+  .action(async () => {
+    const report = await localizeShopRecords(dataDir());
+    console.log(JSON.stringify(report, null, 2));
+  });
+
+shopMaintenance
   .command('merge')
   .description('merge data/catalog/shop/index.json into the modern catalog')
   .action(async () => {

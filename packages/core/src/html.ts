@@ -14,6 +14,67 @@ export function sanitizeHtml(html: string): string {
   return root.toString();
 }
 
+const TEXT_BLOCK = new Set([
+  'P','H1','H2','H3','H4','H5','H6','LI','TD','TH','BLOCKQUOTE','FIGCAPTION',
+  'A','BUTTON','DIV','SECTION','ARTICLE','HEADER','FOOTER','SVG','TEXT',
+]);
+
+function textBlockOf(node: any): any {
+  let current = node;
+  while (current) {
+    const tag = String(current.tagName ?? '').toUpperCase();
+    if (TEXT_BLOCK.has(tag)) return current;
+    current = current.parentNode;
+  }
+  return node;
+}
+
+function placeholderFor(tag: string): string {
+  const name = tag.toUpperCase();
+  if (/^H[1-6]$/.test(name)) return '标题';
+  if (name === 'P') return '正文';
+  if (name === 'TD' || name === 'TH') return '内容';
+  if (name === 'LI') return '条目';
+  if (name === 'A' || name === 'BUTTON') return '按钮';
+  if (name === 'BLOCKQUOTE') return '引用';
+  return '文本';
+}
+
+/**
+ * Shop templates are sold for their layout, not their copy. Keep every tag,
+ * style and image, replace visible text with one short placeholder per block,
+ * and clear text-bearing attributes so no designer copy is carried over.
+ */
+export function placateTemplateText(html: string): string {
+  const root = parse(html, { comment: false });
+  const filled = new WeakSet<object>();
+  const walk = (node: any) => {
+    for (const child of node.childNodes ?? []) {
+      if (child.nodeType === 3) {
+        if (!String(child.text ?? '').trim()) continue;
+        const block = textBlockOf(child.parentNode);
+        if (filled.has(block)) {
+          child.rawText = '';
+          continue;
+        }
+        filled.add(block);
+        child.rawText = placeholderFor(String(block.tagName ?? ''));
+      } else if (child.nodeType === 1) {
+        const tag = String(child.tagName ?? '').toLowerCase();
+        if (tag === 'script' || tag === 'style') continue;
+        walk(child);
+      }
+    }
+  };
+  walk(root);
+  for (const node of root.querySelectorAll('*')) {
+    if (node.getAttribute('alt') !== undefined) node.setAttribute('alt', '');
+    if (node.getAttribute('title') !== undefined) node.setAttribute('title', '');
+    if (node.getAttribute('aria-label') !== undefined) node.setAttribute('aria-label', '');
+  }
+  return root.toString();
+}
+
 /** Keep recorded layout when a matrix text/image slot changes. */
 export function patchRecordedHtml(html: string, before: unknown, after: unknown): string {
   const replacements: [string,string][]=[];

@@ -148,13 +148,6 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     if (!id) throw new ApiError('INVALID_BODY', 'missing ?id=');
     const record = await kiumi.get(decodeURIComponent(id));
     if (!record) throw new ApiError('TEMPLATE_NOT_FOUND', `no template ${id}`, 404);
-    if (localAssets === 'true' && record.shop) {
-      const rewritten = rewriteAssetUrlsStrict(record.html, await manifest(), {
-        strict: false,
-        fallback: shopImageProxy,
-      });
-      return envelope({ ...record, html: rewritten.html });
-    }
     return envelope(record);
   });
 
@@ -166,10 +159,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     reply.header('content-type', 'text/html; charset=utf-8');
     reply.header('cache-control', 'public, max-age=300');
     const rewritten = rewriteAssetUrlsStrict(record.html, await manifest(), {
-      // Shop layouts reference hundreds of images each; stream unmirrored
-      // images through the same-origin proxy instead of deleting them.
-      strict: record.shop ? false : strictAssets,
-      fallback: record.shop ? shopImageProxy : undefined,
+      strict: strictAssets,
     });
     if (rewritten.missing.length) {
       reply.header('x-kiumi-missing-assets', String(rewritten.missing.length));
@@ -287,14 +277,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     }
 
     if (body.localAssets) {
-      const shopRender = Boolean(
-        body.tplId?.startsWith('shop:') ||
-        body.document?.blocks?.some((block) => block.kind === 'library' && String(block.tplId).startsWith('shop:')),
-      );
-      const rewritten = rewriteAssetUrlsStrict(html, await manifest(), {
-        strict: shopRender ? false : strictAssets,
-        fallback: shopRender ? shopImageProxy : undefined,
-      });
+      const rewritten = rewriteAssetUrlsStrict(html, await manifest(), { strict: strictAssets });
       if (rewritten.missing.length) reply.header('x-kiumi-missing-assets', String(rewritten.missing.length));
       html = rewritten.html;
     }

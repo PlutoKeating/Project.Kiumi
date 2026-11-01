@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { placateTemplateText } from '@kiumi/core';
 import { rewriteAssetUrlsStrict, shopImageProxyUrl } from '../src/assets.ts';
 import {
   htmlFromShowData,
@@ -112,4 +113,16 @@ test('rewriteAssetUrlsStrict uses the fallback for unmirrored shop images', () =
   assert.match(out.html, /src="\/api\/shop-image\?url=https%3A%2F%2Fimg\.xiumi\.us%2Fa\.png"/);
   assert.match(out.html, /__missing\.svg/);
   assert.deepEqual(out.missing, ['https://example.com/b.png']);
+});
+
+test('placateTemplateText keeps structure and styles, replaces copy', () => {
+  const html = '<h1 style="color:red"><span>原标题</span></h1><p><span>A</span><span>B</span></p><img alt="配图" src="https://img.xiumi.us/a.png">';
+  const out = placateTemplateText(html);
+  assert.match(out, /<h1 style="color:red">/);
+  assert.match(out, /标题/);
+  assert.doesNotMatch(out, /原标题/);
+  assert.match(out, /正文/);
+  assert.doesNotMatch(out, />A<|>B</);
+  assert.match(out, /<img alt/);
+  assert.match(out, /src="https:\/\/img\.xiumi\.us\/a\.png"/);
 });
