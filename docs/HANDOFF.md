@@ -12,7 +12,7 @@ Kiumi 是公开免费的桌面公众号排版工具。匿名用户可以浏览�
 - 团队隔离的文稿列表、打开、保存、删除；本地自动恢复与登录前草稿恢复。收藏、最近使用、块剪贴板仅本机保存。
 - 自建磁盘图片上传与团队图库；模板目录只读。外部导出使用签名图片地址。
 - 全量图文模板浏览、原始 HTML 编辑，文字、图片、颜色及 SVG 动画参数面板；不再依赖补齐每个骨架才能改字。失效素材在渲染中移除。
-- Markdown、富文本、HTML 文件与公开网页导入。HTML 经 DOMPurify 与服务端清理；保留 SVG 动效。
+- Markdown、富文本、HTML 文件与公开网页导入。HTML 经 DOMPurify 与服务端清理；保留 SVG 动效。秀米预览/阅读链接由数据服务读取其 show-data 正文。
 - 多选、批量复制/克隆/删除、撤销重做、缩放快捷键、Ctrl/Command+滚轮、拖动排序、Alt 拖入模板容器、格式刷。
 - 团队公众号绑定，凭证 AES-GCM 加密入 D1；通过自建服务器固定出口上传正文图片/封面、创建草稿和回读。提交去重，正式发表不在本站执行。
 - 模板列表在数据服务筛选分页，Worker 不再为一次列表请求读取整个索引。
@@ -23,7 +23,8 @@ Kiumi 是公开免费的桌面公众号排版工具。匿名用户可以浏览�
 
 - `apps/edge/src/workspace.ts`：团队成员校验、文稿、上传与签名图片。
 - `apps/edge/src/wechat.ts`：团队公众号、凭证加密、草稿任务去重。
-- `deploy/ecs-data/wechat.mjs`：稳定 token、图片转换与上传、草稿创建及回读。
+- `deploy/ecs-data/wechat.mjs`：稳定 token、图片转换与上传、草稿创建及回读；`fetchPublic` 是带私网拦截和压缩解码的公开资源抓取。
+- `deploy/ecs-data/import.mjs`：网页导入，识别秀米阅读页并取回正文 HTML；纯函数由 `deploy/ecs-data/test/` 的 `node --test` 覆盖。
 - `apps/web/src/store.ts`：文稿、编辑历史、本地恢复、批量操作。
 - `apps/web/src/components/MarkupEditor.tsx`：实际 DOM 与 SVG 编辑。
 - `packages/core/src/html.ts`：HTML 清理、记录 HTML 的槽位同步、SVG ID 隔离。
