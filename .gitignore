@@ -11,6 +11,7 @@ data/raw/
 data/assets/
 data/uploads/
 # derived from the (ignored) asset mirror
+data/prod-shop/
 data/catalog/
 # 21k modern payloads stay on disk; the committed index describes them
 data/catalog/modern/
