@@ -52,6 +52,7 @@ HTML 文件/网页沿用原有保留布局和 SVG 的流程，避免 Office 样�
 - `docx.ts`：Mammoth 前置兼容处理、编号、复杂内容提示和图片提取。
 - `index.ts` / `model.ts`：统一预览、分块、Office 粘贴、资源生命周期、确认后上传。
 - `ImportPanel.tsx`：预览、问题确认、标题调整、导入位置、取消/重试。
+- `apps/web/src/lib/import.ts`：保留布局路径的 `cleanHtml` 在 DOMPurify 默认地址规则上额外放行 `blob:`，预览期图片的对象地址才能在清理后留在 `<img src>` 上，确认导入时逐张替换为图库地址；否则秀米/网页导入会得到没有 `src` 的空图。
 - 正式文稿复用现有 `library` HTML 块和 `/api/assets/upload`，不新增后端转换服务或数据模型版本。
 - Mammoth 与 JSZip 按需加载；解析库输出仍经过 HTML 清理。
 
