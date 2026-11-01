@@ -213,7 +213,11 @@ export async function prepareRichHtml(source: string, baseUrl?: string): Promise
   const preview = previewModel('导入网页'); preview.preserveLayout = true;
   try {
     if (source.length > 20 * 1024 * 1024 || /^PK[\x03\x05\x07]|\x00/.test(source)) throw new Error('HTML 文件过大或包含二进制内容，请核对文件格式。');
-    if (parse(source).querySelector('img,image')) requireImageTeam();
+    const parsed = parse(source);
+    // A page title becomes the new-document title; untitled fragments keep the generic one.
+    const title = parsed.title.trim().replace(/\s+/g, ' ');
+    if (title) preview.title = title.slice(0, 120);
+    if (parsed.querySelector('img,image')) requireImageTeam();
     const blocks = await importHtml(source, baseUrl);
     preview.items = blocks.filter((b): b is api.LibraryBlock => b.kind === 'library').map(block => ({ block, label: 'HTML 布局' }));
     await collectImages(preview, [], baseUrl); return preview;

@@ -284,9 +284,11 @@ test('generic HTML keeps SVG layout while Office equations and tracked changes a
     const html = await mod.prepareRichHtml('<section style="color:red"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3"/></svg><p>布局文字</p></section>');
     const blocks = await mod.uploadPreview(html, (await import('/src/api.ts')).workspaceKey(), () => {});
     const office = await mod.prepareText('<p class="MsoNormal"><del>删除</del><ins>插入</ins><math><mi>x</mi></math></p>', 'html');
-    return { html: blocks[0].html, office: office.items[0].block.html, issues: office.issues };
+    const titled = await mod.prepareRichHtml('<html><head><title> 网页  标题 </title></head><body><p>正文</p></body></html>', 'https://example.com/post');
+    return { html: blocks[0].html, office: office.items[0].block.html, issues: office.issues, titles: [html.title, titled.title] };
   });
   expect(result.html).toContain('<svg'); expect(result.html).toContain('rgb(255, 0, 0)');
+  expect(result.titles).toEqual(['导入网页', '网页 标题']);
   expect(result.office).not.toContain('删除'); expect(result.office).toContain('插入'); expect(result.office).toContain('公式/图形待核对');
   expect(JSON.stringify(result.issues)).toContain('修订');
 });
