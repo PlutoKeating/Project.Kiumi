@@ -2,8 +2,10 @@ import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import type { Block } from '../api.ts';
 
+// DOMPurify's default URI rule drops `blob:`; import previews reference downloaded images by object URL until upload replaces them.
+const ALLOWED_URI=/^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|blob):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
 export function cleanHtml(html:string):string {
-  return DOMPurify.sanitize(html,{ADD_TAGS:['animate','animateMotion','animateTransform','set'],ADD_ATTR:['attributeName','begin','dur','end','repeatCount','values','keyTimes','keySplines','calcMode','path','from','to','by','additive','accumulate','fill'],FORBID_TAGS:['script','iframe','object','embed','form','input','button','textarea','select','link','meta','base'],FORBID_ATTR:['srcdoc']});
+  return DOMPurify.sanitize(html,{ALLOWED_URI_REGEXP:ALLOWED_URI,ADD_TAGS:['animate','animateMotion','animateTransform','set'],ADD_ATTR:['attributeName','begin','dur','end','repeatCount','values','keyTimes','keySplines','calcMode','path','from','to','by','additive','accumulate','fill'],FORBID_TAGS:['script','iframe','object','embed','form','input','button','textarea','select','link','meta','base'],FORBID_ATTR:['srcdoc']});
 }
 
 /** Inline author styles in a script-free isolated document before discarding CSS. */
