@@ -2,15 +2,19 @@
 // Runs on Node with sharp, reachable through the private data-service boundary.
 import { createReadStream } from 'node:fs';
 import { stat, mkdir, writeFile, rename, unlink, readFile } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import path from 'node:path';
 import { wechatAction, fetchPublic } from './wechat.mjs';
 import { fetchPublicPage } from './import.mjs';
+import { importManuscript } from './manuscript.mjs';
 
 const ROOT = path.resolve(process.env.KIUMI_DATA_DIR ?? '/data');
 const KEY = process.env.KIUMI_DATA_KEY ?? '';
 const PORT = Number(process.env.KIUMI_DATA_PORT ?? 8080);
+const MAX_MANUSCRIPT = 120 * 1024 * 1024;
 let catalogCache;
 async function catalogEntries() {
   if(catalogCache && catalogCache.until>Date.now())return catalogCache.entries;
@@ -61,6 +65,21 @@ const server = createServer(async (req, res) => {
       });
       return send(res,200,{ok:true,data:filtered.slice(offset,offset+limit),meta:{total:filtered.length,count:Math.min(limit,Math.max(0,filtered.length-offset))}},{'cache-control':'public, max-age=300'});
     } catch {return send(res,503,{ok:false,error:'catalog unavailable'});}
+  }
+
+  // Submission ZIP (Word + camera originals): streamed to disk, never buffered whole in the request.
+  if(url.pathname==='/manuscript/import' && req.method==='POST') {
+    const team=url.searchParams.get('team')||'';
+    if(!/^team_[a-f0-9-]+$/.test(team))return send(res,400,{ok:false,error:'invalid team'});
+    const temporary=path.resolve(ROOT,'uploads','.tmp',`${randomUUID()}.zip`);
+    try {
+      await mkdir(path.dirname(temporary),{recursive:true});
+      let size=0;
+      req.on('data',chunk=>{size+=chunk.length;if(size>MAX_MANUSCRIPT)req.destroy(new Error('too large'));});
+      await pipeline(req,createWriteStream(temporary,{flags:'wx'}));
+      return send(res,200,{ok:true,data:await importManuscript({file:temporary,team,root:ROOT})});
+    } catch(error) {return send(res,error.message==='too large'?413:422,{ok:false,error:error.message});}
+    finally {await unlink(temporary).catch(()=>{});}
   }
 
   if(['/wechat','/import'].includes(url.pathname) && req.method==='POST') {
