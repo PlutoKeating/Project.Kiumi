@@ -52,16 +52,31 @@ npx wrangler secret put ID_ISSUER_URL           # 账号服务地址
 npx wrangler secret put ID_CLIENT_ID
 ```
 
+可选变量：`MCP_CLIENT_IDS`（允许调用 `/mcp` 的 OAuth 客户端，默认 `kiumi-mcp`）；`LLM_API_URL` / `LLM_API_KEY` / `LLM_MODEL`（OpenAI 兼容接口，只用于网页导入时对不确定段落的第二意见，不配置则只用规则）。
+
 本地部署时这些值也可以写进 `.env.local`（已被忽略）。公众号凭证由团队创建者在网站绑定，加密保存到 D1，不使用全站共享公众号。`KIUMI_DATA_KEY` 同时用于派生凭证加密密钥，轮换前必须迁移已存凭证。
+
+### 4.1 数据库迁移与 Durable Object
+
+上线前先应用迁移（只执行增量，不要重复执行完整 schema）：
+
+```bash
+pnpm d1:schema      # 含 0002_manuscripts.sql：documents.rev、teams.typeset_rules、manuscripts 表
+```
+
+迁移必须早于使用新字段的 Worker。`wrangler.jsonc` 已声明 Durable Object `DocHub` 及其首个迁移（SQLite 类，无状态，仅做实时通知转发）；`/mcp` 与 `/.well-known/*` 已加入 `run_worker_first`。账号中心需登记公共客户端 `kiumi-mcp`，见 [MCP.md](MCP.md)。
 
 ## 5. 数据服务
 
 `deploy/ecs-data/` 提供模板/素材只读访问、受控图片写入与微信代理，依赖 Node 和 sharp。推荐 Docker Compose 启动：
 
 ```bash
+pnpm sync:ecs-core        # 修改过 packages/core 的稿件模块后，同步 deploy/ecs-data/core（pnpm test 会检查）
 cd deploy/ecs-data
 ./start.sh
 ```
+
+稿件 ZIP 处理（`/manuscript/import`）需要更多内存：容器上限已调为 512 MB，Compose 与 `Dockerfile` 都随目录同步。依赖有变化（jszip、node-html-parser）时执行 `docker compose up -d --build`。
 
 它在 `/health` 返回就绪状态，模板与素材按 `catalog/`、`assets/` 相对路径读取文件；`uploads/` 单独可写挂载，`/wechat` 处理图片上传和草稿同步。公众号后台需把服务器出口 IP 加入白名单。
 请求需带 `x-data-key`，否则一律 401。

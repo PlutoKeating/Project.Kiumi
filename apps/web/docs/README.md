@@ -43,3 +43,12 @@ React + Zustand。左上角团队入口提供创建/加入/切换团队、成员
 `pnpm --filter @kiumi/web audit:contrast` 在 62 个状态里按实际像素测量每段界面文字和图标的对比度，不达标时退出码为 1，需要 Python 与 Pillow。
 
 `verify:ui` 串联类型检查、全量浏览器回归和生产构建。无新增依赖、生产环境变量或部署步骤；真实公众号发布未执行。
+
+## 稿件导入、风格排版与实时更新
+
+- `lib/word-import/bundle.ts`：投递包 ZIP（Word + 原图）。浏览器内指纹匹配（`lib/image-match.ts`，canvas 取 32×32 灰度，算法在 `@kiumi/core/imagematch`），原图缩放去 EXIF；`applyMatching` 重算替换表与上传集合，`chooseOriginal` 支持逐张改选。
+- `lib/typeset-import.ts`：预览 → `SourceFact` → 结构识别（规则，可选服务端模型补 8 秒内的第二意见）→ `fillTemplate` 排入风格；成功后预览变成一个保留布局的 HTML 块，封面取第一张正文图。
+- `ImportPanel.tsx`：风格开关与识别到的结构大纲、原图匹配卡片（低把握标黄、可下拉改选）；风格由模板卡片上的「排入稿件」选定，保存在本机。
+- `lib/live.ts`：为当前文稿维持一个 WebSocket，收到 `changed` 后 `store.receiveChange` 按 ops 在本地应用（连续修订）或载入服务器版本，均为一步可撤销；保存携带 `baseRev`，409 时提示并载入最新版本。
+- `ArticleSettings.tsx` 的「排版规范」：与 Agent 的 `kiumi_lint` 共用 `lintBlocks`；创建者可把数值保存为团队规范。
+- 验证：`pnpm --filter @kiumi/web test:e2e`（含 `manuscript.spec.ts`）。`import.spec.ts` 里「template preview warms insertion」偶发于满载并行时超时，单独运行稳定通过。

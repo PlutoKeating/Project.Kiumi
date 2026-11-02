@@ -18,7 +18,16 @@
 | GET/POST | `/api/accounts` | 团队公众号列表 / 创建者验证并绑定 `{name,appId,secret}` |
 | DELETE | `/api/accounts/:id` | 创建者解除绑定 |
 | POST | `/api/wechat/draft` | `{documentId,accountId,cover,requestId}` 创建草稿并回读 |
+| GET/PUT | `/api/teams/typeset` | 团队排版规范：成员读取，创建者保存 |
+| WS | `/api/documents/:id/live` | 文稿实时通知（Cookie + `?team=` + `?client=`），消息 `{type:'changed',rev,by,from?,ops?}` |
+| POST | `/api/manuscript/annotate` | `{prompt}` 结构识别的模型第二意见 `{patches}`；未配置模型返回 501，网页回落到规则 |
+| POST | `/api/import/manuscript?token=` | 预签名上传：请求体为稿件 ZIP/DOCX，解析、匹配原图、排入风格并写入文稿，返回识别报告 |
+| GET | `/api/preview/:id?token=` | 签名预览页（手机宽度），1 小时有效 |
+| POST | `/mcp` | 远程 MCP，Bearer 令牌，见 [MCP.md](MCP.md) |
+| GET | `/.well-known/oauth-protected-resource` | RFC 9728 受保护资源元数据 |
 | POST | `/api/import/url` | `{url}` 获取公开网页内容供客户端导入，返回 `{html,url}`；秀米阅读/预览链接返回其正文 HTML 而非页面壳 |
+
+文稿有修订号 `meta.rev`；`PATCH /api/documents/:id` 可带 `baseRev`，与服务器不一致返回 409 `REV_CONFLICT`，不带则保持最后写入覆盖。成功的 PATCH 与 Agent 操作都会通过 `/live` 通知其他编辑器。`POST /api/documents` 返回的 `meta.rev` 从 1 开始。
 
 未知 `/api/*` 返回 JSON 404，不回落到网页。团队隔离错误为 403，未登录为 401，未选团队为 409。模板目录公开可读；本地 Fastify 保持单用户开发模式。
 
@@ -176,7 +185,9 @@ pnpm dev            # 同时起 API 与 Vite（5180）
 
 ---
 
-## 4. MCP 工具（`@kiumi/mcp`）
+## 4. MCP 工具
+
+本节是本地开发用的 stdio 版（`@kiumi/mcp`，读写本机目录）。生产的远程 MCP 工具集与授权见 [MCP.md](MCP.md)。
 
 以 `stdio` 启动。工具按「只读 / 写入」分组，写工具在描述里显式标注。
 
@@ -228,3 +239,24 @@ DOCX/图片 ZIP 在浏览器解析，不新增 Word 转换 API，也不上传原
 ## 图文设置元数据
 
 现有团队文稿 create/PATCH 的 `meta` 可保存可选 `cover: string`（上传返回的封面地址）、`tags: string[]`，并继续使用 `author`、`digest`。不新增接口或迁移。公众号草稿调用仍通过现有独立 `cover` 字段传封面，UI 默认从文稿 meta 读取；标签不传给公众号。编辑工具栏保存普通 HTML/CSS 块，服务端继续使用原有清理、签名和校验流程。
+
+## 文稿操作（ops）
+
+`packages/core/src/docops.ts` 定义 Agent 与编辑器共用的修改描述，块以 id 寻址，可与本地编辑合并：
+
+```jsonc
+{ "op": "title", "title": "…" }
+{ "op": "meta", "meta": { "digest": "…", "cover": "/uploads/…", "author": "…", "tags": [] } }
+{ "op": "insert", "blocks": [ … ], "at": 0 | "end" | { "after": "<块id>" } }
+{ "op": "replace", "id": "<块id>", "block": { … } }
+{ "op": "html", "id": "<块id>", "html": "<p>…</p>" }
+{ "op": "remove", "ids": ["…"] }
+{ "op": "move", "id": "<块id>", "to": 2 }
+{ "op": "set", "blocks": [ … ], "title": "…", "meta": { … } }   // 整体替换，导入与重新排版使用
+```
+
+任何一步失败整批不生效，返回 422 `OPS_FAILED`。`validateOps` 校验来自网络的操作。
+
+## 团队排版规范
+
+`GET/PUT /api/teams/typeset` 读写 `TypesetRules`（`bodySize`、`headingSize`、`headingBold`、`textColor`、`lineHeight`、`letterSpacing`、`paragraphGap`、`sidePadding`、`firstLineIndent`、`imageWidth`、`blankAroundImages`、`blankAtEdges`、`titleCutAtDelimiter`、`titleCommaToSpace`）。值在服务端按范围校验，非法值回落为默认。

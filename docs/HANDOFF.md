@@ -40,6 +40,19 @@ Kiumi 是公开免费的桌面公众号排版工具。匿名用户可以浏览�
 
 数据服务改动需同步 `deploy/ecs-data` 的代码与依赖配置到既有数据机，再执行 `docker compose up -d --build`。模板与素材数据不进入 Git；所有密钥、部署编号、主机配置仅存在环境或忽略文件。
 
+## 稿件导入、远程 MCP（2026-11-02）
+
+已实现并有自动化覆盖：投递包 ZIP 一键排版、原图匹配、风格模板填充、团队排版规范、远程 MCP、文稿实时同步。设计见 [MANUSCRIPT.md](MANUSCRIPT.md) 与 [MCP.md](MCP.md)。
+
+**上线前需要人来做的事（本批次没有执行，也没有推送）：**
+
+1. `pnpm d1:schema` 应用 `0002_manuscripts.sql`，再部署 Worker（Durable Object `DocHub` 随 `wrangler.jsonc` 声明）。
+2. 数据服务：同步 `deploy/ecs-data` 全目录（含 `core/`、`manuscript.mjs`），`docker compose up -d --build`；容器内存上限已提到 512 MB。
+3. 账号中心登记公共客户端 `kiumi-mcp`（片段见 MCP.md），用真实 MCP 客户端走一遍登录与回调。
+4. 可选：配置 `LLM_API_URL / LLM_API_KEY / LLM_MODEL`，不配置则网页只用规则识别。
+
+**尚未实测：** 真实公众号草稿经 MCP 同步；生产账号中心对 `kiumi-mcp` 回调与受众的实际行为；含时间轴等装饰的「混合卡片」风格会留下空装饰条；服务端 DOCX 提取（Agent 路径）比浏览器路径（Mammoth）覆盖的 Word 特性少，表格按纯文字，脚注、文本框、公式不导入，均在报告的 warnings 中说明。
+
 ## 验证与后续
 
 当前类型检查与 15 个测试通过，包括真实 Miniflare D1 迁移、团队隔离、权限撤销、图片权限和草稿幂等。生产浏览器已验证导入、SVG 保留及文字修改，无页面脚本错误。

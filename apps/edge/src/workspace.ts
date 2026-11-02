@@ -98,7 +98,7 @@ export async function workspaceRoutes(request: Request, env: Env): Promise<Respo
       const input=await body(request), documentId=id('doc'), stamp=now();
       const doc={version:1,id:documentId,title:title(input.title),blocks:blocks(input.blocks ?? []),meta:{...input.meta,createdAt:stamp,updatedAt:stamp}};
       await env.DB.prepare('INSERT INTO documents(id,title,blocks,updated_at,owner_sub,team_id,meta) VALUES (?,?,?,?,?,?,?)').bind(documentId,doc.title,JSON.stringify(doc.blocks),stamp,user.sub,teamId,JSON.stringify(doc.meta)).run();
-      return reply(doc,201);
+      return reply({...doc,meta:{...doc.meta,rev:1}},201);
     }
   }
   if (path.startsWith('/api/documents/')) {

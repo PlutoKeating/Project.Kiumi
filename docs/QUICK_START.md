@@ -16,6 +16,15 @@ pnpm install
 pnpm -r typecheck
 ```
 
+## 稿件导入相关
+
+数据服务（`deploy/ecs-data`）自带一份 core 模块副本，改动 `packages/core` 的稿件模块后执行：
+
+```bash
+pnpm sync:ecs-core                 # 复制到 deploy/ecs-data/core
+cd deploy/ecs-data && npm ci       # 本地跑数据服务测试需要先装依赖，否则其 sharp 测试自动跳过
+```
+
 ## 抓取模板库
 
 首次运行会拉取分类树、全部模板条目、骨架包与缺失骨架。默认 3 请求/秒。

@@ -16,7 +16,9 @@
 2. 在左侧点一个模板缩略图，它会出现在中间的文稿里。
 3. 选中已有内容块后，把鼠标移到模板卡片上点「换样式」，内容保留、外观更换；双击文字就能改，粘贴文字自动沿用模板字体和颜色；选中任意一块，上方工具条调字号和颜色，右侧「内容」改文字和图片。
 4. 点「复制到公众号」，到公众号后台粘贴；也可登录后在「公众号草稿」选择团队公众号、封面，直接同步草稿。
-5. 已有 Word/WPS `.docx`、富文本、Markdown、网页内容，或从秀米复制的内容 / 秀米预览链接，可用底部 Dock 的「导入」先预览，再分块追加、插入或新建文稿；图片 ZIP 可批量导入团队图库。带图导入需登录并选团队，图片总量上限 80 MB。
+5. 已有 Word/WPS `.docx`、富文本、Markdown、网页内容，或从秀米复制的内容 / 秀米预览链接，可用底部 Dock 的「导入」先预览，再分块追加、插入或新建文稿。带图导入需登录并选团队，图片总量上限 80 MB。
+6. **投递包一键排版**：在模板卡片上点「排入稿件」选定风格，再拖入「Word + 原图」的 ZIP，自动识别标题/小标题/正文/署名，把 Word 里的占位图换成压缩包里的原图，按顺序排进所选风格并套用团队排版规范；把握低的识别和匹配会标黄，可逐项改。详见 [稿件导入与自动排版](docs/MANUSCRIPT.md)。
+7. **AI Agent 接入**：Agent 经远程 MCP 登录后可建稿、导入、微调、审稿，修改会实时出现在画布上，见 [MCP](docs/MCP.md)。
 
 ![操作流程](docs/images/flow.svg)
 
@@ -71,11 +73,11 @@ pnpm test
 | `packages/catalog` | 模板整理与素材同步 |
 | `packages/sdk` | 给命令行、MCP、服务端共用的接口 |
 | `packages/cli` | `kiumi` 命令行 |
-| `packages/mcp` | 给 AI 客户端用的 MCP 服务 |
+| `packages/mcp` | 本地开发用的 stdio MCP；生产的远程 MCP 在 `apps/edge/src/mcp.ts` |
 | `apps/edge` | Cloudflare Worker，同时提供网页与接口 |
 | `apps/web` | 浏览器里的工作台 |
 | `apps/server` | 本地服务，用于查看素材与推送草稿 |
-| `deploy/ecs-data` | 数据服务，只读，提供给 Worker |
+| `deploy/ecs-data` | 数据服务：只读目录与素材，另负责图片写入、微信代理和稿件 ZIP 处理（sharp） |
 
 命令行常用的几条：
 
@@ -105,6 +107,8 @@ kiumi audit
 - [架构](docs/ARCHITECTURE.md)
 - [交接说明](docs/HANDOFF.md)
 - [接口](docs/API.md)
+- [稿件导入与自动排版](docs/MANUSCRIPT.md)
+- [远程 MCP](docs/MCP.md)
 - [界面与快捷键](docs/UX_XIUMI.md)
 - [部署](docs/DEPLOY_CLOUDFLARE.md)
 - [快速开始](docs/QUICK_START.md)
