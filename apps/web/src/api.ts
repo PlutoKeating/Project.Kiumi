@@ -18,6 +18,7 @@ export interface TemplateIndexEntry {
   hasAnimation: boolean;
   byteSize: number;
   updatedAt?: string;
+  thumbUri?: string;
 }
 
 export interface TemplateRecord extends TemplateIndexEntry {
