@@ -42,6 +42,8 @@ const attr = (el: El, name: string): string => {
 };
 const find = (el: El, name: string): El | undefined => kids(el).find(k => local(k) === name.toLowerCase());
 const parseXml = (xml: string) => parse(xml, { lowerCaseTagName: false, comment: false, blockTextElements: {} } as never);
+/** The document element, skipping the XML declaration and whitespace. */
+const rootOf = (xml: string): El => kids(parseXml(xml))[0];
 
 const cnDigits = '零一二三四五六七八九';
 function chinese(n: number): string {
@@ -78,14 +80,14 @@ export function parseDocx(parts: DocxParts): DocxFacts {
 
   // Relationships: id -> media path.
   const rels = new Map<string, string>();
-  if (parts.rels) for (const r of kids(parseXml(parts.rels).firstChild)) {
+  if (parts.rels) for (const r of kids(rootOf(parts.rels))) {
     const target = attr(r, 'Target');
     if (target && /image/i.test(attr(r, 'Type'))) rels.set(attr(r, 'Id'), target.startsWith('/') ? target.slice(1) : `word/${target}`.replace(/word\/\.\.\//, ''));
   }
 
   // Styles: heading level and bold inheritance.
   const styleById = new Map<string, El>();
-  if (parts.styles) for (const s of kids(parseXml(parts.styles).firstChild)) if (local(s) === 'style') styleById.set(attr(s, 'styleId'), s);
+  if (parts.styles) for (const s of kids(rootOf(parts.styles))) if (local(s) === 'style') styleById.set(attr(s, 'styleId'), s);
   const styleHeading = (id: string): number => {
     const seen = new Set<string>();
     while (id && !seen.has(id)) {
@@ -108,7 +110,7 @@ export function parseDocx(parts: DocxParts): DocxFacts {
   // Numbering definitions.
   const abstracts = new Map<string, El>();
   const nums = new Map<string, El>();
-  if (parts.numbering) for (const n of kids(parseXml(parts.numbering).firstChild)) {
+  if (parts.numbering) for (const n of kids(rootOf(parts.numbering))) {
     if (local(n) === 'abstractNum'.toLowerCase()) abstracts.set(attr(n, 'abstractNumId'), n);
     if (local(n) === 'num') nums.set(attr(n, 'numId'), n);
   }
@@ -158,7 +160,7 @@ export function parseDocx(parts: DocxParts): DocxFacts {
   };
 
   const facts: SourceFact[] = [];
-  const body = find(parseXml(parts.document).firstChild, 'body') ?? find(parseXml(parts.document), 'body');
+  const body = find(rootOf(parts.document), 'body');
   if (!body) return { facts, media, warnings: ['文档没有正文。'] };
 
   const runsOf = (container: El, state: { text: string[]; html: string[]; sizes: number[]; bold: boolean[]; images: string[] }) => {
