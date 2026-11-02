@@ -188,7 +188,7 @@ function manuscriptItems(m: Manuscript, rules: TypesetRules): Item[] {
   const paraHtml = (part: Part): string => {
     if (part.type === 'p' || part.type === 'quote') {
       // Keep inline emphasis, drop everything else about presentation.
-      const inner = part.html.replace(/^\s*<p[^>]*>/i, '').replace(/<\/p>\s*$/i, '');
+      const inner = part.html.replace(/<img\b[^>]*>/gi, '').replace(/^\s*<p[^>]*>/i, '').replace(/<\/p>\s*$/i, '');
       return `<p style="${paragraphCss('body', rules)}">${inner}</p>`;
     }
     return part.type === 'table' || part.type === 'list' ? part.html : '';
@@ -293,9 +293,9 @@ export function fillTemplate(html: string, manuscript: Manuscript, options: Fill
   const resolve = options.resolveImage ?? ((ref: string) => ref);
 
   // Working list of units; `keep` decides what survives.
-  type Slot = { node: HNode; info: UnitInfo; keep: boolean };
-  const slots: Slot[] = units.map((node, i) => ({ node, info: schema.units[i] ?? { index: i, kind: 'decor', zones: [], photos: 0, size: 0, bold: false }, keep: true }));
-  const insertAfter = (slot: Slot, node: HNode, info: UnitInfo) => { slots.splice(slots.indexOf(slot) + 1, 0, { node, info, keep: true }); };
+  type Slot = { node: HNode; info: UnitInfo; keep: boolean; pristine: string };
+  const slots: Slot[] = units.map((node, i) => ({ node, info: schema.units[i] ?? { index: i, kind: 'decor', zones: [], photos: 0, size: 0, bold: false }, keep: true, pristine: node.toString() }));
+  const insertAfter = (slot: Slot, node: HNode, info: UnitInfo) => { slots.splice(slots.indexOf(slot) + 1, 0, { node, info, keep: true, pristine: node.toString() }); };
 
   // Title and subtitle.
   const titleSlot = slots.find(s => s.info.kind === 'title');
@@ -342,8 +342,8 @@ export function fillTemplate(html: string, manuscript: Manuscript, options: Fill
     return at < 0 ? list : list.slice(at + 1);
   };
   const cloneUnit = (proto: Slot, anchor: Slot | undefined): Slot => {
-    const node = parse(proto.node.toString()).firstChild as HNode;
-    const clone: Slot = { node, info: { ...proto.info }, keep: true };
+    const node = parse(proto.pristine).firstChild as HNode;
+    const clone: Slot = { node, info: { ...proto.info }, keep: true, pristine: proto.pristine };
     const idx = anchor ? slots.indexOf(anchor) : slots.indexOf(proto);
     slots.splice(idx + 1, 0, clone);
     report.clonedUnits++;

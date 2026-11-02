@@ -344,9 +344,10 @@ export function assembleManuscript(facts: SourceFact[], classified: Classified[]
           return;
         }
         if (fact.images?.length) {
-          // Inline images inside a text paragraph surface as their own figure so order is kept.
+          // Inline images inside a text paragraph surface as their own figure so order is kept;
+          // the paragraph keeps only its words.
           push({ type: 'figure', images: fact.images, src: i });
-          if (text) push({ type: 'p', html: fact.html, text, src: i });
+          if (text) push({ type: 'p', html: fact.html.replace(/<img\b[^>]*>/gi, ''), text, src: i });
           return;
         }
         push({ type: 'p', html: fact.html, text, src: i });
