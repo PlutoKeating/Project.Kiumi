@@ -118,7 +118,9 @@ test('remote MCP: OAuth discovery, bearer auth, import, edit, lint, preview and 
     socket.accept();
     const messages: any[] = [];
     socket.addEventListener('message', event => messages.push(JSON.parse(String(event.data))));
-    // Strangers cannot listen in.
+    // Another site cannot open the socket with the user's cookie; strangers cannot listen in.
+    const crossSite = await mf.dispatchFetch(`${url}/api/documents/${docId}/live`, { headers: { upgrade: 'websocket', cookie: cookie('alice'), 'x-team-id': teamId, origin: 'https://evil.example' } });
+    assert.equal(crossSite.status, 403);
     const stranger = await mf.dispatchFetch(`${url}/api/documents/${docId}/live`, { headers: { upgrade: 'websocket', cookie: cookie('mallory'), 'x-team-id': teamId } });
     assert.ok([403, 401].includes(stranger.status));
 
@@ -178,6 +180,7 @@ test('remote MCP: OAuth discovery, bearer auth, import, edit, lint, preview and 
     const link = (await call('kiumi_preview_link', { documentId: docId })).data;
     const page = await mf.dispatchFetch(link.url);
     assert.equal(page.status, 200);
+    assert.match(page.headers.get('content-security-policy')!, /default-src 'none'/);
     assert.match(await page.text(), /测试稿件标题|改过的标题/);
     assert.equal((await mf.dispatchFetch(link.url.replace(docId, 'doc_other'))).status, 403);
 

@@ -207,6 +207,9 @@ export default {
       const live = /^\/api\/documents\/([^/]+)\/live$/.exec(path);
       if (live && request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
         if (!env.DOC_HUB) return fail('LIVE_UNAVAILABLE', '实时同步未启用', 503);
+        // A cookie-authenticated socket opened from another site would leak document content.
+        const origin = request.headers.get('origin');
+        if (origin && origin !== url.origin) return fail('FORBIDDEN', '不允许跨站连接', 403);
         const { teamId } = await teamContext(env, request);
         const row = await env.DB.prepare('SELECT 1 FROM documents WHERE id=? AND team_id=?').bind(decodeURIComponent(live[1]!), teamId).first();
         if (!row) return fail('DOCUMENT_NOT_FOUND', '文稿不存在', 404);

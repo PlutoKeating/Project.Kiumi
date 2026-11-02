@@ -269,7 +269,7 @@ export async function previewRoute(request: Request, env: Env, deps: Deps): Prom
   const doc = await loadDocument(env, claim.t, docId);
   const html = await deps.previewHtml(doc, url.origin);
   const page = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${doc.title.replace(/[<>&]/g, '')}</title><style>body{margin:0;background:#ededed}main{max-width:677px;margin:0 auto;background:#fff;padding:20px 0;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;font-size:16px;line-height:1.6;color:#000}img{max-width:100%}h1{font-size:22px;padding:0 20px;margin:0 0 12px}</style></head><body><main><h1>${doc.title.replace(/[<>&]/g, '')}</h1>${html}</main></body></html>`;
-  return new Response(page, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex', 'referrer-policy': 'no-referrer' } });
+  return new Response(page, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex', 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; img-src * data:; style-src 'unsafe-inline'; font-src *; media-src *" } });
 }
 
 // ---------------------------------------------------------------------------
