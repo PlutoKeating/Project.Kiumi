@@ -44,14 +44,14 @@ Kiumi 是公开免费的桌面公众号排版工具。匿名用户可以浏览�
 
 已实现并有自动化覆盖：投递包 ZIP 一键排版、原图匹配、风格模板填充、团队排版规范、远程 MCP、文稿实时同步。设计见 [MANUSCRIPT.md](MANUSCRIPT.md) 与 [MCP.md](MCP.md)。
 
-**上线前需要人来做的事（本批次没有执行，也没有推送）：**
+**上线情况（2026-11-03 已执行）：** D1 迁移 `0002` 已应用，Worker 已部署，数据服务已同步重建并用真实投递包验证（4.5 秒，4 张图全部高把握匹配），账号中心已登记 `kiumi-mcp`，`main` 已推送。下面的清单保留为自建或重做时的步骤：
 
 1. `pnpm d1:schema` 应用 `0002_manuscripts.sql`，再部署 Worker（Durable Object `DocHub` 随 `wrangler.jsonc` 声明）。
 2. 数据服务：同步 `deploy/ecs-data` 全目录（含 `core/`、`manuscript.mjs`），`docker compose up -d --build`；容器内存上限已提到 512 MB。
 3. 账号中心登记公共客户端 `kiumi-mcp`（片段见 MCP.md），用真实 MCP 客户端走一遍登录与回调。
 4. 可选：配置 `LLM_API_URL / LLM_API_KEY / LLM_MODEL`，不配置则网页只用规则识别。
 
-**尚未实测：** 真实公众号草稿经 MCP 同步；生产账号中心对 `kiumi-mcp` 回调与受众的实际行为；含时间轴等装饰的「混合卡片」风格会留下空装饰条；服务端 DOCX 提取（Agent 路径）比浏览器路径（Mammoth）覆盖的 Word 特性少，表格按纯文字，脚注、文本框、公式不导入，均在报告的 warnings 中说明。
+**尚未实测：** 真实 MCP 客户端经账号中心登录的完整授权流程（需要人用邮箱验证码登录一次）；真实公众号草稿经 MCP 同步；含时间轴等装饰的「混合卡片」风格会留下空装饰条；服务端 DOCX 提取（Agent 路径）比浏览器路径（Mammoth）覆盖的 Word 特性少，表格按纯文字，脚注、文本框、公式不导入，均在报告的 warnings 中说明。
 
 ## 验证与后续
 

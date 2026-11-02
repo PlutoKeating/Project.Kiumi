@@ -9,8 +9,10 @@
 端点：`https://<站点>/mcp`（Streamable HTTP，无状态，JSON 响应）。
 
 ```bash
-claude mcp add --transport http kiumi https://<站点>/mcp
+claude mcp add --transport http --client-id kiumi-mcp kiumi https://<站点>/mcp
 ```
+
+账号中心没有开动态客户端注册，所以 MCP 客户端必须显式使用 client_id `kiumi-mcp`（各客户端的参数名不同，例如 Claude Code 的 `--client-id`）。
 
 首次调用时客户端按 MCP 授权规范完成登录：
 
@@ -19,9 +21,9 @@ claude mcp add --transport http kiumi https://<站点>/mcp
 3. 客户端用公共客户端 `kiumi-mcp` 走授权码 + PKCE 登录，拿到 JWT 访问令牌。
 4. Worker 用账号中心的 JWKS 校验签名、签发者、过期时间；令牌的 `client_id` 必须在 `MCP_CLIENT_IDS`（默认 `kiumi-mcp`）里，若令牌带 `aud` 则必须包含本站 `/mcp`。令牌不会被转发给任何其他服务。
 
-### 需要在账号中心做的一次性登记
+### 账号中心的登记
 
-在账号中心仓库的客户端清单里新增一个公共客户端（本仓库不包含该配置，也不存放任何运维信息）：
+生产环境已登记公共客户端 `kiumi-mcp`（2026-11-03）。自建部署时在账号中心新增同样的公共客户端（本仓库不包含该配置，也不存放任何运维信息）：
 
 ```json
 {
