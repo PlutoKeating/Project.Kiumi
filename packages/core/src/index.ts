@@ -72,3 +72,16 @@ export {
   type Byline,
   type Manuscript,
 } from './manuscript.ts';
+export {
+  THUMB,
+  fingerprint,
+  hamming,
+  similarity,
+  matchImages,
+  unusedOriginals,
+  resizeGray,
+  type Fingerprint,
+  type ImageMatch,
+  type MatchOptions,
+  type Candidate,
+} from './imagematch.ts';
