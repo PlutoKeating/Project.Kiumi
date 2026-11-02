@@ -199,6 +199,8 @@ export interface KiumiDocument {
     digest?: string;
     cover?: string;
     tags?: string[];
+    /** Server revision, bumped on every committed change. */
+    rev?: number;
   };
 }
 
