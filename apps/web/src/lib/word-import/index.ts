@@ -3,7 +3,7 @@ import { marked } from 'marked';
 import * as api from '../../api.ts';
 import { cleanHtml, importHtml } from '../import.ts';
 import { openArchive, MAX_IMAGE, MAX_IMAGES } from './archive.ts';
-import { addAsset, issue, releasePreview, type ImportPreview, type ImportItem } from './model.ts';
+import { addAsset, issue, releasePreview, type ImportPreview, type ImportItem, type ImportHint } from './model.ts';
 export type { ImportPreview } from './model.ts';
 export { releasePreview } from './model.ts';
 
@@ -15,6 +15,19 @@ const safe = (html: string) => DOMPurify.sanitize(html, { ALLOWED_TAGS: allowedT
 const parse = (html: string) => new DOMParser().parseFromString(html, 'text/html');
 const previewModel = (title: string): ImportPreview => ({ title, items: [], assets: [], issues: [] });
 const escape = (text: string) => { const el = document.createElement('span'); el.textContent = text; return el.innerHTML; };
+
+
+/** Reads and removes the invisible `\u2063<align><bold><size>\u2063` marker written by readDocx. */
+function takeHint(p: HTMLElement) {
+  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+  const node = walker.nextNode() as Text | null;
+  const match = node && /^\u2063([lcr])([01])(\d*)\u2063/.exec(node.data);
+  if (!node || !match) return;
+  node.data = node.data.slice(match[0].length);
+  const hint: ImportHint = { align: match[1] === 'c' ? 'center' : match[1] === 'r' ? 'right' : 'left', bold: match[2] === '1', size: match[3] ? Number(match[3]) / 2 * 4 / 3 : undefined };
+  p.dataset.hint = JSON.stringify(hint);
+}
+const hintOf = (el: Element): ImportHint | undefined => { try { return (el as HTMLElement).dataset.hint ? JSON.parse((el as HTMLElement).dataset.hint!) : undefined; } catch { return undefined; } };
 
 function classify(el: Element) {
   if (/^H[1-6]$/.test(el.tagName)) return `${el.tagName.slice(1)} 级标题`;
@@ -62,10 +75,11 @@ function normalize(html: string, preview: ImportPreview) {
   const root = parse(safe(raw.body.innerHTML)).body;
   let officeList = 0, previousOffice = false;
   for (const p of root.querySelectorAll<HTMLElement>('p')) {
+    takeHint(p);
     const style = p.getAttribute('style') || '';
     const outline = /mso-outline-level\s*:\s*([1-9])/i.exec(style);
     if (outline) {
-      const heading = document.createElement(`h${Math.min(Number(outline[1]), 6)}`); heading.innerHTML = p.innerHTML; p.replaceWith(heading); continue;
+      const heading = document.createElement(`h${Math.min(Number(outline[1]), 6)}`); heading.innerHTML = p.innerHTML; if (p.dataset.hint) heading.dataset.hint = p.dataset.hint; p.replaceWith(heading); continue;
     }
     const list = /mso-list\s*:\s*l(\d+)\s+level(\d+)\s+lfo(\d+)/i.exec(style);
     if (list) {
@@ -140,10 +154,11 @@ function normalize(html: string, preview: ImportPreview) {
   });
   preview.items = split.map<ImportItem>((el, index) => {
     const candidate = el instanceof HTMLElement && el.dataset.candidate === 'true';
+    const hint = hintOf(el);
     if (candidate) issue(preview.issues, `块 ${index + 1}`, '疑似标题，请选择正文或标题层级。');
-    for (const node of [el, ...el.querySelectorAll('*')]) { node.removeAttribute('class'); node.removeAttribute('data-candidate'); node.removeAttribute('data-list-break'); }
+    for (const node of [el, ...el.querySelectorAll('*')]) { node.removeAttribute('class'); node.removeAttribute('data-candidate'); node.removeAttribute('data-list-break'); node.removeAttribute('data-hint'); }
     const label = classify(el);
-    return { label, candidate, block: { kind: 'library', id: crypto.randomUUID(), tplId: `imported:${label}`, matrix: [], html: safe(el.outerHTML) } };
+    return { label, candidate, hint, block: { kind: 'library', id: crypto.randomUUID(), tplId: `imported:${label}`, matrix: [], html: safe(el.outerHTML) } };
   }).filter(item => item.block.html?.trim());
   // De-duplicate identical notices without losing distinct source locations.
   preview.issues = preview.issues.filter((entry, i, entries) => entries.findIndex(e => e.location === entry.location && e.message === entry.message) === i);
@@ -235,7 +250,7 @@ export async function prepareRichHtml(source: string, baseUrl?: string, fallback
   } catch (error) { releasePreview(preview); throw error; }
 }
 
-export async function prepareFile(file: File): Promise<ImportPreview> {
+export async function prepareFile(file: File, progress?: (text: string) => void): Promise<ImportPreview> {
   const preview = previewModel(file.name.replace(/\.[^.]+$/, ''));
   try {
     if (/\.(doc|wps|rtf)$/i.test(file.name)) throw new Error('请先在 Word/WPS 中另存为 .docx，旧版 DOC、WPS、RTF 不能按文本导入。');
@@ -245,7 +260,12 @@ export async function prepareFile(file: File): Promise<ImportPreview> {
       normalize(html, preview); await collectImages(preview); return preview;
     }
     if (/\.zip$/i.test(file.name)) {
-      requireImageTeam(); preview.galleryOnly = true;
+      requireImageTeam();
+      // A submission ZIP (Word + camera originals) is matched and typeset, a plain image ZIP goes to the gallery.
+      const { prepareBundle } = await import('./bundle.ts');
+      const bundle = await prepareBundle(file, progress);
+      if (bundle) return bundle;
+      preview.galleryOnly = true;
       const archive = await openArchive(file); let total = 0;
       for (const entry of archive.entries) {
         if (entry.name.startsWith('__MACOSX/') || entry.name.split('/').at(-1)?.startsWith('.')) continue;
@@ -307,7 +327,8 @@ export async function uploadPreview(preview: ImportPreview, scope: string, progr
   return preview.items.map(item => {
     const root = parse(item.block.html || '');
     for (const img of root.querySelectorAll('img')) {
-      const asset = preview.assets.find(a => a.url === img.getAttribute('src'));
+      const src = preview.replacements?.[img.getAttribute('src') ?? ''] ?? img.getAttribute('src');
+      const asset = preview.assets.find(a => a.url === src);
       if (asset) img.setAttribute('src', asset.uploadedUrl!);
     }
     return { ...item.block, html: preview.preserveLayout ? cleanHtml(root.body.innerHTML) : safe(root.body.innerHTML) };

@@ -1,8 +1,20 @@
+import type { Fingerprint } from '@kiumi/core';
 import type { LibraryBlock } from '../../api.ts';
 
 export interface ImportIssue { location: string; message: string }
 export interface ImportAsset { file: File; url: string; uploadedUrl?: string }
-export interface ImportItem { block: LibraryBlock; label: string; candidate?: boolean }
+export interface ImportHint { align?: 'left' | 'center' | 'right'; bold?: boolean; /** px */ size?: number }
+export interface ImportItem { block: LibraryBlock; label: string; candidate?: boolean; hint?: ImportHint }
+export interface OriginalImage { id: string; name: string; asset: ImportAsset; fp: Fingerprint; reencoded: boolean }
+export interface MatchRow {
+  /** The low-resolution picture embedded in the Word file. */
+  embedded: ImportAsset;
+  fp: Fingerprint;
+  originalId?: string;
+  level: 'high' | 'low' | 'none';
+  confidence: number;
+  candidates: { id: string; score: number }[];
+}
 export interface ImportPreview {
   title: string;
   items: ImportItem[];
@@ -10,10 +22,16 @@ export interface ImportPreview {
   issues: ImportIssue[];
   galleryOnly?: boolean;
   preserveLayout?: boolean;
+  /** Word placeholder pictures vs the camera originals shipped in the same ZIP. */
+  matching?: { rows: MatchRow[]; originals: OriginalImage[] };
+  /** Embedded blob URL -> chosen original blob URL. */
+  replacements?: Record<string, string>;
+  /** Assets that are decoded for preview but never uploaded (replaced placeholders). */
+  hidden?: ImportAsset[];
 }
 export const issue = (issues: ImportIssue[], location: string, message: string) => issues.push({ location, message });
 export function releasePreview(preview: ImportPreview) {
-  for (const asset of preview.assets) URL.revokeObjectURL(asset.url);
+  for (const asset of [...preview.assets, ...(preview.hidden ?? [])]) URL.revokeObjectURL(asset.url);
 }
 export function imageType(bytes: Uint8Array): string | undefined {
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png';

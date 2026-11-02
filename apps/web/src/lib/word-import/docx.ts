@@ -160,6 +160,17 @@ export async function readDocx(file: File, preview: ImportPreview, requireTeam: 
         drawing.replaceWith(run(xml, `〔图形待核对：${text || '请补充原稿图片'}〕`));
         issue(preview.issues, location, '图形未提供可用的预览图片，已保留文字或待补充标记。');
       }
+      // Presentation hints (alignment / bold / size) that Mammoth drops but structure recognition needs.
+      // Carried as an invisible leading marker and stripped again in normalize().
+      {
+        const jc = val(first(pr, 'jc'));
+        const runs = all(p, 'r').filter(r => all(r, 't').some(t => t.textContent?.trim()));
+        const boldAll = runs.length > 0 && runs.every(r => { const b = first(r, 'b'); return !!b && val(b) !== '0' && val(b) !== 'false'; });
+        const sizes = runs.map(r => Number(val(first(r, 'sz')) || 0)).filter(Boolean);
+        const align = jc === 'center' ? 'c' : jc === 'right' || jc === 'end' ? 'r' : 'l';
+        const size = sizes.length ? Math.max(...sizes) : 0;
+        if (runs.length && (align !== 'l' || boldAll || size)) pr.after(run(xml, `\u2063${align}${boldAll ? 1 : 0}${size}\u2063`));
+      }
       if ([...p.getElementsByTagNameNS('*', 'instrText')].some(n => /\bTOC\b/.test(n.textContent || ''))) issue(preview.issues, location, '目录保留已存储的文字，不自动更新页码；请删除不适用于公众号的页码。');
     }
     // Block-level embedded content also needs a visible marker.
