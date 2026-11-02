@@ -66,7 +66,7 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
     <article className="tpl" title={name || undefined}>
       <div ref={holder} className="tpl-preview">
         {!html && item.thumbUri && (
-          <img className="tpl-cover" src={item.thumbUri} alt="" loading="lazy" referrerPolicy="no-referrer" />
+          <img className="tpl-cover" src={item.thumbUri} alt="" referrerPolicy="no-referrer" />
         )}
         {visible && html && (
           <iframe
