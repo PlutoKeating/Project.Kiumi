@@ -52,3 +52,23 @@ export { validateHtml, summarizeIssues, type ValidateOptions } from './validate.
 export { renderMatrix, renderDocument } from './render.ts';
 export { fillMatrix } from './fill.ts';
 export { sanitizeHtml, patchRecordedHtml, rewriteHtmlAssets, placateTemplateText } from './html.ts';
+export {
+  CONFIDENT,
+  classifyFacts,
+  annotationRequest,
+  applyAnnotations,
+  assembleManuscript,
+  manuscriptImages,
+  outlineOf,
+  numberingKind,
+  splitTrailingByline,
+  parseByline,
+  escapeHtml,
+  type ParaRole,
+  type SourceFact,
+  type Classified,
+  type Part,
+  type Section,
+  type Byline,
+  type Manuscript,
+} from './manuscript.ts';
