@@ -85,3 +85,17 @@ export {
   type MatchOptions,
   type Candidate,
 } from './imagematch.ts';
+export {
+  DEFAULT_RULES,
+  normalizeRules,
+  formatArticleTitle,
+  paragraphCss,
+  wrapperCss,
+  imageCss,
+  blankLineHtml,
+  lintBlocks,
+  type TypesetRules,
+  type LintIssue,
+  type LintBlock,
+  type StyleRole,
+} from './typeset.ts';
