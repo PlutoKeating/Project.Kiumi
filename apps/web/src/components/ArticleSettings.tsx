@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { lintBlocks, type TypesetRules } from '@kiumi/core';
 import { uploadImage, type Document } from '../api.ts';
 import { useStore } from '../store.ts';
 import { Icon } from './Icon.tsx';
@@ -19,6 +20,10 @@ export function ArticleSettings() {
   const themeColor = useStore(s => s.themeColor);
   const applyTheme = useStore(s => s.applyTheme);
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState('');
+  const rules = useStore(s => s.typesetRules), setRules = useStore(s => s.setTypesetRules);
+  useEffect(() => { void useStore.getState().loadRules(); }, []);
+  // House style: the same checks the Agent's lint tool runs.
+  const style = useMemo(() => lintBlocks(doc.blocks.map(b => ({ html: b.kind === 'library' ? b.html ?? '' : b.node.html ?? b.node.text ?? '', strict: b.kind === 'native' || String(b.tplId).startsWith('imported:') })), rules, { title: doc.title }), [doc.blocks, doc.title, rules]);
   const update = (patch: Partial<Document['meta']>) => {
     const state = useStore.getState(); state.commit({ ...state.doc, meta: { ...state.doc.meta, ...patch } });
   };
@@ -60,6 +65,18 @@ export function ArticleSettings() {
       <legend>主题色<small>能换色的模板会一起变色</small></legend>
       <div>{THEME_SWATCHES.map(({ color, name }) => <button key={color} type="button" className="swatch" aria-label={`主题色 ${name}`} aria-pressed={themeColor.toLowerCase() === color} data-tip={name} style={{ background: color }} onClick={() => applyTheme(color)} />)}</div>
     </fieldset>
+
+    <details className="house-style">
+      <summary>排版规范{style.length ? ` · ${style.length} 处不符` : ' · 全部符合'}</summary>
+      {style.slice(0, 8).map((issue, i) => <p key={`${issue.rule}-${i}`} data-level="todo">{issue.block !== undefined ? `块 ${issue.block + 1}：` : ''}{issue.message}</p>)}
+      <div className="rule-grid">
+        {([['bodySize', '正文字号'], ['headingSize', '小标题字号'], ['lineHeight', '行距'], ['letterSpacing', '字距'], ['sidePadding', '左右边距'], ['imageWidth', '图片宽度 %']] as [keyof TypesetRules, string][]).map(([key, label]) =>
+          <label key={key} className="field-label">{label}<input className="field" type="number" aria-label={label} value={Number(rules[key])} onChange={e => setRules({ [key]: Number(e.target.value) })} /></label>)}
+      </div>
+      <label className="tool-check"><input type="checkbox" checked={rules.firstLineIndent} onChange={e => setRules({ firstLineIndent: e.target.checked })} />首行缩进</label>
+      <label className="tool-check"><input type="checkbox" checked={rules.blankAroundImages} onChange={e => setRules({ blankAroundImages: e.target.checked })} />图片前后空一行</label>
+      <button type="button" className="btn btn-plain" onClick={() => void useStore.getState().saveRules()}>保存到团队（创建者）</button>
+    </details>
 
     <section className="preflight" aria-label="发布前检查" data-state={ready ? 'clean' : 'issues'}>
       <h3><Icon name={ready ? 'check' : 'alert'} size={15} />{ready ? '可以发布了' : `发布前还有 ${todos.length + blocking.length} 项`}</h3>

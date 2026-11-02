@@ -24,6 +24,7 @@ export function ImportPanel() {
   const styleTemplate = useStore(s => s.styleTemplate), rules = useStore(s => s.typesetRules), setStyleTemplate = useStore(s => s.setStyleTemplate);
   const importRequest = useStore(s => s.importRequest);
   useEffect(() => { if (importRequest) setOpen(true); }, [importRequest]);
+  useEffect(() => { if (open) void useStore.getState().loadRules(); }, [open]);
   const cancellation = useRef<AbortController | null>(null);
   const selected = useStore(s => s.selected);
   const reset = () => { if (base.current) releasePreview(base.current); base.current = null; current.current = null; setPreview(null); setStyled(null); setOutline([]); setAcknowledged(false); setMessage(''); };

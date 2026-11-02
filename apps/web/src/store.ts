@@ -118,6 +118,9 @@ interface State {
   /** Team typesetting rules (house style). */
   typesetRules: TypesetRules;
   setTypesetRules: (rules: Partial<TypesetRules>) => void;
+  /** Load the team's house style from the server (members read, owners write). */
+  loadRules: () => Promise<void>;
+  saveRules: () => Promise<void>;
   /** Bumped to ask the import dialog to open. */
   importRequest: number;
   requestImport: () => void;
@@ -202,6 +205,19 @@ export const useStore = create<State>((set, get) => ({
   setStyleTemplate(value) { writeLocal('kiumi:style-template', value); set({ styleTemplate: value }); },
   typesetRules: normalizeRules(readLocal<Partial<TypesetRules>>('kiumi:typeset-rules', DEFAULT_RULES)),
   setTypesetRules(patch) { const next = normalizeRules({ ...get().typesetRules, ...patch }); writeLocal('kiumi:typeset-rules', next); set({ typesetRules: next }); },
+  async loadRules() {
+    if (!api.teamId()) return;
+    try {
+      const rules = await api.request<TypesetRules>('/api/teams/typeset');
+      set({ typesetRules: normalizeRules(rules) });
+    } catch { /* keep the local copy */ }
+  },
+  async saveRules() {
+    try {
+      const saved = await api.request<TypesetRules>('/api/teams/typeset', { method: 'PUT', body: JSON.stringify(get().typesetRules) });
+      set({ typesetRules: normalizeRules(saved), message: '排版规范已保存到团队' });
+    } catch (error) { set({ message: `保存排版规范失败：${(error as Error).message}` }); }
+  },
   importRequest: 0,
   requestImport() { set({ importRequest: get().importRequest + 1 }); },
   favoriteBlocks: [],
