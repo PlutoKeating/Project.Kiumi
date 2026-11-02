@@ -99,3 +99,13 @@ export {
   type LintBlock,
   type StyleRole,
 } from './typeset.ts';
+export {
+  analyzeTemplate,
+  fillTemplate,
+  isPhotoSrc,
+  type TemplateSchema,
+  type UnitInfo,
+  type UnitKind,
+  type FillOptions,
+  type FillReport,
+} from './templatefill.ts';
