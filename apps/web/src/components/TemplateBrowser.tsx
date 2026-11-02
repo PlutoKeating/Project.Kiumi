@@ -17,11 +17,12 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
   const toggleFavorite = useStore(s => s.toggleFavorite);
   const holder = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const useCover = Boolean(item.thumbUri);
 
   const [html, setHtml] = useState('');
   const [error, setError] = useState('');
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || useCover) return;
     let alive = true;
     let attempts = 0;
     let retry: ReturnType<typeof setTimeout> | undefined;
@@ -41,7 +42,7 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
     const updated = (event: Event) => { if ((event as CustomEvent<string>).detail === `/api/template?id=${encodeURIComponent(item.atomTplId)}&localAssets=true`) load(); };
     load(); window.addEventListener(CATALOG_UPDATED, updated);
     return () => { alive = false; if (retry) clearTimeout(retry); window.removeEventListener(CATALOG_UPDATED, updated); };
-  }, [visible, item.atomTplId]);
+  }, [visible, item.atomTplId, useCover]);
 
   // Dozens of previews on one screen: mount the frame only when the card comes
   // close to the viewport, otherwise every scroll starts a request.
@@ -65,10 +66,10 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
   return (
     <article className="tpl" title={name || undefined}>
       <div ref={holder} className="tpl-preview">
-        {!html && item.thumbUri && (
+        {useCover && (
           <img className="tpl-cover" src={item.thumbUri} alt="" referrerPolicy="no-referrer" />
         )}
-        {visible && html && (
+        {!useCover && visible && html && (
           <iframe
             title={`${item.displayName}预览`}
             className="preview-frame"
@@ -79,7 +80,7 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
             tabIndex={-1}
           />
         )}
-        {visible && !html && (error ? <span className="tpl-state">{error}</span> : <span className="tpl-loading" />)}
+        {!useCover && visible && !html && (error ? <span className="tpl-state">{error}</span> : <span className="tpl-loading" />)}
         <button type="button" className="tpl-hit" aria-label={`插入模板：${item.displayName}`} onClick={onPick} />
       </div>
       {name && <p className="tpl-name">{name}</p>}
