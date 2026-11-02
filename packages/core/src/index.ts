@@ -109,3 +109,4 @@ export {
   type FillOptions,
   type FillReport,
 } from './templatefill.ts';
+export { parseDocx, type DocxParts, type DocxFacts } from './docxfacts.ts';
