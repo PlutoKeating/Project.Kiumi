@@ -47,18 +47,23 @@ function placeholderFor(tag: string): string {
  */
 export function placateTemplateText(html: string): string {
   const root = parse(html, { comment: false });
-  const filled = new WeakSet<object>();
   const walk = (node: any) => {
     for (const child of node.childNodes ?? []) {
       if (child.nodeType === 3) {
-        if (!String(child.text ?? '').trim()) continue;
+        const raw = String(child.rawText ?? '');
+        const trimmed = raw.trim();
+        if (!trimmed) continue;
         const block = textBlockOf(child.parentNode);
-        if (filled.has(block)) {
-          child.rawText = '';
-          continue;
+        const unit = placeholderFor(String(block.tagName ?? ''));
+        const length = [...trimmed].length;
+        // Keep the original character footprint with invisible NBSP padding so
+        // width-driven and vertical text layouts do not collapse after the copy
+        // is removed. Punctuation-only nodes become pure padding.
+        if (!/[\p{L}\p{N}\u4e00-\u9fa5]/u.test(trimmed)) {
+          child.rawText = '\u00A0\u200B'.repeat(length);
+        } else {
+          child.rawText = unit + '\u00A0\u200B'.repeat(Math.max(0, length - unit.length));
         }
-        filled.add(block);
-        child.rawText = placeholderFor(String(block.tagName ?? ''));
       } else if (child.nodeType === 1) {
         const tag = String(child.tagName ?? '').toLowerCase();
         if (tag === 'script' || tag === 'style') continue;
