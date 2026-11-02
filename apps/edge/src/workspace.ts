@@ -1,7 +1,8 @@
 import { currentUser } from './auth.js';
 import { dataFetch } from './data.js';
 import type { Env } from './index.js';
-import { rewriteHtmlAssets, type KiumiDocument } from '@kiumi/core';
+import { rewriteHtmlAssets } from '@kiumi/core';
+import { documentFrom, notify } from './docs.js';
 
 export class ApiError extends Error {
   status: number;
@@ -39,10 +40,6 @@ export async function teamContext(env: Env, request: Request) {
 function owner(role: string) {
   if (role !== 'owner') throw new ApiError(403, 'OWNER_REQUIRED', '只有团队创建者可以管理成员与公众号');
 }
-function documentFrom(row: any): KiumiDocument {
-  return { version: 1, id: row.id, title: row.title, blocks: JSON.parse(row.blocks),
-    meta: { createdAt: row.updated_at, ...JSON.parse(row.meta || '{}'), updatedAt: row.updated_at } };
-}
 function blocks(value: unknown): unknown[] {
   if (!Array.isArray(value) || value.length > 500 || value.some(b => !b || !['native','library'].includes(b.kind) || typeof b.id !== 'string' || (b.kind === 'native' && !b.node))) {
     throw new ApiError(400, 'INVALID_DOCUMENT', '文稿块格式不正确，最多 500 块');
@@ -63,7 +60,7 @@ export async function workspaceRoutes(request: Request, env: Env): Promise<Respo
   if (path === '/api/teams' && method === 'POST') {
     const name = title((await body(request)).name), teamId = id('team');
     await env.DB.batch([
-      env.DB.prepare('INSERT INTO teams VALUES (?,?,?,?)').bind(teamId,name,user.sub,now()),
+      env.DB.prepare('INSERT INTO teams(id,name,owner_sub,created_at) VALUES (?,?,?,?)').bind(teamId,name,user.sub,now()),
       env.DB.prepare('INSERT INTO members VALUES (?,?,?,?)').bind(teamId,user.sub,user.name || user.email || '团队创建者','owner'),
       // Preserve existing personal drafts when their owner creates their first team.
       env.DB.prepare('UPDATE documents SET team_id=? WHERE owner_sub=? AND team_id IS NULL').bind(teamId,user.sub),
@@ -115,8 +112,12 @@ export async function workspaceRoutes(request: Request, env: Env): Promise<Respo
     }
     if (method === 'PATCH') {
       const patch=await body(request), stamp=now();
-      const next={...row,title:patch.title === undefined ? row.title : title(patch.title),blocks:patch.blocks === undefined ? row.blocks : JSON.stringify(blocks(patch.blocks)),meta:JSON.stringify({...JSON.parse(row.meta),...patch.meta}),updated_at:stamp};
-      await env.DB.prepare('UPDATE documents SET title=?,blocks=?,meta=?,updated_at=? WHERE id=? AND team_id=?').bind(next.title,next.blocks,next.meta,stamp,documentId,teamId).run();
+      // Editors send the revision they last saw; a stale one means an Agent or teammate changed the document.
+      if (patch.baseRev !== undefined && patch.baseRev !== (row.rev ?? 1)) throw new ApiError(409,'REV_CONFLICT','文稿已被他人或 Agent 更新，请先载入最新版本');
+      const next={...row,title:patch.title === undefined ? row.title : title(patch.title),blocks:patch.blocks === undefined ? row.blocks : JSON.stringify(blocks(patch.blocks)),meta:JSON.stringify({...JSON.parse(row.meta),...patch.meta}),updated_at:stamp,rev:(row.rev ?? 1)+1};
+      const updated=await env.DB.prepare('UPDATE documents SET title=?,blocks=?,meta=?,updated_at=?,rev=? WHERE id=? AND team_id=? AND rev=?').bind(next.title,next.blocks,next.meta,stamp,next.rev,documentId,teamId,row.rev ?? 1).run();
+      if (!updated.meta.changes) throw new ApiError(409,'REV_CONFLICT','文稿正被同时修改，请重试');
+      await notify(env,documentId,{type:'changed',rev:next.rev,by:'user',from:request.headers.get('x-client-id') ?? undefined,title:next.title});
       return reply(documentFrom(next));
     }
   }
@@ -163,7 +164,7 @@ export async function privateUpload(request: Request, env: Env): Promise<Respons
   return new Response(response.body,{status:response.status,headers:{'content-type':row.mime,'cache-control':'private, no-store','x-content-type-options':'nosniff'}});
 }
 
-async function uploadShare(env: Env, uploadId: string): Promise<string> {
+export async function uploadShare(env: Env, uploadId: string): Promise<string> {
   if(!env.KIUMI_DATA_KEY) throw new Error('missing signing key');
   const encoder=new TextEncoder();
   const key=await crypto.subtle.importKey('raw',encoder.encode(env.KIUMI_DATA_KEY),{name:'HMAC',hash:'SHA-256'},false,['sign']);
@@ -185,5 +186,15 @@ export async function exportImages(html:string,request:Request,env:Env):Promise<
   }
   return rewriteHtmlAssets(html,source=>{
     try {const url=new URL(source,new URL(request.url).origin);return url.origin===new URL(request.url).origin?(replacements.get(url.pathname)??source):source;}catch{return source;}
+  });
+}
+
+/** Image URLs readable without a login, for preview links the holder was explicitly given. */
+export async function signedImages(html: string, origin: string, env: Env): Promise<string> {
+  const ids = [...new Set([...html.matchAll(/\/uploads\/(img_[a-f0-9-]+)/g)].map(m => m[1]!))];
+  const replacements = new Map<string, string>();
+  for (const uploadId of ids) replacements.set(`/uploads/${uploadId}`, `${origin}/uploads/${uploadId}?share=${await uploadShare(env, uploadId)}`);
+  return rewriteHtmlAssets(html, source => {
+    try { const url = new URL(source, origin); return url.origin === origin ? (replacements.get(url.pathname) ?? source) : source; } catch { return source; }
   });
 }

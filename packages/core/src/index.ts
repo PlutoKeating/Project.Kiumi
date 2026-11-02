@@ -102,6 +102,8 @@ export {
 export {
   analyzeTemplate,
   fillTemplate,
+  plainArticle,
+  manuscriptItems,
   isPhotoSrc,
   type TemplateSchema,
   type UnitInfo,

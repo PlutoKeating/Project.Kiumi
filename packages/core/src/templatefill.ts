@@ -176,9 +176,9 @@ export interface FillReport {
   warnings: string[];
 }
 
-type Item = { type: 'text'; paras: string[] } | { type: 'figure'; images: string[] };
+export type Item = { type: 'text'; paras: string[] } | { type: 'figure'; images: string[] };
 
-function manuscriptItems(m: Manuscript, rules: TypesetRules): Item[] {
+export function manuscriptItems(m: Manuscript, rules: TypesetRules): Item[] {
   const items: Item[] = [];
   const text = (html: string) => {
     const last = items.at(-1);
@@ -419,7 +419,6 @@ export function fillTemplate(html: string, manuscript: Manuscript, options: Fill
     if (['photo', 'text', 'mixed'].includes(last.info.kind)) out.push(blank);
   }
   wrapper.set_content(out.join(''));
-  void imageCss;
   void assembleManuscript;
   return { html: wrapper === undefined ? '' : (wrapperRoot(wrapper) ?? ''), report };
 }
@@ -428,4 +427,29 @@ function wrapperRoot(wrapper: HNode): string {
   let top: HNode = wrapper;
   while (top.parentNode) top = top.parentNode as HNode;
   return top.toString();
+}
+
+/**
+ * Without a style template: title, subtitle, then text and pictures in source
+ * order, typeset by the house rules. One HTML string per block.
+ */
+export function plainArticle(m: Manuscript, rules: TypesetRules = DEFAULT_RULES, resolve: (ref: string) => string | null = r => r): string[] {
+  const blocks: string[] = [];
+  const blank = blankLineHtml(rules);
+  const title = formatArticleTitle(m.title, rules);
+  blocks.push(`<p style="margin:0;padding:0 ${rules.sidePadding}px;text-align:center;font-size:${rules.headingSize + 8}px;font-weight:bold;line-height:1.6;letter-spacing:${rules.letterSpacing}px;color:${rules.textColor};">${escapeHtml(title)}</p>`);
+  if (m.subtitle) blocks.push(`<p style="margin:0;padding:0 ${rules.sidePadding}px;text-align:center;font-size:${rules.bodySize}px;line-height:${rules.lineHeight};color:${rules.textColor};">${escapeHtml(m.subtitle)}</p>`);
+  if (rules.blankAtEdges) blocks.push(blank);
+  const items = manuscriptItems(m, rules);
+  items.forEach((item, i) => {
+    if (item.type === 'text') blocks.push(`<section style="padding:0 ${rules.sidePadding}px;">${item.paras.join('')}</section>`);
+    else for (const ref of item.images) {
+      const src = resolve(ref);
+      if (src) blocks.push(`<p style="margin:0;text-align:center;"><img src="${escapeHtml(src)}" style="${imageCss(rules)}"></p>`);
+    }
+    const next = items[i + 1];
+    if (rules.blankAroundImages && next && (item.type === 'figure' || next.type === 'figure')) blocks.push(blank);
+  });
+  if (rules.blankAtEdges) blocks.push(blank);
+  return blocks;
 }

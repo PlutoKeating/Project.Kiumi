@@ -13,8 +13,10 @@ test('Worker teams isolate drafts and uploads; invitations allow sharing', async
   const mf=new Miniflare({modules:true,script:bundled.outputFiles[0]!.text,compatibilityDate:'2026-01-01',compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],bindings:{KIUMI_DATA_KEY:key},serviceBindings:{KIUMI_DATA:async(req)=>{if(new URL(req.url).pathname==='/wechat'){const payload=await req.json() as any;if(payload.action==='draft'){deliveries++;deliveredHtml=payload.html;}return Response.json({ok:true,data:payload.action==='check'?{connected:true}:{mediaId:'test-draft',verified:true}});}if(new URL(req.url).pathname.includes('/catalog/templates/'))return Response.json({atomTplId:'test',html:'<h2>模板</h2>',matrix:[]});if(new URL(req.url).pathname.endsWith('.json'))return Response.json({});return new Response(req.method==='PUT'?'stored':'image');},ASSETS:async()=>new Response('app')}});
   try {
     const db=await mf.getD1Database('DB');
-    const migration=await readFile(new URL('../migrations/0001_teams.sql',import.meta.url),'utf8');
-    for(const statement of migration.split(';').map(s=>s.trim()).filter(Boolean))await db.prepare(statement).run();
+    for(const file of ['0001_teams.sql','0002_manuscripts.sql']) {
+      const migration=(await readFile(new URL('../migrations/'+file,import.meta.url),'utf8')).replace(/^--.*$/gm,'');
+      for(const statement of migration.split(';').map(s=>s.trim()).filter(Boolean))await db.prepare(statement).run();
+    }
     const cookie=(user:string)=>{
       const value=JSON.stringify({sub:user,name:user,exp:Math.floor(Date.now()/1000)+3600});
       return 'kiumi_session='+encodeURIComponent(value+'.'+createHmac('sha256',`session:${key}`).update(value).digest('base64url'));

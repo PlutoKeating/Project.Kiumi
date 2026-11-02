@@ -12,9 +12,12 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     // API and auth routes must reach the Worker before the SPA fallback.
-    "run_worker_first": ["/api/*", "/auth/*", "/assets/*", "/uploads/*"]
+    "run_worker_first": ["/api/*", "/auth/*", "/assets/*", "/uploads/*", "/mcp", "/.well-known/*"]
   },
   "r2_buckets": [{ "binding": "DATA", "bucket_name": "REPLACE_WITH_BUCKET" }],
+  // One Durable Object per open document fans live change notices out to editors (no state kept).
+  "durable_objects": { "bindings": [{ "name": "DOC_HUB", "class_name": "DocHub" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DocHub"] }],
   "d1_databases": [
     { "binding": "DB", "database_name": "kiumi", "database_id": "REPLACE_AT_BUILD_TIME" }
   ],

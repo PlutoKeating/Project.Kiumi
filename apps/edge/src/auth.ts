@@ -6,6 +6,8 @@ export interface AuthEnv {
   ID_ISSUER_URL?: string;
   ID_CLIENT_ID?: string;
   KIUMI_DATA_KEY?: string;
+  /** Comma separated OAuth client ids allowed to call the API with a bearer token (default `kiumi-mcp`). */
+  MCP_CLIENT_IDS?: string;
 }
 
 export interface SessionUser {
@@ -74,7 +76,31 @@ function config(env: AuthEnv) {
   return { issuer: issuer.replace(/\/$/, ''), clientId };
 }
 
+/**
+ * Bearer access tokens issued to MCP clients by the same identity provider.
+ * The token must be a signed JWT from our issuer, belong to an allowed client,
+ * and, when it names an audience, name this server.
+ */
+export async function bearerUser(request: Request, env: AuthEnv): Promise<SessionUser | null> {
+  const header = request.headers.get('authorization') ?? '';
+  const match = /^Bearer\s+(\S+)$/i.exec(header);
+  const cfg = config(env);
+  if (!match || !cfg) return null;
+  try {
+    let keys = keySets.get(cfg.issuer);
+    if (!keys) { keys = createRemoteJWKSet(new URL(`${cfg.issuer}/.well-known/jwks.json`)); keySets.set(cfg.issuer, keys); }
+    const { payload } = await jwtVerify(match[1], keys, { issuer: [cfg.issuer, `${cfg.issuer}/`], algorithms: ['RS256'], requiredClaims: ['exp', 'iss', 'sub'] });
+    const allowed = (env.MCP_CLIENT_IDS ?? 'kiumi-mcp').split(',').map(s => s.trim()).filter(Boolean);
+    if (!allowed.includes(String(payload.client_id ?? ''))) return null;
+    const origin = new URL(request.url).origin;
+    const audience = ([] as string[]).concat((payload.aud as string | string[] | undefined) ?? []);
+    if (audience.length && !audience.some(a => a === `${origin}/mcp` || a === origin || allowed.includes(a))) return null;
+    return { sub: payload.sub!, name: typeof payload.name === 'string' ? payload.name : undefined, email: typeof payload.email === 'string' ? payload.email : undefined };
+  } catch { return null; }
+}
+
 export async function currentUser(request: Request, env: AuthEnv): Promise<SessionUser | null> {
+  if (request.headers.get('authorization')) return bearerUser(request, env);
   try {
     const raw = await unsign(env, readCookie(request, SESSION_COOKIE));
     if (!raw) return null;

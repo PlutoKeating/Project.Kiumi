@@ -9,14 +9,24 @@ import {
   type TemplateRecord,
 } from '@kiumi/core';
 import { currentUser, handleAuth } from './auth.js';
-import { workspaceRoutes, privateUpload, exportImages, ApiError, teamContext } from './workspace.js';
+import { workspaceRoutes, privateUpload, exportImages, signedImages, ApiError, teamContext } from './workspace.js';
+import { annotateRoute, importRoute, previewRoute, rulesRoutes, type Deps } from './manuscript.js';
+import { mcpRoutes } from './mcp.js';
 import { wechatRoutes } from './wechat.js';
 import { dataFetch } from './data.js';
+export { DocHub } from './hub.js';
 
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
   DATA?: R2Bucket;
   DB: D1Database;
+  /** One Durable Object per open document: live change notices. */
+  DOC_HUB?: DurableObjectNamespace;
+  /** OpenAI-compatible chat endpoint used only for the optional structure second opinion. */
+  LLM_API_URL?: string;
+  LLM_API_KEY?: string;
+  LLM_MODEL?: string;
+  MCP_CLIENT_IDS?: string;
   KIUMI_STRICT_ASSETS?: string;
   /** Origin of the Shenzhen ECS data service, e.g. https://data.kiumi.example */
   KIUMI_DATA_ORIGIN?: string;
@@ -185,6 +195,23 @@ export default {
         const response=await dataFetch(env,'import',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)});
         return new Response(response.body,{status:response.status,headers:{'content-type':'application/json'}});
       }
+      if (path.startsWith('/.well-known/oauth-protected-resource') || path === '/mcp') {
+        const handled = await mcpRoutes(request, env, manuscriptDeps(env), wechatDraft);
+        if (handled) return handled;
+      }
+      if (path === '/api/import/manuscript' && request.method === 'POST') return await importRoute(request, env, manuscriptDeps(env));
+      if (path.startsWith('/api/preview/') && request.method === 'GET') return await previewRoute(request, env, manuscriptDeps(env));
+      if (path === '/api/manuscript/annotate' && request.method === 'POST') return await annotateRoute(request, env);
+      const rules = await rulesRoutes(request, env);
+      if (rules) return rules;
+      const live = /^\/api\/documents\/([^/]+)\/live$/.exec(path);
+      if (live && request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
+        if (!env.DOC_HUB) return fail('LIVE_UNAVAILABLE', '实时同步未启用', 503);
+        const { teamId } = await teamContext(env, request);
+        const row = await env.DB.prepare('SELECT 1 FROM documents WHERE id=? AND team_id=?').bind(decodeURIComponent(live[1]!), teamId).first();
+        if (!row) return fail('DOCUMENT_NOT_FOUND', '文稿不存在', 404);
+        return env.DOC_HUB.get(env.DOC_HUB.idFromName(decodeURIComponent(live[1]!))).fetch(`https://hub/live?client=${encodeURIComponent(url.searchParams.get('client') ?? '')}`, request);
+      }
       const wechat = await wechatRoutes(request, env, async doc => {
         const rendered = await render(env, new Request(request.url, {method:'POST',headers:request.headers,body:JSON.stringify({document:doc,localAssets:false,forWechat:true})}));
         const payload = await rendered.json() as {data?:{html:string};error?:{message:string}};
@@ -220,6 +247,46 @@ export default {
     }
   },
 };
+
+
+/** Template access and article rendering shared by the manuscript and MCP features. */
+function manuscriptDeps(env: Env): Deps {
+  return {
+    getTemplate: async id => {
+      const record = await getRecord(env, id);
+      return record ? { atomTplId: record.atomTplId, html: record.html, displayName: record.displayName } : null;
+    },
+    previewHtml: async (doc, origin) => {
+      const withHtml = doc.blocks.filter(b => b.kind === 'library' && !b.html);
+      const needs = withHtml.length > 0;
+      const recorded = new Map<string, string>();
+      if (needs) await Promise.all(withHtml.map(async b => {
+        if (b.kind !== 'library') return;
+        const record = await getRecord(env, b.tplId);
+        if (record && JSON.stringify(record.matrix) === JSON.stringify(b.matrix)) recorded.set(b.tplId, record.html);
+      }));
+      const skeletonsMap = needs ? await skeletons(env) : {};
+      const result = renderDocument(doc, skeletonsMap, { recordedHtml: id => recorded.get(id) });
+      const html = localizeAssets(result.html, needs ? await manifest(env) : {}, origin, false);
+      return signedImages(html, origin, env);
+    },
+  };
+}
+
+/** Create a WeChat draft through the same route the editor uses. */
+async function wechatDraft(request: Request, env: Env, input: { documentId: string; accountId: string; cover?: string }): Promise<unknown> {
+  const response = await wechatRoutes(new Request(new URL('/api/wechat/draft', request.url), {
+    method: 'POST', headers: request.headers, body: JSON.stringify({ ...input, requestId: crypto.randomUUID() }),
+  }), env, async doc => {
+    const rendered = await render(env, new Request(request.url, { method: 'POST', headers: request.headers, body: JSON.stringify({ document: doc, localAssets: false, forWechat: true }) }));
+    const payload = await rendered.json() as { data?: { html: string }; error?: { message: string } };
+    if (!payload.data) throw new Error(payload.error?.message ?? '渲染失败');
+    return payload.data.html;
+  });
+  const body = await response!.json() as { ok: boolean; data?: unknown; error?: { message?: string } | string };
+  if (!body.ok) throw new ApiError(response!.status, 'WECHAT_DRAFT_FAILED', typeof body.error === 'string' ? body.error : body.error?.message ?? '创建草稿失败');
+  return body.data;
+}
 
 // ---------------------------------------------------------------------------
 // Catalog

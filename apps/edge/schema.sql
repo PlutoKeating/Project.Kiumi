@@ -1,10 +1,15 @@
 -- Reference schema. Deploy with pnpm d1:schema (versioned migrations).
 CREATE TABLE IF NOT EXISTS documents (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, blocks TEXT NOT NULL DEFAULT '[]',
-  updated_at TEXT NOT NULL, owner_sub TEXT, team_id TEXT, meta TEXT NOT NULL DEFAULT '{}'
+  updated_at TEXT NOT NULL, owner_sub TEXT, team_id TEXT, meta TEXT NOT NULL DEFAULT '{}',
+  rev INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE teams (
-  id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_sub TEXT NOT NULL, created_at TEXT NOT NULL
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_sub TEXT NOT NULL, created_at TEXT NOT NULL,
+  typeset_rules TEXT
+);
+CREATE TABLE manuscripts (
+  doc_id TEXT PRIMARY KEY, team_id TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 CREATE TABLE members (
   team_id TEXT NOT NULL REFERENCES teams(id), user_sub TEXT NOT NULL,
