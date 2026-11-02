@@ -1,6 +1,6 @@
 import { readableName } from './lib/template-name.ts';
 import { prepareTemplate, transplantStyle } from './lib/template-style.ts';
-import { patchRecordedHtml, sanitizeHtml, validateHtml, rewriteHtmlAssets, renderDocument as renderCore } from '@kiumi/core';
+import { DEFAULT_RULES, normalizeRules, patchRecordedHtml, sanitizeHtml, validateHtml, rewriteHtmlAssets, renderDocument as renderCore, type TypesetRules } from '@kiumi/core';
 import { create } from 'zustand';
 import * as api from './api.ts';
 import { patchSlot } from './lib/slots.ts';
@@ -112,6 +112,15 @@ interface State {
   issues: api.Issue[];
   message: string;
   favorites: string[];
+  /** Style template the next imported manuscript is poured into. */
+  styleTemplate: { id: string; name: string } | null;
+  setStyleTemplate: (value: { id: string; name: string } | null) => void;
+  /** Team typesetting rules (house style). */
+  typesetRules: TypesetRules;
+  setTypesetRules: (rules: Partial<TypesetRules>) => void;
+  /** Bumped to ask the import dialog to open. */
+  importRequest: number;
+  requestImport: () => void;
   favoriteBlocks: api.Block[];
   toggleBlockFavorite: (block: api.Block) => void;
   insertFavorite: (id: string) => void;
@@ -185,6 +194,12 @@ export const useStore = create<State>((set, get) => ({
   issues: [],
   message: '',
   favorites: [],
+  styleTemplate: readLocal<{ id: string; name: string } | null>('kiumi:style-template', null),
+  setStyleTemplate(value) { writeLocal('kiumi:style-template', value); set({ styleTemplate: value }); },
+  typesetRules: normalizeRules(readLocal<Partial<TypesetRules>>('kiumi:typeset-rules', DEFAULT_RULES)),
+  setTypesetRules(patch) { const next = normalizeRules({ ...get().typesetRules, ...patch }); writeLocal('kiumi:typeset-rules', next); set({ typesetRules: next }); },
+  importRequest: 0,
+  requestImport() { set({ importRequest: get().importRequest + 1 }); },
   favoriteBlocks: [],
   clipboard: [],
 

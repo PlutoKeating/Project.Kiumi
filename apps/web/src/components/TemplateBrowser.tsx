@@ -14,6 +14,9 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
   const hasSelection = useStore(s => s.selected !== null);
   const favorite = useStore(s => s.favorites.includes(item.atomTplId));
   const applyStyle = useStore(s => s.applyTemplateStyle);
+  const styled = useStore(s => s.styleTemplate?.id === item.atomTplId);
+  const setStyleTemplate = useStore(s => s.setStyleTemplate);
+  const requestImport = useStore(s => s.requestImport);
   const toggleFavorite = useStore(s => s.toggleFavorite);
   const holder = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -86,6 +89,7 @@ function TemplateCard({ item, onPick }: { item: TemplateIndexEntry; onPick: () =
       {name && <p className="tpl-name">{name}</p>}
       <div className="tpl-actions">
         <button type="button" onClick={onPick} tabIndex={-1} aria-hidden="true"><Icon name="plus" size={14} />插入</button>
+        <button type="button" aria-label={`用此风格排入稿件：${item.displayName}`} title="选定为排版风格，然后导入 Word 稿件自动排入" onClick={event => { event.stopPropagation(); setStyleTemplate({ id: item.atomTplId, name: readableName(item.displayName) || '已选风格' }); requestImport(); }} onKeyDown={event => event.stopPropagation()} data-active={styled}>排入稿件</button>
         <button type="button" disabled={!hasSelection} aria-label={`应用样式：${item.displayName}`} title={hasSelection ? '保留选中内容，换成这个外观' : '先在画布选中一块'} onClick={event => { event.stopPropagation(); void applyStyle(item.atomTplId); }} onKeyDown={event => event.stopPropagation()}>换样式</button>
       </div>
       <button type="button" className="tpl-star" aria-pressed={favorite} aria-label={`${favorite ? '取消收藏' : '收藏模板'}：${item.displayName}`} onClick={() => toggleFavorite(item.atomTplId)}><Icon name="star" size={15} /></button>
