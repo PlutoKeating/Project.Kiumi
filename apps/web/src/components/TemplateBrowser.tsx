@@ -108,13 +108,12 @@ function GroupChips({ groups, rooms, active, onPick }: {
 }
 
 export function TemplateBrowser() {
-  const [syncStatus, setSyncStatus] = useState('模板将自动缓存到本机');
+  const [syncStatus, setSyncStatus] = useState('打开过的模板会自动缓存');
   const [syncPaused, setSyncPaused] = useState(false);
   useEffect(() => {
     const updated = (event: Event) => setSyncStatus((event as CustomEvent<string>).detail);
     window.addEventListener(SYNC_STATUS, updated);
-    const timer = setTimeout(() => { if (import.meta.env.PROD) void syncCatalog(); }, 5000);
-    return () => { clearTimeout(timer); window.removeEventListener(SYNC_STATUS, updated); };
+    return () => { window.removeEventListener(SYNC_STATUS, updated); };
   }, []);
   const rooms = useStore((state) => state.rooms);
   const activeGroup = useStore((state) => state.activeGroup);
@@ -216,6 +215,7 @@ export function TemplateBrowser() {
       <footer className="panel-foot">
         <span title={syncStatus}>{syncPaused ? '后台同步已暂停' : syncStatus}</span>
         <em>{loading ? '加载中' : `${templates.length} 个`}</em>
+        <button type="button" aria-label="缓存全部模板" data-tip="缓存全部模板（耗时较长）" onClick={() => { pauseCatalogSync(false); setSyncPaused(false); void syncCatalog(); }}><Icon name="download" size={13} /></button>
         <button type="button" aria-label={syncPaused ? '继续同步' : '暂停同步'} data-tip={syncPaused ? '继续同步' : '暂停同步'} onClick={() => { pauseCatalogSync(!syncPaused); setSyncPaused(!syncPaused); if (syncPaused) void syncCatalog(); }}><Icon name={syncPaused ? 'play' : 'pause'} size={13} /></button>
       </footer>
     </section>
