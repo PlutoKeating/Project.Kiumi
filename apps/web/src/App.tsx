@@ -13,6 +13,7 @@ import { Topbar } from './components/Topbar.tsx';
 import { SheetHeader } from './components/ui.tsx';
 import { ARTICLE_CSS } from './lib/article-context.ts';
 import { useStore } from './store.ts';
+import { startLive } from './lib/live.ts';
 
 export function App() {
   const ready = useStore((state) => state.ready);
@@ -47,6 +48,9 @@ export function App() {
   useEffect(() => {
     void boot();
   }, [boot]);
+
+  // Agent and teammate edits arrive over a socket and update the canvas in place.
+  useEffect(() => startLive(), []);
 
   useEffect(() => {
     const editable = (target: EventTarget | null): boolean => {

@@ -1,6 +1,6 @@
 import { readableName } from './lib/template-name.ts';
 import { prepareTemplate, transplantStyle } from './lib/template-style.ts';
-import { DEFAULT_RULES, normalizeRules, patchRecordedHtml, sanitizeHtml, validateHtml, rewriteHtmlAssets, renderDocument as renderCore, type TypesetRules } from '@kiumi/core';
+import { DEFAULT_RULES, applyOps, normalizeRules, patchRecordedHtml, sanitizeHtml, validateHtml, rewriteHtmlAssets, renderDocument as renderCore, type DocOp, type TypesetRules } from '@kiumi/core';
 import { create } from 'zustand';
 import * as api from './api.ts';
 import { patchSlot } from './lib/slots.ts';
@@ -154,6 +154,10 @@ interface State {
   moveBlock: (from: number, to: number) => void;
   refresh: () => Promise<void>;
   save: () => Promise<boolean>;
+  /** Fetch the server copy of the open document and adopt it (undoable). */
+  pullRemote: () => Promise<void>;
+  /** Apply a change another writer made (Agent ops, or a newer server copy). */
+  receiveChange: (notice: { rev: number; by?: string; from?: string; ops?: unknown[]; title?: string }) => Promise<void>;
   newDoc: () => void;
   loadDoc: (doc: api.Document) => void;
   restoreScope: () => void;
@@ -555,13 +559,56 @@ export const useStore = create<State>((set, get) => ({
           ? await api.createDocument(doc.title, doc.blocks, doc.meta)
           : await api.saveDocument(doc);
         if (scope === api.workspaceKey() && get().doc.id === doc.id) {
-          set({doc:{...get().doc,id:saved.id,meta:{...get().doc.meta,createdAt:saved.meta.createdAt}},message:'已保存到团队'});
+          set({doc:{...get().doc,id:saved.id,meta:{...get().doc.meta,createdAt:saved.meta.createdAt,rev:saved.meta.rev}},message:'已保存到团队'});
         }
         return true;
-      } catch (error) { if(scope === api.workspaceKey()) set({message:`保存失败：${(error as Error).message}`}); return false; }
+      } catch (error) {
+        if (error instanceof api.ApiError && error.status === 409 && scope === api.workspaceKey()) {
+          // An Agent or teammate saved first. Bring their version in as one undoable step so nothing is lost.
+          set({message:'稿件已被 Agent 或他人更新，已载入最新版本；你的改动可按 Ctrl+Z 找回，确认后再保存'});
+          void get().pullRemote();
+          return false;
+        }
+        if(scope === api.workspaceKey()) set({message:`保存失败：${(error as Error).message}`});
+        return false;
+      }
       finally { saving = null; }
     })();
     return saving;
+  },
+
+  async pullRemote() {
+    const local = get().doc;
+    if (local.id.startsWith('local-') || !api.teamId()) return;
+    const scope = api.workspaceKey();
+    try {
+      const remote = await api.openDocument(local.id);
+      if (scope !== api.workspaceKey() || get().doc.id !== local.id) return;
+      get().commit({ ...remote, meta: { ...remote.meta } });
+      set({ selected: null, selectedIds: [] });
+      void get().refresh();
+    } catch (error) { set({ message: `载入最新版本失败：${(error as Error).message}` }); }
+  },
+
+  async receiveChange(notice) {
+    const local = get().doc;
+    if (local.id.startsWith('local-')) return;
+    if (notice.from === api.clientId) return;
+    const known = local.meta.rev ?? 0;
+    if (notice.rev <= known) return;
+    if (notice.ops && notice.by === 'agent' && notice.rev === known + 1) {
+      const { doc: merged, errors } = applyOps(local as never, notice.ops as DocOp[]);
+      const doc = merged as unknown as api.Document;
+      if (!errors.length) {
+        get().commit({ ...doc, meta: { ...doc.meta, rev: notice.rev } });
+        // commit keeps the rev we just set; later saves send it as baseRev.
+        set({ selected: null, selectedIds: [], message: 'Agent 更新了稿件，可按 Ctrl+Z 撤销' });
+        void get().refresh();
+        return;
+      }
+    }
+    set({ message: '稿件已被更新，正在载入最新版本；你的改动可按 Ctrl+Z 找回' });
+    await get().pullRemote();
   },
 
   loadDoc(doc) {

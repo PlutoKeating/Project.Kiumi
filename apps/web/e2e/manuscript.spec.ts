@@ -99,3 +99,51 @@ test('local submission ZIP sample is recognized end to end', async ({ page }) =>
   console.log(JSON.stringify({ parts: result.parts, repl: result.repl, outline: result.outline, matches: result.matches, issues: result.issues, report: result.report }, null, 1));
   if (result.html && process.env.KIUMI_STYLE_OUT) (await import('node:fs')).writeFileSync(process.env.KIUMI_STYLE_OUT, result.html);
 });
+
+test('an Agent edit arrives over the live socket and lands on the canvas, undoable and revision-aware', async ({ page }) => {
+  const doc = (rev: number, html: string) => ({ version: 1, id: 'live-doc', title: '直播稿', blocks: [{ kind: 'library', id: 'b1', tplId: 'imported:段落', matrix: [], html }], meta: { createdAt: '', updatedAt: '', rev } });
+  let remote = doc(1, '<p>原来的正文</p>');
+  const saves: any[] = [];
+  await page.route('**/api/**', async route => {
+    const request = route.request(), path = new URL(request.url()).pathname;
+    let data: any = [];
+    if (path === '/api/me') data = { user: { sub: 'user', name: '测试用户' }, loginEnabled: true };
+    if (path === '/api/teams') data = [{ id: 'team', name: '测试团队', role: 'owner' }];
+    if (path === '/api/documents/live-doc') {
+      if (request.method() === 'PATCH') { saves.push(request.postDataJSON()); data = { ...remote, meta: { ...remote.meta, rev: remote.meta.rev + 1 } }; remote = data; }
+      else data = remote;
+    }
+    if (path === '/api/render') { const body = request.postDataJSON().document; data = { html: body.blocks.map((b: any) => b.html).join(''), bytes: 0, warnings: [], issues: [] }; }
+    await route.fulfill({ json: { ok: true, data } });
+  });
+  let server: import('@playwright/test').WebSocketRoute | undefined;
+  await page.routeWebSocket(/\/api\/documents\/live-doc\/live/, ws => { server = ws; });
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: '测试团队', exact: true })).toBeVisible();
+  await page.evaluate(async doc => (await import('/src/store.ts')).useStore.getState().loadDoc(doc as never), remote);
+  await expect.poll(() => server).toBeTruthy();
+  await expect(page.locator('[data-block-content]')).toContainText('原来的正文');
+
+  // The Agent inserts a block: it shows up without any reload.
+  remote = doc(2, '<p>原来的正文</p>');
+  server!.send(JSON.stringify({ type: 'changed', rev: 2, by: 'agent', ops: [{ op: 'insert', blocks: [{ kind: 'library', id: 'b2', tplId: 'imported:段落', matrix: [], html: '<p>Agent 新增的段落</p>' }] }] }));
+  await expect(page.locator('[data-block-content]').last()).toContainText('Agent 新增的段落');
+  expect(await page.evaluate(async () => (await import('/src/store.ts')).useStore.getState().doc.meta.rev)).toBe(2);
+
+  // One undo takes the Agent's change back out.
+  await page.evaluate(async () => (await import('/src/store.ts')).useStore.getState().undo());
+  await expect(page.locator('[data-block-content]')).toHaveCount(1);
+  await page.evaluate(async () => (await import('/src/store.ts')).useStore.getState().redo());
+
+  // Our own echo is ignored; a gap in revisions refetches the whole document.
+  server!.send(JSON.stringify({ type: 'changed', rev: 3, by: 'user', from: await page.evaluate(async () => (await import('/src/api.ts')).clientId) }));
+  remote = { ...doc(5, '<p>服务器上的最新版</p>') };
+  server!.send(JSON.stringify({ type: 'changed', rev: 5, by: 'agent', ops: [{ op: 'title', title: 'x' }] }));
+  await expect(page.locator('[data-block-content]')).toHaveCount(1);
+  await expect(page.locator('[data-block-content]')).toContainText('服务器上的最新版');
+
+  // Saving carries the revision it was based on.
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+  await expect.poll(() => saves.length).toBeGreaterThan(0);
+  expect(saves[0].baseRev).toBe(5);
+});

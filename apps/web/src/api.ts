@@ -63,7 +63,7 @@ export interface Document {
   id: string;
   title: string;
   blocks: Block[];
-  meta: { createdAt: string; updatedAt: string; author?: string; digest?: string; cover?: string; tags?: string[] };
+  meta: { createdAt: string; updatedAt: string; author?: string; digest?: string; cover?: string; tags?: string[]; rev?: number };
 }
 
 export interface Issue {
@@ -202,9 +202,21 @@ export function renderBlock(block: Block, doc: Document): Promise<RenderResponse
   });
 }
 
+/** Identifies this browser tab to the server, so it can ignore its own change echoes. */
+export const clientId = (globalThis.crypto?.randomUUID?.() ?? String(Math.random()).slice(2));
+
+export function liveUrl(documentId: string): string {
+  const url = new URL(`/api/documents/${encodeURIComponent(documentId)}/live`, location.href);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  url.searchParams.set('client', clientId);
+  url.searchParams.set('team', activeTeam);
+  return url.toString();
+}
+
 export function createDocument(title: string, blocks: Block[] = [], meta?: Document['meta']): Promise<Document> {
   return request<Document>('/api/documents', {
     method: 'POST',
+    headers: { 'x-client-id': clientId },
     body: JSON.stringify({ title, blocks, meta }),
   });
 }
@@ -212,7 +224,8 @@ export function createDocument(title: string, blocks: Block[] = [], meta?: Docum
 export function saveDocument(doc: Document): Promise<Document> {
   return request<Document>(`/api/documents/${doc.id}`, {
     method: 'PATCH',
-    body: JSON.stringify({ title: doc.title, blocks: doc.blocks, meta: doc.meta }),
+    headers: { 'x-client-id': clientId },
+    body: JSON.stringify({ title: doc.title, blocks: doc.blocks, meta: doc.meta, baseRev: doc.meta.rev }),
   });
 }
 
