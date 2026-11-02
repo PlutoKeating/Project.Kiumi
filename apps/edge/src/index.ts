@@ -86,7 +86,8 @@ async function readObject(env: Env, key: string): Promise<Response | null> {
   // Catalog JSON is large and changes rarely: keep a colo copy so a cold tunnel
   // round trip is paid once, not per request.
   const cache = (caches as unknown as { default: Cache }).default;
-  const cacheKey = new Request(`https://kiumi.internal/objects/v3/${key}`);
+  const recordObject = key.startsWith('catalog/modern/') || key.startsWith('catalog/templates/') || key.startsWith('catalog/svg-anim/');
+  const cacheKey = new Request(`https://kiumi.internal/objects/${recordObject ? 'v3' : 'v4'}/${key}`);
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
 
