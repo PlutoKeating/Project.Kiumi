@@ -51,7 +51,7 @@ Worker 通过 VPC/Tunnel 连接自建数据服务。模板与镜像素材目录�
 
 网页导入服务只取公开资源，不携带用户站点凭证，禁止私网地址；秀米阅读页由前端脚本渲染，数据服务识别其预埋的 `showInfo.show_data_url`，只在秀米自有域名下以 https 读取 show-data JSON，把 `$appendix.htmlForPreview` 连同标题作为文章 HTML 返回，临时链接提示等页面壳不进入导入；浏览器清理 HTML 并内联排版样式。微信不支持的表单/脚本不进入输出。失效模板配图直接移除。
 
-Word/WPS 导入在浏览器内使用按需加载的 Mammoth + JSZip，经过 OOXML 兼容处理、HTML 清理、语义分块和问题预览。带图导入要求团队身份，确认后逐张上传自建存储，成功后一次写入现有 HTML 块；不引入服务端文档转换。ZIP 资源提取按解压大小限制，图片总量 80 MiB、单张 10 MiB。完整行为与降级边界见 [WORD_IMPORT.md](WORD_IMPORT.md)。
+Word/WPS 导入在浏览器内使用按需加载的 Mammoth + JSZip，经过 OOXML 兼容处理、HTML 清理、语义分块和问题预览。带图导入要求团队身份，预览期间后台并行上传自建存储，确认时补齐后一次写入现有 HTML 块；不引入服务端文档转换。ZIP 资源提取按解压大小限制，图片总量 80 MiB、单张 10 MiB。完整行为与降级边界见 [WORD_IMPORT.md](WORD_IMPORT.md)。
 
 ## 本地优先编辑
 
