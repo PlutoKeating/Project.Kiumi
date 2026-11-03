@@ -96,7 +96,7 @@ export function ImportPanel() {
     }
     if (review.current === controller) review.current = null;
     if (outcome.stop === 'cancelled') { setAgent(a => (a ? { ...a, running: false, status: `已停止精修，使用第 ${steps.length} 步的结果。` } : a)); return; }
-    if (outcome.stop === 'unavailable') { setAgent(null); return; }
+    if (outcome.stop === 'unavailable') { setAgent({ running: false, steps: [], status: 'AI 版面精修未启用：没有可调用的模型。站点管理员可在账号菜单「模型配置」里为「版面精修」选择一个能读图片的模型。' }); return; }
     show(outcome.html);
     const status = {
       satisfied: `AI 精修完成（${steps.length} 步）：${outcome.summary}`,

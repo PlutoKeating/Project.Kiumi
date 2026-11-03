@@ -77,12 +77,14 @@ test('a provider is added from the catalog, given a key and models, and saved as
 
   await page.getByRole('button', { name: '调用顺序与用途' }).click();
   await page.getByRole('button', { name: '下移' }).first().click();
-  await page.locator('.purpose-targets').last().getByText('acme/acme-large').click();
+  await page.locator('.admin-card', { has: page.getByRole('heading', { name: '风格编排', exact: true }) }).locator('.purpose-targets').getByText('acme/acme-large').click();
   await page.screenshot({ path: 'test-results/admin-order.png', fullPage: true });
 
   await expect(page.getByText('有未保存的更改')).toBeVisible();
   await page.getByRole('button', { name: '保存', exact: true }).click();
   await expect(page.getByText(/已保存（版本 1）/)).toBeVisible();
+  // Every model purpose has its card, the layout review included.
+  for (const title of ['结构识别', '风格编排', '版面精修']) await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   const body = saved[0];
   expect(body.version).toBe(0);
   expect(body.providers[0]).toMatchObject({ id: 'acme', catalogId: 'acme', protocol: 'openai-chat', baseUrl: 'https://gw.acme.example/v1' });

@@ -56,7 +56,9 @@ interface CatalogView { source: string | null; fetchedAt: string | null; error: 
 interface Draft { providers: DraftProvider[]; purposes: Record<Purpose, PurposeConfig>; catalogUrl: string }
 
 const snapshot = (d: Draft) => JSON.stringify(d);
-const fromView = (v: ConfigView): Draft => ({ providers: v.providers.map(p => ({ ...p, headers: p.headers ?? {} })), purposes: v.purposes, catalogUrl: v.catalogUrl });
+/** Defaults for a purpose the server's config predates, so every purpose has its card. */
+const PURPOSE_DEFAULTS: Record<Purpose, PurposeConfig> = { annotate: { targets: [], maxTokens: 1500, timeoutMs: 30_000 }, plan: { targets: [], maxTokens: 4000, timeoutMs: 60_000 }, polish: { targets: [], maxTokens: 3000, timeoutMs: 90_000 } };
+const fromView = (v: ConfigView): Draft => ({ providers: v.providers.map(p => ({ ...p, headers: p.headers ?? {} })), purposes: { ...PURPOSE_DEFAULTS, ...v.purposes }, catalogUrl: v.catalogUrl });
 const fmtTokens = (n: number | null) => (n == null ? '—' : n >= 1000 ? `${Math.round(n / 1000)}K` : String(n));
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'provider';
 
@@ -382,7 +384,7 @@ function OrderPanel({ draft, update, saved }: { draft: Draft; update: (fn: (d: D
         </>}
       </SortableList> : <p className="admin-muted">还没有模型。</p>}
     </div>
-    {(['annotate', 'plan'] as Purpose[]).map(purpose => {
+    {(Object.keys(PURPOSE_LABEL) as Purpose[]).map(purpose => {
       const cfg = draft.purposes[purpose];
       const set = (fn: (c: PurposeConfig) => void) => update(d => { fn(d.purposes[purpose]); return d; });
       const pinned = cfg.targets;
