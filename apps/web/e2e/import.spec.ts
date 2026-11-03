@@ -174,12 +174,13 @@ async function app(page: import('@playwright/test').Page, failUpload: boolean | 
   return { saved, uploads: () => uploads };
 }
 
-test('UI preview does not mutate canvas; confirmed import uploads, edits, saves, restores, exports and undoes as one operation', async ({ page }) => {
+test('UI preview does not mutate canvas but uploads pictures in the background; confirmed import reuses them, edits, saves, restores, exports and undoes as one operation', async ({ page }) => {
   const backend = await app(page);
   await page.getByRole('button', { name: '导入内容', exact: true }).click();
   await page.getByLabel('选择导入文件').setInputFiles({ name: '推文.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await wordFile() });
   await expect(page.locator('[data-import-block]')).toHaveCount(5);
-  expect(backend.uploads()).toBe(0);
+  // Pictures go up while the preview is open (the AI steps run meanwhile); the canvas is untouched.
+  await expect.poll(() => backend.uploads()).toBe(1);
   expect(await page.evaluate(async () => (await import('/src/store.ts')).useStore.getState().doc.blocks.length)).toBe(0);
   const checkbox = page.getByRole('checkbox');
   if (await checkbox.count()) await checkbox.check();

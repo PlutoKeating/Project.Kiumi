@@ -4,7 +4,7 @@ import * as api from '../api.ts';
 import { useStore } from '../store.ts';
 import { Icon } from './Icon.tsx';
 import { Segmented, Select, SheetHeader } from './ui.tsx';
-import { prepareClipboard, prepareFile, prepareText, prepareRichHtml, releasePreview, setHeading, uploadPreview, type ImportPreview } from '../lib/word-import/index.ts';
+import { preloadUploads, prepareClipboard, prepareFile, prepareText, prepareRichHtml, releasePreview, setHeading, uploadPreview, type ImportPreview } from '../lib/word-import/index.ts';
 import { applyMatching, chooseOriginal } from '../lib/word-import/bundle.ts';
 import { annotate, importSession, recognize, typesetPreview, type StyledResult } from '../lib/typeset-import.ts';
 
@@ -26,9 +26,11 @@ export function ImportPanel() {
   useEffect(() => { if (importRequest) setOpen(true); }, [importRequest]);
   useEffect(() => { if (open) void useStore.getState().loadRules(); }, [open]);
   const cancellation = useRef<AbortController | null>(null);
+  /** Background uploads started with the preview, so pictures are on the server by the time the AI is done. */
+  const preload = useRef<AbortController | null>(null);
   const selected = useStore(s => s.selected);
-  const reset = () => { if (base.current) releasePreview(base.current); base.current = null; current.current = null; setPreview(null); setStyled(null); setOutline([]); setAcknowledged(false); setMessage(''); };
-  useEffect(() => () => { cancellation.current?.abort(); if (base.current) releasePreview(base.current); }, []);
+  const reset = () => { preload.current?.abort(); preload.current = null; if (base.current) releasePreview(base.current); base.current = null; current.current = null; setPreview(null); setStyled(null); setOutline([]); setAcknowledged(false); setMessage(''); };
+  useEffect(() => () => { cancellation.current?.abort(); preload.current?.abort(); if (base.current) releasePreview(base.current); }, []);
   const close = () => { if (busy) return; reset(); setOpen(false); };
 
   const prepare = async (operation: () => Promise<ImportPreview>) => {
@@ -38,6 +40,7 @@ export function ImportPanel() {
       const result = await operation();
       if (scope.current !== api.workspaceKey()) { releasePreview(result); throw new Error('账号或团队已切换，请重新导入。'); }
       base.current = result; current.current = result; setPreview(result); setMessage('');
+      if (api.teamId() && result.assets.length) { preload.current = new AbortController(); void preloadUploads(result, scope.current, preload.current.signal); }
       if (!result.items.length && !result.galleryOnly) setMessage('没有可导入的内容。');
       else if (!result.galleryOnly) await arrange(result, useStyle);
     } catch (error) { setMessage((error as Error).message); }

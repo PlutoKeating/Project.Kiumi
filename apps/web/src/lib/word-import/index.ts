@@ -301,20 +301,23 @@ export function setHeading(item: ImportItem, level: number): ImportItem {
   return { ...item, candidate: false, label, block: { ...item.block, tplId: `imported:${label}`, html: safe(root.innerHTML) } };
 }
 
-export async function uploadPreview(preview: ImportPreview, scope: string, progress: (text: string) => void, signal?: AbortSignal) {
-  const check = () => { if (signal?.aborted) throw new Error('已取消导入；已上传的图片保留在团队图库。'); if (api.workspaceKey() !== scope) throw new Error('团队或账号已切换，请重新导入。'); };
-  check(); if (preview.assets.length) requireImageTeam();
-  for (let i = 0; i < preview.assets.length; i++) {
-    check(); const asset = preview.assets[i]; progress(`上传图片 ${i + 1}/${preview.assets.length}`);
-    for (let attempt = 0; !asset.uploadedUrl; attempt++) {
+type Asset = ImportPreview['assets'][number];
+/** One upload per asset, shared by the background preload and the confirm step. */
+const inflight = new WeakMap<Asset, Promise<string>>();
+
+function uploadAsset(asset: Asset, label: string, progress: (text: string) => void, check: () => void, signal?: AbortSignal): Promise<string> {
+  if (asset.uploadedUrl) return Promise.resolve(asset.uploadedUrl);
+  const running = inflight.get(asset);
+  if (running) return running;
+  const job = (async () => {
+    for (let attempt = 0; ; attempt++) {
       check();
-      try { asset.uploadedUrl = (await api.uploadImage(asset.file, signal)).url; }
+      try { asset.uploadedUrl = (await api.uploadImage(asset.file, signal)).url; return asset.uploadedUrl; }
       catch (error) {
         check();
         const transient = error instanceof TypeError || (error instanceof api.ApiError && [500,502,503,504].includes(error.status));
-        if (!transient || attempt >= 2) throw new Error(`第 ${i + 1} 张图片（${asset.file.name}）上传失败：${(error as Error).message}`);
-        progress(`图片 ${i + 1}/${preview.assets.length} 暂未上传成功，正在重试（${attempt + 1}/2）…`);
-        check();
+        if (!transient || attempt >= 2) throw new Error(`${label}（${asset.file.name}）上传失败：${(error as Error).message}`);
+        progress(`${label}暂未上传成功，正在重试（${attempt + 1}/2）…`);
         await new Promise<void>(resolve => {
           const done = () => { clearTimeout(timer); signal?.removeEventListener('abort', done); resolve(); };
           const timer = setTimeout(done, [500,1500][attempt]);
@@ -322,8 +325,49 @@ export async function uploadPreview(preview: ImportPreview, scope: string, progr
         });
       }
     }
-    check();
-  }
+  })();
+  inflight.set(asset, job);
+  // A failed or cancelled upload may be retried by the next caller.
+  job.catch(() => { if (inflight.get(asset) === job) inflight.delete(asset); });
+  return job;
+}
+
+const UPLOAD_PARALLEL = 3;
+
+async function uploadAll(preview: ImportPreview, progress: (text: string) => void, check: () => void, signal?: AbortSignal) {
+  const total = preview.assets.length;
+  let next = 0, done = preview.assets.filter(a => a.uploadedUrl).length;
+  if (done < total) progress(`上传图片 ${done}/${total}`);
+  const worker = async () => {
+    while (next < total) {
+      const i = next++;
+      const asset = preview.assets[i];
+      if (asset.uploadedUrl) continue;
+      await uploadAsset(asset, `第 ${i + 1} 张图片`, progress, check, signal);
+      done++;
+      progress(`上传图片 ${done}/${total}`);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(UPLOAD_PARALLEL, total) }, worker));
+}
+
+/**
+ * Start uploading the pictures as soon as the preview exists, while structure
+ * recognition and layout planning run. Errors are left for the confirm step,
+ * which waits for (or retries) whatever is still missing.
+ */
+export function preloadUploads(preview: ImportPreview, scope: string, signal: AbortSignal): Promise<void> {
+  if (!preview.assets.length) return Promise.resolve();
+  const check = () => { if (signal.aborted) throw new Error('已取消'); if (api.workspaceKey() !== scope) throw new Error('团队或账号已切换'); };
+  try { requireImageTeam(); } catch { return Promise.resolve(); }
+  return uploadAll(preview, () => {}, check, signal).catch(() => {});
+}
+
+export async function uploadPreview(preview: ImportPreview, scope: string, progress: (text: string) => void, signal?: AbortSignal) {
+  const check = () => { if (signal?.aborted) throw new Error('已取消导入；已上传的图片保留在团队图库。'); if (api.workspaceKey() !== scope) throw new Error('团队或账号已切换，请重新导入。'); };
+  check(); if (preview.assets.length) requireImageTeam();
+  await uploadAll(preview, progress, check, signal);
+  check();
   return preview.items.map(item => {
     const root = parse(item.block.html || '');
     for (const img of root.querySelectorAll('img')) {
