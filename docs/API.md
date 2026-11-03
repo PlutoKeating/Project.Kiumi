@@ -23,6 +23,7 @@
 | POST | `/api/manuscript/annotate` | `{prompt}`（`annotationRequest` 生成）结构识别的模型复核 `{patches}`，系统提示带本团队排版规范；未配置模型返回 501，网页回落到规则 |
 | GET/PUT | `/api/admin/llm` | 站点管理员：模型提供商配置（Key 只写入）；`/api/admin/catalog`、`/api/admin/catalog/models`、`POST /api/admin/llm/test` 见 [MODELS.md](MODELS.md) |
 | POST | `/api/manuscript/plan` | `{prompt}`（`planPrompt` 生成，复核轮次为 `reviewPrompt`）风格排版方案 `{entries:[{u,t,img}]}`，系统提示带本团队排版规范；网页对每个方案跑 `reviewPlan`，不合格最多再问 2 轮；未配置模型 501，模型无可用方案 502，网页回落到规则方案 |
+| POST | `/api/manuscript/agent` | `{messages, session?}` 版面精修（ReAct）的一步：整段对话（用户消息可带 `{type:'image',mime,data}` 截图），系统提示带本团队规范，返回 `{text, images}`（`images:false` 表示模型不读图片、已改用纯文字）；最多 80 条消息、12 张图、8 MB；未配置模型 501 |
 | POST | `/api/import/manuscript?token=` | 预签名上传：请求体为稿件 ZIP/DOCX，解析、匹配原图、排入风格并写入文稿，返回识别报告与规范审稿 `review` |
 | GET | `/api/preview/:id?token=` | 签名预览页（手机宽度），1 小时有效 |
 | POST | `/mcp` | 远程 MCP，Bearer 令牌，见 [MCP.md](MCP.md) |

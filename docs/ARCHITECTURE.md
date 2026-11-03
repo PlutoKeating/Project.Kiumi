@@ -9,7 +9,7 @@ Worker 通过 VPC/Tunnel 连接自建数据服务。模板与镜像素材目录�
 
 ## 模块
 
-- `packages/core`：纯函数文档模型、模板水合、原始 HTML 保真编辑、清理和微信校验；另有稿件语义模型与结构识别、风格模板分析与填充、原图匹配、团队排版规范与检查、由规范生成的模型/Agent 提示与排版方案复核（`prompts.ts`、`reviewPlan`）、DOM 无关的 DOCX 段落提取、文稿操作（ops）。这些模块不依赖浏览器，网页、Worker、数据服务与测试共用。
+- `packages/core`：纯函数文档模型、模板水合、原始 HTML 保真编辑、清理和微信校验；另有稿件语义模型与结构识别、风格模板分析与填充、原图匹配、团队排版规范与检查、由规范生成的模型/Agent 提示与排版方案复核（`prompts.ts`、`reviewPlan`）、版面精修（ReAct）的动作解析与受保护执行（`layoutagent.ts`）、DOM 无关的 DOCX 段落提取、文稿操作（ops）。这些模块不依赖浏览器，网页、Worker、数据服务与测试共用。
 - `packages/catalog`：来源数据抓取、归一化、素材镜像与目录索引；内置模板走 `crawl templates` / `crawl tags`，秀米「风格排版」店铺走 `crawl shop-list` / `crawl shop`，店铺记录并入 `catalog/modern/` 与 `modern-index.json`，分类为「风格排版」。店铺单条引用几十张图，首轮不逐张镜像，由 `/api/shop-image` 同源代理并在边缘缓存；后续可分批镜像。
 - `packages/sdk`：文件目录和文档操作门面；CLI、MCP、本地 Fastify 服务复用。
 - `apps/edge`：生产 HTTP API，依赖 core 与 D1/数据服务适配器。
@@ -33,6 +33,7 @@ Worker 通过 VPC/Tunnel 连接自建数据服务。模板与镜像素材目录�
 - 每个打开的文稿对应一个 Durable Object（`DocHub`，只转发通知，不存文稿）。写入后 Worker 推送 `{rev, by, from, ops}`，编辑器按同一份 ops 在本地应用，作为一步可撤销的修改。
 - 导入大文件走预签名上传地址：Worker 把请求体流式转给数据服务，数据服务完成解析与图片处理，Worker 登记图库并写入文稿，同时把识别后的稿件保存在 `manuscripts` 表，供之后换风格或纠正结构。
 - 团队排版规范存 `teams.typeset_rules`。
+- 网页导入的版面精修循环在浏览器运行（只有浏览器能渲染、测量、截图），每一步经 `POST /api/manuscript/agent` 调用服务端模型，动作在浏览器用 core 校验执行；见 [MANUSCRIPT.md](MANUSCRIPT.md#版面精修react)。
 - 站点级设置存 D1 `settings`（每个键一份 JSON 加乐观锁版本）。模型提供商、Key（AES-GCM 加密）、调用顺序与各用途参数由 `/admin` 面板编辑（管理员见 `KIUMI_ADMIN_SUBS`），`apps/edge/src/llm.ts` 在每次调用时读取，热生效；模型目录（models.dev 格式，地址可配置）缓存在 Workers Cache API。见 [MODELS.md](MODELS.md)。
 
 ## 渲染

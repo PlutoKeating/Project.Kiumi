@@ -54,6 +54,8 @@ claude mcp add --transport http --client-id kiumi-mcp kiumi https://<站点>/mcp
 | `kiumi_apply_style` | 换风格重新排版（`null` 为纯文字）；可带 `plan`（按 `planPrompt` 写的排版方案，`null` 清除）。`plan` 先经程序复核，不合格返回 `PLAN_REJECTED` 与问题清单、文稿不变；放不下的内容按规范排在相邻位置，不会丢失 |
 | `kiumi_edit_document` | 精细修改：`title` `meta` `insert` `replace` `html` `remove` `move`，按块 id |
 | `kiumi_replace_text` | 只改标签之间的文字 |
+| `kiumi_layout_report` | 版面检查：给块内元素编号，列出文字、图片、带尺寸的框，以及样例照片残留、空框、占位文字、规范问题；返回 `rev` |
+| `kiumi_polish` | 精修一个元素：`{tool:'style',k,css}` 或 `{tool:'remove',k}`，必须带报告的 `rev`；稿件内容与规范锁定的样式受保护，违反返回 `POLISH_REJECTED` 与原因 |
 | `kiumi_lint` | 团队排版规范 + 微信兼容检查，返回带块 id 的问题 |
 | `kiumi_preview_link` | 1 小时有效的手机宽度预览页，图片无需登录即可读取 |
 | `kiumi_typeset_rules` | 读取团队排版规范；创建者可修改 |
@@ -64,7 +66,8 @@ claude mcp add --transport http --client-id kiumi-mcp kiumi https://<站点>/mcp
 ## 规范约束与强制复核
 
 - `initialize` 返回的 `instructions` 含工作流、团队排版规范清单（默认值，并要求先用 `kiumi_typeset_rules` 读本团队规范）和强制复核规则；`kiumi_describe_style` 的 `planPrompt` 末尾附本团队规范。
-- 写入类工具（`kiumi_apply_style`、`kiumi_fix_structure`、`kiumi_edit_document`、`kiumi_replace_text`）与导入上传的响应都带 `review: {passed, note, style, wechat}`，Agent 应在 `passed` 为 `true` 后再继续。
+- 版面要像编辑一样反复看、反复改：`kiumi_layout_report` 与 `kiumi_preview_link` 观察，`kiumi_polish` / `kiumi_edit_document` 一次改一处，再观察，直到满意。
+- 写入类工具（`kiumi_apply_style`、`kiumi_fix_structure`、`kiumi_edit_document`、`kiumi_replace_text`、`kiumi_polish`）与导入上传的响应都带 `review: {passed, note, style, wechat}`，Agent 应在 `passed` 为 `true` 后再继续。
 - 方案复核规则与网页共用 core 的 `reviewPlan`，见 [MANUSCRIPT.md](MANUSCRIPT.md#模型与-agent-的规范约束)。
 
 ## 导入压缩包
