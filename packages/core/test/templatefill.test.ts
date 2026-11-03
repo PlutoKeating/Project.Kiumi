@@ -129,7 +129,7 @@ test('a smaller line in the title unit takes the subtitle; a long title breaks a
   assert.match(between, /<br>/, 'blank line between the photo and its copy inside the card');
 });
 
-test('a subtitle without a slot is a black display line under the title, not body text', () => {
+test('a subtitle without a slot is an outlined pill in the template colour under the title, not body text', () => {
   const title = unit(`<div style="font-size:200%"><p><span style="color:rgb(149, 73, 49)">${ph(14)}</span></p></div>`);
   const tpl = `<section>${[title, text(120), photo, text(120)].join('')}</section>`;
   const f = [
@@ -140,7 +140,8 @@ test('a subtitle without a slot is a black display line under the title, not bod
     T(4, '第二段正文内容，同样足够长，并以句号结尾。'),
   ];
   const { html, report } = fillTemplate(tpl, assembleManuscript(f, classifyFacts(f)), { resolveImage: r => `/uploads/${r}.jpg` });
-  assert.match(html, /<p style="[^"]*font-size:16px;font-weight:bold;line-height:2;letter-spacing:2px;color:#000000;">——走进广州从化罗洞工匠小镇<\/p>/);
+  assert.match(html, /border:1px solid rgb\(149, 73, 49\);border-radius:999px;[^"]*"><p style="[^"]*font-weight:bold;line-height:2;letter-spacing:2px;color:rgb\(149, 73, 49\);">走进广州从化罗洞工匠小镇<\/p>/);
+  assert.match(html.slice(html.indexOf('走进广州'), html.indexOf('第一段正文')), /<br>/, 'a blank line closes the title block');
   assert.equal(html.split('走进广州从化罗洞工匠小镇').length, 2, 'set once');
   assert.ok(html.indexOf('走进广州') < html.indexOf('第一段正文'));
   assert.equal(report.spilled, 0);
@@ -246,4 +247,20 @@ test('model and Agent prompts carry the team rules, generated from the same data
   const schema = analyzeTemplate(template), pieces = manuscriptPieces(assembleManuscript(facts, classifyFacts(facts)));
   assert.ok(planPrompt(schema, pieces, 30, DEFAULT_RULES).includes(brief));
   assert.ok(!planPrompt(schema, pieces).includes(brief));
+});
+
+test('a title set in an SVG foreignObject is found, and the title card keeps its artwork', () => {
+  // Header art: an illustration plus two title lines and a tag inside an SVG foreignObject.
+  const header = unit(`<div><img src="/assets/x/y/mat/i/fvId/art_sz-773899.jpg" style="width:100%"></div><svg viewBox="0 0 383 400"><svg><foreignobject><section style="font-size:101.69%"><div style="font-size:200%;color:rgb(201, 6, 4)"><p><b>${ph(5)}</b></p><p><b>${ph(5)}</b></p></div><p>${ph(13)}</p></section></foreignobject></svg></svg>`);
+  const tpl = `<section>${[header, text(120), photo, text(120)].join('')}</section>`;
+  const s = analyzeTemplate(tpl);
+  assert.equal(s.units[0].kind, 'title');
+  assert.equal(s.units[0].photos, 0, 'the header illustration is not a photo slot');
+  const f = [T(0, '直播助力非遗传承，文创赋能乡村振兴'), T(1, '——走进广州从化罗洞工匠小镇'), T(2, '第一段正文内容，足够长以免被识别为标题，并以句号结尾。'), I(3, 'a'), T(4, '第二段正文内容，同样足够长，并以句号结尾。')];
+  const { html, report } = fillTemplate(tpl, assembleManuscript(f, classifyFacts(f)), { resolveImage: r => `/uploads/${r}.jpg` });
+  assert.match(html, /<b>直播助力非遗传承<\/b>[\s\S]*<b>文创赋能乡村振兴<\/b>/);
+  assert.match(html, />走进广州从化罗洞工匠小镇</);
+  assert.match(html, /art_sz-773899\.jpg/, 'artwork kept');
+  assert.equal(html.match(/\/uploads\/a\.jpg/g)?.length, 1);
+  assert.equal(report.spilled, 0);
 });

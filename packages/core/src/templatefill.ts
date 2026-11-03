@@ -114,6 +114,10 @@ function textZones(unit: HNode): Zone[] {
         }
         zone.len += [...raw.trim()].length;
         zone.texts.push(child);
+      } else if (child.nodeType === 1 && /^svg$/i.test(child.tagName ?? '')) {
+        // SVG art is skipped, but copy laid out in a foreignObject is ordinary HTML
+        // (many shop headers set the article title this way).
+        for (const fo of (child as HNode).querySelectorAll('*').filter(e => /^foreignobject$/i.test(e.tagName ?? ''))) visit(fo);
       } else if (child.nodeType === 1 && !SKIP.test(child.tagName ?? '')) visit(child);
     }
   };
@@ -225,9 +229,13 @@ function schemaOf(units: HNode[]): TemplateSchema {
   const sizes = infos.filter(i => i.kind === 'text' || i.kind === 'heading').map(i => i.size).sort((a, b) => a - b);
   const median = sizes.length ? sizes[Math.floor(sizes.length / 2)] : 16;
   // Title: among the first content units, text that is clearly larger than the rest.
-  const title = content.slice(0, 3).find(i => (i.kind === 'heading' || i.kind === 'text') && i.size >= Math.max(median * 1.3, 20) && Math.max(...i.zones) <= 60);
+  // A header card (art plus the title, often in an SVG foreignObject) counts too.
+  const title = content.slice(0, 3).find(i => (i.kind === 'heading' || i.kind === 'text' || i.kind === 'mixed') && i.size >= Math.max(median * 1.3, 20) && Math.max(...i.zoneInfo.filter(z => z.size >= i.size * 0.75).map(z => z.len)) <= 60);
   if (title) {
     title.kind = 'title';
+    // Pictures in the title card are its artwork, never photo slots.
+    title.photos = 0;
+    delete title.photoFirst;
     const next = content[content.indexOf(title) + 1];
     if (next && next.kind === 'heading' && next.zones.length === 1 && next.zones[0] <= 40 && next.size < title.size) next.kind = 'subtitle';
   }
@@ -339,9 +347,12 @@ function headlineZones(zones: Array<{ len: number; size: number }>): number[] {
   return zones.map((z, i) => (z.len > NUM_ZONE && z.size >= top * 0.75 ? i : -1)).filter(i => i >= 0);
 }
 
+/** The smaller line of a title unit for the subtitle: the first one after the headline, else one before it. */
 const titleSubZone = (info: UnitInfo): number => {
   const head = headlineZones(info.zoneInfo);
-  return info.zoneInfo.findIndex((z, i) => z.len > NUM_ZONE && !head.includes(i));
+  const last = Math.max(-1, ...head);
+  const free = info.zoneInfo.map((z, i) => (z.len > NUM_ZONE && !head.includes(i) ? i : -1)).filter(i => i >= 0);
+  return free.find(i => i > last) ?? free[0] ?? -1;
 };
 
 /** A subtitle set in a template's tag or pill drops its leading dash. */
@@ -367,7 +378,7 @@ export function autoPlan(schema: TemplateSchema, pieces: Piece[]): PlanEntry[] {
 
   const byId = new Map(pieces.map(x => [x.id, x]));
   if (title && byId.has('T')) {
-    const entry: PlanEntry = { u: title.index, t: { [String(Math.max(0, mainZone(title, 1)))]: ['T'] } };
+    const entry: PlanEntry = { u: title.index, t: { [String(headlineZones(title.zoneInfo)[0] ?? Math.max(0, mainZone(title, 1)))]: ['T'] } };
     // No subtitle unit of its own: the smaller line under the headline takes it.
     const sub = titleSubZone(title);
     if (!subtitle && byId.has('S') && sub >= 0) entry.t![String(sub)] = ['S'];
@@ -802,6 +813,24 @@ function conformLine(zone: Zone, unit: HNode, role: 'heading' | 'line', rules: T
   addCss(zone.el, css);
 }
 
+/**
+ * The template's own colour for title-block lines it has no slot for: the first
+ * clearly coloured text (not black, grey or white), else the rule colour.
+ */
+function templateAccent(node: HNode, fallback: string): string {
+  for (const el of node.querySelectorAll('*')) {
+    if (el.closest?.('svg') && !el.closest?.('foreignobject')) continue;
+    const c = styleOf(el, 'color');
+    if (!c || !visibleText(el)) continue;
+    const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(c) ?? /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c);
+    if (!m) continue;
+    const rgb = m[0].startsWith('#') ? [m[1], m[2], m[3]].map(h => parseInt(h, 16)) : [m[1], m[2], m[3]].map(Number);
+    const l = luminance(c) ?? 0;
+    if (Math.max(...rgb) - Math.min(...rgb) > 40 && l < 0.8) return c;
+  }
+  return fallback;
+}
+
 /** A blank line (the template's or ours): no text, no picture, nothing drawn. */
 function isSpacer(el: HNode): boolean {
   if (!/^(p|section|div)$/i.test(el.tagName ?? '')) return false;
@@ -815,8 +844,8 @@ function isSpacer(el: HNode): boolean {
  * never two blank lines in a row, and one blank line at the very start and end.
  * The title unit keeps the template's own spacing (大标题按照模板).
  */
-function normalizeBlanks(wrapper: HNode, ours: Set<string>, title: HNode | undefined, rules: TypesetRules) {
-  const inside = (el: HNode, box: HNode | undefined) => { for (let n: HNode | null = el; n && box; n = n.parentNode as HNode | null) if (n === box) return true; return false; };
+function normalizeBlanks(wrapper: HNode, ours: Set<string>, title: HNode[], rules: TypesetRules) {
+  const inside = (el: HNode, boxes: HNode[]) => { for (let n: HNode | null = el; n; n = n.parentNode as HNode | null) if (boxes.includes(n)) return true; return false; };
   const textOnly = (el: HNode) => !!visibleText(el) && !el.querySelectorAll('img').some(i => ours.has(i.getAttribute('src') ?? ''));
   const spacers: HNode[] = [];
   const walk = (n: HNode) => { for (const c of elements(n)) { if (isSpacer(c)) spacers.push(c); else walk(c); } };
@@ -827,7 +856,7 @@ function normalizeBlanks(wrapper: HNode, ours: Set<string>, title: HNode | undef
     const i = sibs.indexOf(s);
     const prev = sibs[i - 1], next = sibs[i + 1];
     if (prev && isSpacer(prev)) { s.remove(); continue; }
-    if (prev && next && prev !== title && textOnly(prev) && textOnly(next)) s.remove();
+    if (prev && next && !title.includes(prev) && textOnly(prev) && textOnly(next)) s.remove();
   }
   if (rules.blankAtEdges) {
     const blank = blankLineHtml(rules);
@@ -942,7 +971,9 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
       const short = value.length === 1 && value[0].kind !== 'para' && zone.len < BODY_ZONE;
       if (short) {
         setLine(zone, value[0].kind === 'subtitle' ? undash(value[0].text) : value[0].text);
-        conformLine(zone, node, value[0].kind === 'heading' ? 'heading' : 'line', rules);
+        // The subtitle belongs to the title block (大标题按照模板): it keeps the slot's design.
+        if (value[0].kind === 'subtitle') dropInheritedFont(zone.el, node);
+        else conformLine(zone, node, value[0].kind === 'heading' ? 'heading' : 'line', rules);
       } else setBlock(zone, node, value.map(x => x.html).join(''), rules);
       if (value.some(x => x.kind === 'subtitle')) report.subtitle = true;
       report.paragraphs += value.filter(x => x.kind === 'para').length;
@@ -994,12 +1025,33 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
   }
 
   // Anything the plan left out is set beside its neighbour in reading order.
+  const wrapper = wrapperOf(root);
   const firstBody = instances.find(x => x.info.kind !== 'title' && x.info.kind !== 'subtitle')?.node;
+  const titleNode = instances.find(x => x.info.kind === 'title')?.node;
+  const accent = templateAccent(titleNode ?? wrapper, rules.textColor);
+  // Title-block lines without a slot go right under the template's title, or
+  // before the top-level box that opens the body (never inside a body card).
+  const topLevel = (n: HNode | undefined) => { let x = n; while (x && x.parentNode && x.parentNode !== wrapper) x = x.parentNode as HNode; return x && x.parentNode === wrapper ? x : undefined; };
+  const headAnchor: { node: HNode | null; before: boolean } = titleNode ? { node: titleNode, before: false } : { node: topLevel(firstBody) ?? null, before: true };
+  const headLines: string[] = [];
   const groups: Array<{ anchor: HNode | null; before: boolean; html: string[]; hasImage: boolean }> = [];
   let previous: HNode | null = null;
   for (const piece of pieces) {
     if (placed.has(piece.id)) { previous = placed.get(piece.id)!; continue; }
-    if (piece.kind === 'title') continue; // stays the article title
+    if (piece.kind === 'title') {
+      // 最前面的大标题: a template without a title slot still opens with the title, bold and large.
+      if (!report.title && manuscript.title) {
+        headLines.push(`<section style="padding:0 ${rules.sidePadding}px;"><p style="margin:0;text-align:center;font-size:${rules.headingSize + 8}px;font-weight:bold;line-height:1.6;letter-spacing:${rules.letterSpacing}px;color:${accent};">${escapeHtml(formatArticleTitle(manuscript.title, rules))}</p></section>`);
+        report.title = true;
+      }
+      continue;
+    }
+    if (piece.kind === 'subtitle') {
+      // No slot: an outlined pill in the template's colour, the way shop title blocks set it.
+      headLines.push(`<section style="padding:0 ${rules.sidePadding}px;text-align:center;"><section style="display:inline-block;max-width:100%;box-sizing:border-box;border:1px solid ${accent};border-radius:999px;padding:0 18px;"><p style="margin:0;font-size:${rules.bodySize + 1}px;font-weight:bold;line-height:${rules.lineHeight};letter-spacing:${rules.letterSpacing}px;color:${accent};">${escapeHtml(undash(piece.text))}</p></section></section>`);
+      report.subtitle = true;
+      continue;
+    }
     let markup = '';
     if (piece.kind === 'image') {
       const src = resolve(piece.ref!);
@@ -1007,29 +1059,28 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
       markup = `<p style="margin:0;text-align:center;"><img src="${escapeHtml(src)}" style="${imageCss(rules)}"></p>`;
       ours.add(src);
       report.images++;
-    } else if (piece.kind === 'subtitle') {
-      // No slot for it: still a display line under the title (black like all text but the title).
-      markup = `<section style="padding:0 ${rules.sidePadding}px;"><p style="margin:${rules.paragraphGap}px 0;text-align:center;font-size:${rules.headingSize}px;font-weight:bold;line-height:${rules.lineHeight};letter-spacing:${rules.letterSpacing}px;color:${rules.textColor};">${escapeHtml(piece.text)}</p></section>`;
-      report.subtitle = true;
     } else {
       markup = `<section style="padding:0 ${rules.sidePadding}px;">${piece.html}</section>`;
       if (piece.kind === 'para') report.paragraphs++;
     }
-    // A subtitle without a slot opens the body rather than squeezing under the title art.
-    if (piece.kind === 'subtitle') previous = null;
-    else report.spilled++;
+    report.spilled++;
     const anchor = previous ?? firstBody ?? null;
     const last = groups.at(-1);
     if (last && last.anchor === anchor && last.before === !previous) { last.html.push(markup); last.hasImage ||= piece.kind === 'image'; }
     else groups.push({ anchor, before: !previous, html: [markup], hasImage: piece.kind === 'image' });
   }
   const blank = blankLineHtml(rules);
-  const wrapper = wrapperOf(root);
   for (const g of groups) {
     const markup = g.html.map((h, i) => (rules.blankAroundImages && i > 0 && (/<img/.test(h) || /<img/.test(g.html[i - 1])) ? blank : '') + h).join('');
     const padded = rules.blankAroundImages && g.hasImage ? `${blank}${markup}${blank}` : markup;
     if (!g.anchor) wrapper.insertAdjacentHTML('beforeend', padded);
     else g.anchor.insertAdjacentHTML(g.before ? 'beforebegin' : 'afterend', padded);
+  }
+  if (headLines.length) {
+    // A blank line separates the title block from the body that follows (空行规范 below keeps it single).
+    const markup = `<section data-kiumi-head="1">${headLines.join('')}</section>` + (rules.blankAtEdges || rules.blankAroundImages ? blank : '');
+    if (!headAnchor.node) wrapper.insertAdjacentHTML('afterbegin', markup);
+    else headAnchor.node.insertAdjacentHTML(headAnchor.before ? 'beforebegin' : 'afterend', markup);
   }
 
   // Blank lines around pictures where the template itself has no spacer between.
@@ -1057,7 +1108,9 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
       if (after && content(after)) after.insertAdjacentHTML('beforebegin', blank);
     }
   }
-  normalizeBlanks(wrapper, ours, instances.find(x => x.info.kind === 'title')?.node, rules);
+  const head = root.querySelector('[data-kiumi-head]') ?? undefined;
+  normalizeBlanks(wrapper, ours, [titleNode, head].filter((x): x is HNode => !!x), rules);
+  head?.removeAttribute('data-kiumi-head');
 
   // Last line of defence: every paragraph and picture must be in the output.
   let out = root.toString();
@@ -1070,7 +1123,7 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
     out = root.toString();
   }
 
-  if (!schema.summary.title && manuscript.title) report.warnings.push('模板没有标题位，标题只作为图文标题使用。');
+  if (!schema.summary.title && manuscript.title) report.warnings.push('模板没有标题位，已在开头按模板主色排出大标题，请检查版面。');
   if (report.spilled) report.warnings.push(`有 ${report.spilled} 处内容模板放不下，已按排版规范排在相邻位置，请检查版面。`);
   if (report.generated.length) report.warnings.push(`以下小标题由 AI 根据正文拟写，请核对：${report.generated.join('、')}`);
   return { html: out, report };

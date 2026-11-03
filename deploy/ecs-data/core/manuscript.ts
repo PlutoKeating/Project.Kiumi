@@ -311,7 +311,15 @@ export function assembleManuscript(facts: SourceFact[], classified: Classified[]
         manuscript.subtitle = text.replace(/^[—–－-]{1,2}\s*/, '——');
         return;
       case 'byline': {
-        manuscript.byline = parseByline(text);
+        // A paragraph marked as byline (by rules or a model) may carry body text
+        // in front of 「文：… 图：…」; only the credits are the byline.
+        const split = splitTrailingByline(text);
+        if (split && split.body) {
+          push({ type: 'p', html: `<p>${escapeHtml(split.body)}</p>`, text: split.body, src: i });
+          manuscript.byline = manuscript.byline ?? parseByline(split.byline);
+        } else if (!split && text.length > 60) {
+          push({ type: 'p', html: fact.html, text, src: i }); // no credits at all: it is body text
+        } else manuscript.byline = parseByline(split?.byline ?? text);
         return;
       }
       case 'heading': {

@@ -66,3 +66,14 @@ test('splitTrailingByline leaves ordinary colons alone', () => {
   assert.equal(splitTrailingByline('会议提出：加强合作，推动发展。'), null);
   assert.equal(splitTrailingByline('收尾。文：甲 图：乙')?.body, '收尾。');
 });
+
+test('a long paragraph marked as byline keeps its body text; only the credits become the byline', () => {
+  const T = (i: number, t: string): SourceFact => ({ i, kind: 'text', text: t, html: `<p>${t}</p>` });
+  const facts = [T(0, '直播助力非遗传承'), T(1, '第一段正文内容，足够长以免被识别为标题，并以句号结尾。'), T(2, '未来，华南农业大学珠江学院师生将继续关注传统文化传播与数字营销的融合发展，为地方文化发展贡献青春力量。文：梁锦淏 图：李文筑')];
+  // A model review marks the last paragraph as a byline.
+  const m = assembleManuscript(facts, applyAnnotations(classifyFacts(facts), [[2, 'y']]));
+  assert.equal(m.byline?.writer, '梁锦淏');
+  assert.equal(m.byline?.photographer, '李文筑');
+  const paras = m.sections.flatMap(s => s.parts).filter(p => p.type === 'p').map(p => (p as { text: string }).text);
+  assert.ok(paras.some(t => t.startsWith('未来，华南农业大学') && t.endsWith('贡献青春力量。')));
+});
