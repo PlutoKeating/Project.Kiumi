@@ -22,6 +22,7 @@ import {
   type TypesetRules,
 } from '@kiumi/core';
 import { dataFetch } from './data.js';
+import { runModel } from './llm.js';
 import { commitOps, loadDocument } from './docs.js';
 import type { Env } from './index.js';
 import { ApiError, reply, teamContext } from './workspace.js';
@@ -287,20 +288,6 @@ export async function previewRoute(request: Request, env: Env, deps: Deps): Prom
 // Optional model second opinion for the web importer
 // ---------------------------------------------------------------------------
 
-/** One chat completion against the configured OpenAI-compatible endpoint. */
-export async function callModel(env: Env, system: string, prompt: string, options: { maxTokens: number; timeoutMs: number }): Promise<string> {
-  if (!env.LLM_API_URL || !env.LLM_API_KEY) throw new ApiError(501, 'LLM_NOT_CONFIGURED', '服务端未配置模型，已使用规则排版');
-  const response = await fetch(env.LLM_API_URL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${env.LLM_API_KEY}` },
-    body: JSON.stringify({ model: env.LLM_MODEL ?? 'default', temperature: 0, max_tokens: options.maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] }),
-    signal: AbortSignal.timeout(options.timeoutMs),
-  }).catch(() => null);
-  if (!response?.ok) throw new ApiError(502, 'LLM_FAILED', '模型暂时不可用，已使用规则排版');
-  const out = await response.json() as { choices?: { message?: { content?: string } }[] };
-  return out.choices?.[0]?.message?.content ?? '';
-}
-
 const PLAN_SYSTEM = '你是资深公众号排版编辑，负责把稿件编排进风格模板。只输出 JSON，不要解释。';
 
 /** Structure recognition: role corrections for the listed paragraphs. */
@@ -308,7 +295,7 @@ export async function annotateRoute(request: Request, env: Env): Promise<Respons
   await teamContext(env, request);
   const { prompt } = await request.json() as { prompt?: string };
   if (typeof prompt !== 'string' || !prompt || prompt.length > 20_000) throw new ApiError(400, 'INVALID_BODY', '提示内容无效');
-  const text = await callModel(env, '你是中文公众号编辑。只输出 JSON 数组，不要解释。', prompt, { maxTokens: 1500, timeoutMs: 30_000 });
+  const { text } = await runModel(env, 'annotate', '你是中文公众号编辑。只输出 JSON 数组，不要解释。', prompt);
   const match = /\[[\s\S]*\]/.exec(text);
   let patches: unknown = [];
   try { patches = match ? JSON.parse(match[0]) : []; } catch { patches = []; }
@@ -320,7 +307,8 @@ export async function planRoute(request: Request, env: Env): Promise<Response> {
   await teamContext(env, request);
   const { prompt } = await request.json() as { prompt?: string };
   if (typeof prompt !== 'string' || !prompt || prompt.length > 60_000) throw new ApiError(400, 'INVALID_BODY', '提示内容无效');
-  const plan = parsePlan(await callModel(env, PLAN_SYSTEM, prompt, { maxTokens: 4000, timeoutMs: 60_000 }));
+  const { text } = await runModel(env, 'plan', PLAN_SYSTEM, prompt);
+  const plan = parsePlan(text);
   if (!plan) throw new ApiError(502, 'LLM_FAILED', '模型没有给出可用的排版方案，已使用规则排版');
   return reply({ entries: plan });
 }

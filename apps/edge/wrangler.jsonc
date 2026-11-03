@@ -28,6 +28,8 @@
   ],
   "vars": {
     "KIUMI_STRICT_ASSETS": "1",
+    // Default model catalog (models.dev schema); the admin panel can point it elsewhere.
+    "MODEL_CATALOG_URL": "https://models.dev/api.json",
     "KIUMI_DATA_ORIGIN": "REPLACE_WITH_DATA_ORIGIN"
   },
   "observability": { "enabled": true }

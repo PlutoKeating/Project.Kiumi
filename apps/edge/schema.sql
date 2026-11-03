@@ -11,6 +11,10 @@ CREATE TABLE teams (
 CREATE TABLE manuscripts (
   doc_id TEXT PRIMARY KEY, team_id TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL
 );
+CREATE TABLE settings (
+  key TEXT PRIMARY KEY, value TEXT NOT NULL, version INTEGER NOT NULL,
+  updated_at TEXT NOT NULL, updated_by TEXT
+);
 CREATE TABLE members (
   team_id TEXT NOT NULL REFERENCES teams(id), user_sub TEXT NOT NULL,
   name TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('owner','member')),

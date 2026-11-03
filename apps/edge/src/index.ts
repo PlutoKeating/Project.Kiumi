@@ -10,6 +10,7 @@ import {
 } from '@kiumi/core';
 import { currentUser, handleAuth } from './auth.js';
 import { workspaceRoutes, privateUpload, exportImages, signedImages, ApiError, teamContext } from './workspace.js';
+import { adminRoutes, isAdmin } from './admin.js';
 import { annotateRoute, importRoute, planRoute, previewRoute, rulesRoutes, type Deps } from './manuscript.js';
 import { mcpRoutes } from './mcp.js';
 import { wechatRoutes } from './wechat.js';
@@ -22,10 +23,18 @@ export interface Env {
   DB: D1Database;
   /** One Durable Object per open document: live change notices. */
   DOC_HUB?: DurableObjectNamespace;
-  /** OpenAI-compatible chat endpoint used only for the optional structure second opinion. */
+  /**
+   * Legacy single model, used only until providers are configured in the admin
+   * panel (D1 settings `llm-config`). LLM_PROTOCOL defaults to openai-chat.
+   */
   LLM_API_URL?: string;
   LLM_API_KEY?: string;
   LLM_MODEL?: string;
+  LLM_PROTOCOL?: string;
+  /** Default model catalog (models.dev schema); the admin panel can override it. */
+  MODEL_CATALOG_URL?: string;
+  /** Site admins: account `sub` or email, comma separated. */
+  KIUMI_ADMIN_SUBS?: string;
   MCP_CLIENT_IDS?: string;
   KIUMI_STRICT_ASSETS?: string;
   /** Origin of the Shenzhen ECS data service, e.g. https://data.kiumi.example */
@@ -178,7 +187,7 @@ export default {
       if (path === '/api/health') return json({ ok: true, runtime: 'worker' });
       if (path === '/api/me') {
         const user = await currentUser(request, env);
-        return json({ user, loginEnabled: Boolean(env.ID_ISSUER_URL && env.ID_CLIENT_ID) });
+        return json({ user, loginEnabled: Boolean(env.ID_ISSUER_URL && env.ID_CLIENT_ID), admin: isAdmin(env, user) });
       }
       if (path.startsWith('/auth/')) {
         const handled = await handleAuth(request, env);
@@ -201,6 +210,7 @@ export default {
       }
       if (path === '/api/import/manuscript' && request.method === 'POST') return await importRoute(request, env, manuscriptDeps(env));
       if (path.startsWith('/api/preview/') && request.method === 'GET') return await previewRoute(request, env, manuscriptDeps(env));
+      if (path.startsWith('/api/admin/')) { const handled = await adminRoutes(request, env); if (handled) return handled; }
       if (path === '/api/manuscript/annotate' && request.method === 'POST') return await annotateRoute(request, env);
       if (path === '/api/manuscript/plan' && request.method === 'POST') return await planRoute(request, env);
       const rules = await rulesRoutes(request, env);
