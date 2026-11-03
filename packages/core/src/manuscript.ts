@@ -233,7 +233,7 @@ export function classifyFacts(facts: SourceFact[]): Classified[] {
  * Line format: `i|flags|len|first-N-chars`
  *   flags: B bold, C centered, L large, N numbered, H word-heading
  */
-export function annotationRequest(facts: SourceFact[], classified: Classified[], opts: { clip?: number } = {}) {
+export function annotationRequest(facts: SourceFact[], classified: Classified[], opts: { clip?: number; all?: boolean } = {}) {
   const clip = opts.clip ?? 24;
   const rows: string[] = [];
   const ask: number[] = [];
@@ -246,17 +246,18 @@ export function annotationRequest(facts: SourceFact[], classified: Classified[],
     if (!text) return;
     const uncertain = c.confidence < CONFIDENT;
     // Short unpunctuated body lines are the ones models fix; long prose never needs a vote.
-    const plausible = uncertain || (c.role === 'body' && text.length <= 40 && !TERMINAL.test(text));
+    const plausible = opts.all || uncertain || (c.role === 'body' && text.length <= 40 && !TERMINAL.test(text));
     if (!plausible) return;
     const flags = (f.bold ? 'B' : '') + (f.align === 'center' ? 'C' : '') + (bodySize && f.size && f.size > bodySize ? 'L' : '') + (numberingKind(text) ? 'N' : '') + (f.outline ? 'H' : '');
-    rows.push(`${i}|${flags}|${text.length}|${text.slice(0, clip)}`);
+    const current = c.role === 'heading' ? `h${c.level ?? 1}` : ({ title: 't', subtitle: 's', body: 'b', byline: 'y', caption: 'c' } as Record<string, string>)[c.role] ?? 'b';
+    rows.push(`${i}|${flags}|${text.length}|${current}|${text.length > clip + 8 ? `${text.slice(0, clip)}…${text.slice(-6)}` : text}`);
     ask.push(i);
   });
   return {
     ask,
     prompt: rows.length
-      ? '为下列段落判定角色。输入行格式 序号|标记|字数|开头。标记 B加粗 C居中 L大字 N带编号 H标题样式。\n' +
-        '角色: t主标题 s副标题 h1/h2/h3 标题层级 b正文 y署名 c图注。只输出 JSON 数组，元素为 [序号,角色]，只列需要改动的。\n' +
+      ? '为下列段落判定角色。输入行格式 序号|标记|字数|当前角色|内容（长段只给首尾）。标记 B加粗 C居中 L大字 N带编号 H标题样式。\n' +
+        '角色: t主标题 s副标题 h1/h2/h3 标题层级 b正文 y署名 c图注。全文只能有一个主标题。只输出 JSON 数组，元素为 [序号,角色]，只列需要改动的。\n' +
         rows.join('\n')
       : '',
   };
