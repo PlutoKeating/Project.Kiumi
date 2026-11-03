@@ -50,3 +50,4 @@ apps/web/playwright-report/
 .cursor/skills/impeccable/
 .gemini/skills/impeccable/
 .cursor/agents/impeccable-*.md
+.impeccable/hook.cache.json

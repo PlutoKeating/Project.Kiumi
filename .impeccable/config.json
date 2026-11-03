@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "helvetica neue",
+        "createdAt": "2026-11-03T14:51:44.431Z",
+        "reason": "agent decision: layout-agent.ts renders article HTML in an offscreen frame with the WeChat reader's default font stack to measure it as phones show it; not workbench UI typography"
+      }
+    ]
+  }
+}
