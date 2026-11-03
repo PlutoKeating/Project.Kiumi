@@ -62,8 +62,8 @@ parts: p（段落）| figure（一张或多张图 + 图注）| table | list | qu
 
 `{u: 单元号, t: {区号: [稿件编号…] | "拟写文字"}, img: [图片编号…]}`。稿件编号来自 `manuscriptPieces`：`T` 标题、`S` 副标题、`h0…` 小标题、`p0…` 正文、`f0…` 图片、`c0…` 图注、`Y` 署名。同一单元可以重复出现（复制一份），没列出的单元被删除。
 
-- **模型方案**（网页）：浏览器用 `planPrompt` 生成单元与稿件的精简清单（整篇约 1.5–3 千字符），经 `POST /api/manuscript/plan` 交给服务端模型（`/admin`「风格编排」用途）。模型可以给没有对应内容的小标题条拟写短标题（会在预览里列出，请核对），可以重复或跳过单元，让稿件结构贴合模板节奏。覆盖不到 60% 稿件内容的方案视为不可用，改用规则方案。
-- **Agent 方案**（MCP）：`kiumi_describe_style` 带 `documentId` 返回同一份清单，Agent 用自己的模型写方案，经 `kiumi_apply_style` 的 `plan` 提交，保存后在换结构或换风格时清除。
+- **模型方案**（网页）：浏览器用 `planPrompt` 生成单元与稿件的精简清单（整篇约 1.5–3 千字符），经 `POST /api/manuscript/plan` 交给服务端模型（`/admin`「风格编排」用途），系统提示带本团队排版规范（见下文「模型与 Agent 的规范约束」）。模型可以给没有对应内容的小标题条拟写短标题（会在预览里列出，请核对），可以重复或跳过单元，让稿件结构贴合模板节奏。覆盖不到 60% 稿件内容的方案视为不可用，改用规则方案。
+- **Agent 方案**（MCP）：`kiumi_describe_style` 带 `documentId` 返回同一份清单（末尾附本团队排版规范），Agent 用自己的模型写方案，经 `kiumi_apply_style` 的 `plan` 提交；复核不通过不应用。方案保存后在换结构或换风格时清除。
 - **规则方案**（`autoPlan`）：按稿件顺序为每段找下一个合适的单元：小标题→标签条，正文→正文区或图文卡片，图片→图位数不超过剩余图片的图片单元；模板用完后从第一个小标题条处循环复用。规则不会拟写文字，稿件没有小标题时模板的标签条会被删除。
 
 ### 3. 执行（`executePlan`）
@@ -79,6 +79,28 @@ parts: p（段落）| figure（一张或多张图 + 图注）| table | list | qu
 - 模板没有标题位时，标题只作为图文标题（公众号本身显示）不进正文。
 
 报告 `FillReport` 含 `plan`（`model` / `agent` / `auto`）、`generated`（拟写的标签）、`spilled`、`clonedUnits`、`removedUnits`、`warnings`。没有风格模板时用 `plainArticle` 生成纯文字排版。
+
+## 模型与 Agent 的规范约束
+
+规范不只由执行器在代码里强制写入，模型和 Agent 动手前就被告知，产出后还要经过复核。
+
+**一份规范说明**：`packages/core/src/prompts.ts` 的 `rulesBrief(rules)` 由团队的 `TypesetRules` 生成规范清单（空行、图片宽度、大标题、除大标题外全部文字的颜色/字体/行距/字距/段间距/边距/首行缩进、小标题、正文字号）。团队改了规范，模型拿到的就是改后的数字。它被用在：
+
+| 位置 | 用法 |
+|---|---|
+| 风格编排（网页） | `planSystem(rules)` 作系统提示：规范清单 + 分工（格式由排版器强制，方案只决定放置）+ 硬性要求（编号各一次、不改写正文、主标题不拆进副标题位、拟写标签 ≤12 字且只在小标题条）+ 告知会被复核退回 |
+| 结构识别（网页） | `annotateSystem(rules)`：说明角色判定直接决定排版，副标题、小标题、署名、图注的判定要点，附规范清单 |
+| MCP 连接说明 | `agentInstructions(rules)`：工作流、默认规范（提示先用 `kiumi_typeset_rules` 读本团队规范）、强制复核规则、写 HTML 时的规范 |
+| `kiumi_describe_style` 的 `planPrompt` | 末尾附本团队规范清单 |
+
+**强制复核**：`reviewPlan(schema, pieces, plan)` 是每个模型/Agent 方案必过的检查，错误项包括：漏排或重复的编号、不存在的单元/区/编号、装饰单元放内容、图片进文字区或非图片进图片位、图片超过图位、主标题不在标题单元大字区、副标题占主标题大字区、正文放进小标题条或标题区、在小标题条以外拟写文字、拟写超过 12 字。规则方案本身总能通过复核。
+
+- 网页：有错误时用 `reviewPrompt` 把原任务、被退回的方案和问题清单发回模型重做，最多复核 2 轮（共 3 次调用）；仍不合格则改用规则方案，预览提示「模型的排版方案未通过规范复核」。
+- MCP：`kiumi_apply_style` 的 `plan` 有错误时返回 `PLAN_REJECTED` 和问题清单，文稿不变，Agent 改正后重新提交。
+
+**写入后审稿**：导入上传的响应和 `kiumi_apply_style`、`kiumi_fix_structure`、`kiumi_edit_document`、`kiumi_replace_text` 的结果都带 `review`（与 `kiumi_lint` 同一套规范与微信检查，`passed` 表示无问题）。`kiumi_create_wechat_draft` 在仍有问题时返回 `REVIEW_REQUIRED` 并列出问题；只有传 `reviewed: true` 且在 `reviewNote` 写明由人核对过的理由才放行。
+
+稿件导入写入文稿时，文稿标题也按规范处理（冒号/竖杠后截断、逗号改空格）。
 
 ## 原图匹配
 

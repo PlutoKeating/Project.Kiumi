@@ -51,15 +51,21 @@ claude mcp add --transport http --client-id kiumi-mcp kiumi https://<站点>/mcp
 | `kiumi_begin_import` | 返回 15 分钟有效的上传地址，见下 |
 | `kiumi_get_manuscript` | 识别出的文章结构大纲，以及仍不确定的段落清单 |
 | `kiumi_fix_structure` | 按 `[[序号, 角色]]` 纠正结构并重新排版 |
-| `kiumi_apply_style` | 换风格重新排版（`null` 为纯文字）；可带 `plan`（按 `planPrompt` 写的排版方案，`null` 清除），放不下的内容按规范排在相邻位置，不会丢失 |
+| `kiumi_apply_style` | 换风格重新排版（`null` 为纯文字）；可带 `plan`（按 `planPrompt` 写的排版方案，`null` 清除）。`plan` 先经程序复核，不合格返回 `PLAN_REJECTED` 与问题清单、文稿不变；放不下的内容按规范排在相邻位置，不会丢失 |
 | `kiumi_edit_document` | 精细修改：`title` `meta` `insert` `replace` `html` `remove` `move`，按块 id |
 | `kiumi_replace_text` | 只改标签之间的文字 |
 | `kiumi_lint` | 团队排版规范 + 微信兼容检查，返回带块 id 的问题 |
 | `kiumi_preview_link` | 1 小时有效的手机宽度预览页，图片无需登录即可读取 |
 | `kiumi_typeset_rules` | 读取团队排版规范；创建者可修改 |
-| `kiumi_create_wechat_draft` | 同步到团队公众号草稿箱（不发表） |
+| `kiumi_create_wechat_draft` | 同步到团队公众号草稿箱（不发表）。仍有规范或微信问题时返回 `REVIEW_REQUIRED`；人已核对并接受时传 `reviewed: true` 与 `reviewNote` |
 
 多个团队时需要 `team` 参数；只属于一个团队时可省略。工具错误以 `isError` 返回稳定的错误码与说明。
+
+## 规范约束与强制复核
+
+- `initialize` 返回的 `instructions` 含工作流、团队排版规范清单（默认值，并要求先用 `kiumi_typeset_rules` 读本团队规范）和强制复核规则；`kiumi_describe_style` 的 `planPrompt` 末尾附本团队规范。
+- 写入类工具（`kiumi_apply_style`、`kiumi_fix_structure`、`kiumi_edit_document`、`kiumi_replace_text`）与导入上传的响应都带 `review: {passed, note, style, wechat}`，Agent 应在 `passed` 为 `true` 后再继续。
+- 方案复核规则与网页共用 core 的 `reviewPlan`，见 [MANUSCRIPT.md](MANUSCRIPT.md#模型与-agent-的规范约束)。
 
 ## 导入压缩包
 
@@ -70,7 +76,7 @@ claude mcp add --transport http --client-id kiumi-mcp kiumi https://<站点>/mcp
 2. 在 shell 里执行返回的 curl（POST 整个 ZIP 或 DOCX 到 uploadUrl）
 ```
 
-第二步的响应就是结果：识别出的标题与结构大纲、图片匹配情况（需核对的项带候选原图）、未使用的原图（已入团队图库）、仍不确定的段落清单、警告。上传地址由 HMAC 签名，绑定用户、团队、文稿，15 分钟过期，上传大小上限 120 MB。
+第二步的响应就是结果：识别出的标题与结构大纲、图片匹配情况（需核对的项带候选原图）、未使用的原图（已入团队图库）、仍不确定的段落清单、警告，以及写入后的规范审稿 `review`。上传地址由 HMAC 签名，绑定用户、团队、文稿，15 分钟过期，上传大小上限 120 MB。
 
 ## 实时同步
 
