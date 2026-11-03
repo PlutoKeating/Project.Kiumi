@@ -7,11 +7,16 @@ const catalog = {
   providers: [
     { id: 'acme', name: 'Acme AI', doc: 'https://acme.example/docs', baseUrl: 'https://gw.acme.example/v1', npm: '@ai-sdk/openai-compatible', protocol: 'openai-chat', modelCount: 2 },
     { id: 'claudeish', name: 'Claudeish', doc: null, baseUrl: null, npm: '@ai-sdk/anthropic', protocol: 'anthropic-messages', modelCount: 1 },
+    { id: 'opencode-go', name: 'OpenCode Go', doc: 'https://docs.example/go', baseUrl: 'https://og.example/inference/go/openai/v1', npm: '@ai-sdk/openai-compatible', protocol: 'openai-chat', modelCount: 2 },
   ],
 };
 const models = [
-  { id: 'acme-large', name: 'Acme Large', status: null, updated: '2026-10-01', released: '2026-09-01', context: 128000, output: 8000, costIn: 1, costOut: 2, reasoning: true, images: true },
-  { id: 'acme-mini', name: 'Acme Mini', status: 'deprecated', updated: '2025-01-01', released: null, context: 32000, output: 4000, costIn: 0.1, costOut: 0.2, reasoning: false, images: false },
+  { id: 'acme-large', name: 'Acme Large', protocol: null, baseUrl: null, status: null, updated: '2026-10-01', released: '2026-09-01', context: 128000, output: 8000, costIn: 1, costOut: 2, reasoning: true, images: true },
+  { id: 'acme-mini', name: 'Acme Mini', protocol: null, baseUrl: null, status: 'deprecated', updated: '2025-01-01', released: null, context: 32000, output: 4000, costIn: 0.1, costOut: 0.2, reasoning: false, images: false },
+];
+const goModels = [
+  { id: 'kimi-x', name: 'Kimi X', protocol: null, baseUrl: 'https://og.example/inference/go/openai/v1', status: null, updated: '2026-10-20', released: null, context: 256000, output: 32000, costIn: null, costOut: null, reasoning: true, images: false },
+  { id: 'minimax-y', name: 'MiniMax Y', protocol: 'anthropic-messages', baseUrl: 'https://og.example/inference/go/anthropic/v1', status: null, updated: '2026-10-21', released: null, context: 200000, output: 16000, costIn: null, costOut: null, reasoning: true, images: false },
 ];
 const empty = { version: 0, source: 'none', envFallback: null, catalogUrl: '', defaultCatalogUrl: 'https://catalog.example/api.json', purposes: { annotate: { targets: [], maxTokens: 1500, timeoutMs: 30000 }, plan: { targets: [], maxTokens: 4000, timeoutMs: 60000 } }, providers: [], targets: [] };
 
@@ -20,7 +25,10 @@ async function stub(page: Page, admin = true) {
   await page.route('**/api/me', route => route.fulfill({ json: { ok: true, data: { user: { sub: 'root', name: 'Root' }, loginEnabled: true, admin } } }));
   await page.route('**/api/admin/catalog?**', route => route.fulfill({ json: { ok: true, data: catalog } }));
   await page.route('**/api/admin/catalog', route => route.fulfill({ json: { ok: true, data: catalog } }));
-  await page.route('**/api/admin/catalog/models?**', route => route.fulfill({ json: { ok: true, data: { provider: 'acme', models } } }));
+  await page.route('**/api/admin/catalog/models?**', route => {
+    const provider = new URL(route.request().url()).searchParams.get('provider');
+    return route.fulfill({ json: { ok: true, data: { provider, models: provider === 'opencode-go' ? goModels : models } } });
+  });
   await page.route('**/api/admin/llm/test', route => route.fulfill({ json: { ok: true, data: { ok: true, ms: 820, sample: '可用' } } }));
   await page.route('**/api/admin/llm', async route => {
     if (route.request().method() === 'PUT') {
@@ -130,4 +138,34 @@ test('cards are dragged by their grip: others make way, the order changes locall
   await expect(page.getByText(/已保存（版本 1）/)).toBeVisible();
   expect(writes).toEqual(['PUT']);
   expect(saved[0].providers[0].models.map((m: any) => [m.id, m.order])).toEqual([['m-one', 1], ['m-two', 0], ['m-three', 2]]);
+});
+
+test('OpenCode Go: the session header is preset and catalog models keep their own protocol and address', async ({ page }) => {
+  const saved = await stub(page);
+  const tests: any[] = [];
+  await page.route('**/api/admin/llm/test', async route => { tests.push(route.request().postDataJSON()); await route.fulfill({ json: { ok: true, data: { ok: true, ms: 500, sample: '可用' } } }); });
+  await page.goto('/admin.html');
+  await page.getByRole('button', { name: '添加提供商' }).click();
+  await page.getByRole('combobox').fill('opencode');
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(/OpenCode Go 要求每次会话带稳定的 x-opencode-session/)).toBeVisible();
+  await expect(page.getByLabel('会话请求头')).toHaveValue('x-opencode-session');
+  await page.getByPlaceholder('粘贴 API Key').fill('sk-og-12345678');
+  await page.getByRole('button', { name: '添加 Key' }).click();
+  await page.getByRole('button', { name: '从目录选模型' }).click();
+  await page.getByText('MiniMax Y').click();
+  await page.getByText('Kimi X').click();
+  const rows = page.locator('.provider-card .admin-list').last().locator('li');
+  await expect(rows.first().getByRole('combobox')).toHaveText(/Anthropic Messages/);
+  await expect(rows.first().locator('.admin-model-url input')).toHaveValue('https://og.example/inference/go/anthropic/v1');
+  await expect(rows.nth(1).getByRole('combobox')).toHaveText(/跟随提供商协议/);
+  await rows.first().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'test-results/admin-opencode.png' });
+  await rows.first().getByRole('button', { name: '测试' }).click();
+  await expect(rows.first().getByText(/可用/)).toBeVisible();
+  expect(tests[0].provider).toMatchObject({ protocol: 'anthropic-messages', baseUrl: 'https://og.example/inference/go/anthropic/v1', sessionHeader: 'x-opencode-session' });
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+  await expect(page.getByText(/已保存（版本 1）/)).toBeVisible();
+  expect(saved[0].providers[0]).toMatchObject({ catalogId: 'opencode-go', sessionHeader: 'x-opencode-session', protocol: 'openai-chat', baseUrl: 'https://og.example/inference/go/openai/v1' });
+  expect(saved[0].providers[0].models.map((m: any) => [m.id, m.protocol ?? null, m.baseUrl ?? null])).toEqual([['minimax-y', 'anthropic-messages', 'https://og.example/inference/go/anthropic/v1'], ['kimi-x', null, null]]);
 });

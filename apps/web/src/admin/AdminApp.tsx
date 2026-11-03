@@ -24,10 +24,22 @@ const PURPOSE_LABEL: Record<Purpose, { title: string; detail: string }> = {
   plan: { title: '风格编排', detail: '决定稿件每部分放进模板的哪个单元，并为小标题条拟写短标题' },
 };
 const REASON: Record<string, string> = { provider_disabled: '提供商已停用', model_disabled: '模型已停用', no_key: '没有可用 Key' };
+/**
+ * Gateways with documented client requirements, keyed by catalog provider id.
+ * OpenCode Go / Zen ask every client to send a stable session id per
+ * conversation in `x-opencode-session` (routing, prompt caching) and to name
+ * itself in User-Agent; the Worker always sends its own User-Agent.
+ */
+const GATEWAY_PRESETS: Record<string, { sessionHeader: string; note: string }> = {
+  'opencode-go': { sessionHeader: 'x-opencode-session', note: 'OpenCode Go 要求每次会话带稳定的 x-opencode-session 并用可识别的 User-Agent；不同模型走不同协议与地址，从目录勾选模型时会自动带上。' },
+  opencode: { sessionHeader: 'x-opencode-session', note: 'OpenCode Zen 要求每次会话带稳定的 x-opencode-session 并用可识别的 User-Agent；不同模型走不同协议与地址，从目录勾选模型时会自动带上。' },
+};
+const SHORT_PROTOCOL: Record<Protocol, string> = { 'openai-chat': 'OpenAI Chat', 'openai-responses': 'OpenAI Responses', 'anthropic-messages': 'Anthropic Messages', 'google-generative-ai': 'Google' };
+const protocolLabel = (p: Protocol) => PROTOCOL_OPTIONS.find(o => o.value === p)?.label ?? p;
 
 interface DraftKey { id?: string; label: string; enabled: boolean; masked?: string; addedAt?: string; apiKey?: string }
-interface DraftModel { id: string; enabled: boolean; order: number }
-interface DraftProvider { id: string; name: string; catalogId: string | null; protocol: Protocol; baseUrl: string; enabled: boolean; headers: Record<string, string>; keys: DraftKey[]; models: DraftModel[]; isNew?: boolean }
+interface DraftModel { id: string; enabled: boolean; order: number; protocol?: Protocol; baseUrl?: string }
+interface DraftProvider { id: string; name: string; catalogId: string | null; protocol: Protocol; baseUrl: string; enabled: boolean; headers: Record<string, string>; sessionHeader?: string; userAgent?: string; keys: DraftKey[]; models: DraftModel[]; isNew?: boolean }
 interface PurposeConfig { targets: string[]; maxTokens: number; timeoutMs: number }
 interface ConfigView {
   version: number; updatedAt?: string; updatedBy?: string; source: 'panel' | 'env' | 'none';
@@ -38,7 +50,7 @@ interface ConfigView {
   targets: Array<{ id: string; callable: boolean; reason?: string }>;
 }
 interface CatalogProvider { id: string; name: string; doc: string | null; baseUrl: string | null; npm: string; protocol: Protocol | null; modelCount: number }
-interface CatalogModel { id: string; name: string; status: string | null; updated: string | null; released: string | null; context: number | null; output: number | null; costIn: number | null; costOut: number | null; reasoning: boolean; images: boolean }
+interface CatalogModel { id: string; name: string; protocol: Protocol | null; baseUrl: string | null; status: string | null; updated: string | null; released: string | null; context: number | null; output: number | null; costIn: number | null; costOut: number | null; reasoning: boolean; images: boolean }
 interface CatalogView { source: string | null; fetchedAt: string | null; error: string | null; providers: CatalogProvider[] }
 interface Draft { providers: DraftProvider[]; purposes: Record<Purpose, PurposeConfig>; catalogUrl: string }
 
@@ -161,16 +173,18 @@ function ProviderCard({ provider: p, catalog, status, onChange, onRemove, nextOr
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [tests, setTests] = useState<Record<string, { state: 'run' | 'ok' | 'fail'; text: string }>>({});
   const source = catalog?.providers.find(c => c.id === p.catalogId);
+  const preset = p.catalogId ? GATEWAY_PRESETS[p.catalogId] : undefined;
   const callable = p.models.filter(m => status.find(t => t.id === `${p.id}/${m.id}`)?.callable).length;
   const enabledKeys = p.keys.filter(k => k.enabled).length;
   const headers = Object.entries(p.headers);
 
   const test = async (model: string) => {
+    const m = p.models.find(x => x.id === model);
     setTests(t => ({ ...t, [model]: { state: 'run', text: '测试中…' } }));
     const draftKey = p.keys.find(k => k.enabled && k.apiKey);
     const savedKey = p.keys.find(k => k.enabled && k.id);
     try {
-      const r = await request<{ ok: boolean; ms: number; sample?: string; error?: string }>('/api/admin/llm/test', { method: 'POST', body: JSON.stringify({ provider: { id: p.id, protocol: p.protocol, baseUrl: p.baseUrl, headers: p.headers }, model, ...(draftKey ? { apiKey: draftKey.apiKey } : savedKey ? { keyId: savedKey.id } : {}) }) });
+      const r = await request<{ ok: boolean; ms: number; sample?: string; error?: string }>('/api/admin/llm/test', { method: 'POST', body: JSON.stringify({ provider: { id: p.id, protocol: m?.protocol ?? p.protocol, baseUrl: m?.baseUrl ?? p.baseUrl, headers: p.headers, sessionHeader: p.sessionHeader, userAgent: p.userAgent }, model, ...(draftKey ? { apiKey: draftKey.apiKey } : savedKey ? { keyId: savedKey.id } : {}) }) });
       setTests(t => ({ ...t, [model]: r.ok ? { state: 'ok', text: `可用 · ${(r.ms / 1000).toFixed(1)} 秒 · 「${r.sample}」` } : { state: 'fail', text: r.error ?? '失败' } }));
     } catch (error) { setTests(t => ({ ...t, [model]: { state: 'fail', text: (error as Error).message } })); }
   };
@@ -200,6 +214,13 @@ function ProviderCard({ provider: p, catalog, status, onChange, onRemove, nextOr
           </span>
         </label>
 
+        {preset && <p className="admin-hint">{preset.note}{p.sessionHeader !== preset.sessionHeader && <> <button type="button" className="btn btn-tint" onClick={() => onChange(x => { x.sessionHeader = preset.sessionHeader; })}>按要求设置会话请求头</button></>}</p>}
+        <div className="field-pair">
+          <label className="field-label">会话请求头<input className="field" value={p.sessionHeader ?? ''} placeholder="网关要求时填写，如 x-opencode-session" onChange={e => { const v = e.target.value.trim(); onChange(x => { x.sessionHeader = v || undefined; }); }} /></label>
+          <label className="field-label">User-Agent<input className="field" value={p.userAgent ?? ''} placeholder="留空用 kiumi-typesetter/1.0" onChange={e => { const v = e.target.value; onChange(x => { x.userAgent = v || undefined; }); }} /></label>
+        </div>
+        <p className="admin-muted">会话请求头：一次导入里的所有调用带同一个随机 id（结构识别与风格编排共用），供网关做路由和提示缓存。</p>
+
         <h4>Key</h4>
         <ul className="admin-list">
           {p.keys.map((k, ki) => <li key={k.id ?? `new-${ki}`}>
@@ -225,11 +246,13 @@ function ProviderCard({ provider: p, catalog, status, onChange, onRemove, nextOr
             return <li key={m.id}>
               <label className="tool-check"><input type="checkbox" checked={m.enabled} onChange={e => { const v = e.target.checked; onChange(x => { x.models[mi].enabled = v; }); }} /></label>
               <code className="admin-model">{m.id}</code>
+              <Select label={`${m.id} 的协议`} variant="chip" value={m.protocol ?? 'inherit'} options={[{ value: 'inherit', label: '跟随提供商协议' }, ...PROTOCOL_OPTIONS.map(o => ({ value: o.value, label: SHORT_PROTOCOL[o.value] }))]} onChange={v => onChange(x => { x.models[mi].protocol = v === 'inherit' ? undefined : v as Protocol; })} />
               {info && !info.callable && <span className="admin-badge" data-tone="warn">{REASON[info.reason ?? ''] ?? '不可调用'}</span>}
               {!info && <span className="admin-badge">待保存</span>}
               <button type="button" className="btn btn-plain" disabled={t?.state === 'run' || !p.baseUrl || !p.keys.some(k => k.enabled)} onClick={() => void test(m.id)}>测试</button>
               <button type="button" className="icon-btn" aria-label={`移除 ${m.id}`} onClick={() => onChange(x => { x.models.splice(mi, 1); })}><Icon name="trash" size={16} /></button>
               {t && <span className="admin-test" data-state={t.state}>{t.text}</span>}
+              {(m.baseUrl !== undefined || m.protocol) && <label className="admin-model-url">地址<input className="field" value={m.baseUrl ?? ''} placeholder={`跟随提供商：${p.baseUrl || '未填写'}`} onChange={e => { const v = e.target.value.trim(); onChange(x => { x.models[mi].baseUrl = v || undefined; }); }} /></label>}
             </li>;
           })}
         </ul>
@@ -238,7 +261,11 @@ function ProviderCard({ provider: p, catalog, status, onChange, onRemove, nextOr
           <input className="field" placeholder="或手动输入模型 id" value={customModel} onChange={e => setCustomModel(e.target.value.trim())} />
           <button type="button" className="btn btn-plain" disabled={!customModel || p.models.some(m => m.id === customModel)} onClick={() => { const order = nextOrder(); onChange(x => { x.models.push({ id: customModel, enabled: true, order }); }); setCustomModel(''); }}>添加</button>
         </div>
-        {picking && p.catalogId && <ModelPicker catalogId={p.catalogId} chosen={p.models.map(m => m.id)} onPick={id => { const order = nextOrder(); onChange(x => { if (!x.models.some(m => m.id === id)) x.models.push({ id, enabled: true, order }); }); }} />}
+        {picking && p.catalogId && <ModelPicker catalogId={p.catalogId} chosen={p.models.map(m => m.id)} onPick={cm => { const order = nextOrder(); onChange(x => {
+          if (x.models.some(m => m.id === cm.id)) return;
+          // The catalog knows when a gateway serves this model on another API or address.
+          x.models.push({ id: cm.id, enabled: true, order, ...(cm.protocol && cm.protocol !== x.protocol ? { protocol: cm.protocol } : {}), ...(cm.baseUrl && cm.baseUrl !== x.baseUrl ? { baseUrl: cm.baseUrl } : {}) });
+        }); }} />}
 
         <details className="admin-details">
           <summary>附加请求头（{headers.length}）</summary>
@@ -260,7 +287,7 @@ function ProviderCard({ provider: p, catalog, status, onChange, onRemove, nextOr
   );
 }
 
-function ModelPicker({ catalogId, chosen, onPick }: { catalogId: string; chosen: string[]; onPick: (id: string) => void }) {
+function ModelPicker({ catalogId, chosen, onPick }: { catalogId: string; chosen: string[]; onPick: (model: CatalogModel) => void }) {
   const [models, setModels] = useState<CatalogModel[] | null>(null);
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
@@ -274,9 +301,9 @@ function ModelPicker({ catalogId, chosen, onPick }: { catalogId: string; chosen:
     <input className="field" placeholder={`在 ${models.length} 个模型中搜索`} value={q} onChange={e => setQ(e.target.value)} autoFocus />
     <ul>
       {shown.map(m => <li key={m.id}>
-        <label className="tool-check"><input type="checkbox" checked={chosen.includes(m.id)} disabled={chosen.includes(m.id)} onChange={() => onPick(m.id)} />
+        <label className="tool-check"><input type="checkbox" checked={chosen.includes(m.id)} disabled={chosen.includes(m.id)} onChange={() => onPick(m)} />
           <span><strong>{m.name}</strong> <code>{m.id}</code>
-            <small>上下文 {fmtTokens(m.context)} · 输出 {fmtTokens(m.output)}{m.costIn != null ? ` · $${m.costIn}/$${m.costOut} 每百万` : ''}{m.reasoning ? ' · 推理' : ''}{m.images ? ' · 图像输入' : ''}{m.updated ?? m.released ? ` · ${m.updated ?? m.released}` : ''}{m.status ? ` · ${m.status === 'deprecated' ? '已弃用' : m.status}` : ''}</small>
+            <small>上下文 {fmtTokens(m.context)} · 输出 {fmtTokens(m.output)}{m.costIn != null ? ` · $${m.costIn}/$${m.costOut} 每百万` : ''}{m.reasoning ? ' · 推理' : ''}{m.images ? ' · 图像输入' : ''}{m.updated ?? m.released ? ` · ${m.updated ?? m.released}` : ''}{m.status ? ` · ${m.status === 'deprecated' ? '已弃用' : m.status}` : ''}{m.protocol ? ` · ${protocolLabel(m.protocol)}` : ''}</small>
           </span>
         </label>
       </li>)}
@@ -292,7 +319,7 @@ function AddProvider({ catalog, taken, onClose, onAdd }: { catalog: CatalogView 
   useEffect(() => { dialog.current?.showModal(); }, []);
   const results = useMemo(() => (catalog?.providers ?? []).filter(c => !q || `${c.id} ${c.name}`.toLowerCase().includes(q.toLowerCase())).slice(0, 40), [catalog, q]);
   const unique = (base: string) => { let id = slug(base), n = 2; while (taken.includes(id)) id = `${slug(base)}-${n++}`; return id; };
-  const choose = (c: CatalogProvider) => onAdd({ id: unique(c.id), name: c.name, catalogId: c.id, protocol: c.protocol ?? 'openai-chat', baseUrl: c.baseUrl ?? '', enabled: true, headers: {}, keys: [], models: [], isNew: true });
+  const choose = (c: CatalogProvider) => onAdd({ id: unique(c.id), name: c.name, catalogId: c.id, protocol: c.protocol ?? 'openai-chat', baseUrl: c.baseUrl ?? '', enabled: true, headers: {}, ...(GATEWAY_PRESETS[c.id] ? { sessionHeader: GATEWAY_PRESETS[c.id].sessionHeader } : {}), keys: [], models: [], isNew: true });
   const manual = () => onAdd({ id: unique(q || 'custom'), name: q || '自定义提供商', catalogId: null, protocol: 'openai-chat', baseUrl: '', enabled: true, headers: {}, keys: [], models: [], isNew: true });
   return <dialog ref={dialog} className="admin-dialog" onClose={onClose} onCancel={onClose}>
     <div className="admin-dialog-body">

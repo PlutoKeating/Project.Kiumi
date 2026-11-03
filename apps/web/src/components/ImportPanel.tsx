@@ -6,7 +6,7 @@ import { Icon } from './Icon.tsx';
 import { Segmented, Select, SheetHeader } from './ui.tsx';
 import { prepareClipboard, prepareFile, prepareText, prepareRichHtml, releasePreview, setHeading, uploadPreview, type ImportPreview } from '../lib/word-import/index.ts';
 import { applyMatching, chooseOriginal } from '../lib/word-import/bundle.ts';
-import { annotate, recognize, typesetPreview, type StyledResult } from '../lib/typeset-import.ts';
+import { annotate, importSession, recognize, typesetPreview, type StyledResult } from '../lib/typeset-import.ts';
 
 type Mode = 'paste' | 'markdown' | 'html' | 'url';
 const SOURCES = [{ value: 'paste', label: '粘贴 Word / WPS / 秀米' }, { value: 'markdown', label: 'Markdown' }, { value: 'html', label: 'HTML' }, { value: 'url', label: '网页地址' }] as const;
@@ -52,10 +52,11 @@ export function ImportPanel() {
       if (withStyle && styleTemplate) {
         setMessage('AI 正在识别文章结构…');
         // The model reviews every paragraph's role, then plans the layout; rules stand in when it is unavailable.
-        const patches = await Promise.race([annotate(first.facts, first.classified), new Promise<undefined>(resolve => setTimeout(resolve, 30_000))]);
+        const session = importSession();
+        const patches = await Promise.race([annotate(first.facts, first.classified, session), new Promise<undefined>(resolve => setTimeout(resolve, 30_000))]);
         setOutline(recognize(source, patches).outline);
         setMessage('AI 正在按风格编排版面…');
-        const result = await typesetPreview(source, styleTemplate.id, rules, patches);
+        const result = await typesetPreview(source, styleTemplate.id, rules, patches, { session });
         current.current = result.preview; setStyled(result); setPreview({ ...result.preview });
         setMessage(result.report.plan === 'model' ? '' : '未连接到排版模型，已按规则排版。');
       } else { current.current = source; setStyled(null); setPreview({ ...source }); setMessage(''); }

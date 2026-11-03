@@ -39,11 +39,11 @@ export function recognize(preview: ImportPreview, patches?: unknown): Typeset {
  * Ask the server model to review every paragraph's role (rules give the
  * starting point). Fails closed: any error leaves the rule-based result.
  */
-export async function annotate(facts: SourceFact[], classified: Classified[]): Promise<unknown | undefined> {
+export async function annotate(facts: SourceFact[], classified: Classified[], session?: string): Promise<unknown | undefined> {
   const { prompt, ask } = annotationRequest(facts, classified, { all: true });
   if (!ask.length) return undefined;
   try {
-    const result = await api.request<{ patches: unknown }>('/api/manuscript/annotate', { method: 'POST', body: JSON.stringify({ prompt }) });
+    const result = await api.request<{ patches: unknown }>('/api/manuscript/annotate', { method: 'POST', body: JSON.stringify({ prompt, session }) });
     return result.patches;
   } catch { return undefined; }
 }
@@ -55,21 +55,24 @@ export interface StyledResult {
 }
 
 /** Ask the server model how to lay the manuscript out in the template. Null when unavailable. */
-export async function requestPlan(templateHtml: string, manuscript: Manuscript, rules: TypesetRules): Promise<PlanEntry[] | null> {
+export async function requestPlan(templateHtml: string, manuscript: Manuscript, rules: TypesetRules, session?: string): Promise<PlanEntry[] | null> {
   const prompt = planPrompt(analyzeTemplate(templateHtml), manuscriptPieces(manuscript, rules));
   try {
-    const result = await api.request<{ entries: unknown }>('/api/manuscript/plan', { method: 'POST', body: JSON.stringify({ prompt }) });
+    const result = await api.request<{ entries: unknown }>('/api/manuscript/plan', { method: 'POST', body: JSON.stringify({ prompt, session }) });
     return parsePlan(result.entries);
   } catch { return null; }
 }
 
 /** Pour the recognized manuscript into a chosen style template, planned by the model when it answers in time. */
-export async function typesetPreview(preview: ImportPreview, atomTplId: string, rules: TypesetRules, patches?: unknown, options: { planTimeoutMs?: number } = {}): Promise<StyledResult> {
+/** One id per import: its model calls share a gateway session (routing and prompt caching). */
+export const importSession = () => crypto.randomUUID().replace(/-/g, '');
+
+export async function typesetPreview(preview: ImportPreview, atomTplId: string, rules: TypesetRules, patches?: unknown, options: { planTimeoutMs?: number; session?: string } = {}): Promise<StyledResult> {
   const record = await api.fetchTemplate(atomTplId);
   const { manuscript } = recognize(preview, patches);
   const replacements = preview.replacements ?? {};
   const template = sanitizeHtml(record.html);
-  const plan = await Promise.race([requestPlan(template, manuscript, rules), new Promise<null>(resolve => setTimeout(() => resolve(null), options.planTimeoutMs ?? 60_000))]);
+  const plan = await Promise.race([requestPlan(template, manuscript, rules, options.session), new Promise<null>(resolve => setTimeout(() => resolve(null), options.planTimeoutMs ?? 60_000))]);
   const { html, report } = fillTemplate(template, manuscript, { rules, plan, planSource: 'model', resolveImage: ref => replacements[ref] ?? ref });
   const styled: ImportPreview = {
     ...preview,
