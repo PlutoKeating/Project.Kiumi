@@ -111,6 +111,97 @@ test('a model plan that fails review goes back with its problems, and the rule p
   expect(prompts.length).toBe(2);
 });
 
+test('layout review loop: the model sees screenshots and a report, acts step by step, and rule-breaking actions are refused', async ({ page }) => {
+  await harness(page);
+  const requests: any[] = [];
+  await page.route('**/api/manuscript/agent', async route => {
+    const body = route.request().postDataJSON();
+    requests.push(body);
+    const last = body.messages.at(-1);
+    const text = (typeof last.content === 'string' ? last.content : last.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n')) as string;
+    const k = (mark: string) => Number(new RegExp(`#(\\d+) \\[${mark}\\]`).exec(body.messages.map((m: any) => typeof m.content === 'string' ? m.content : m.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n')).join('\n'))?.[1]);
+    const script = [
+      { thought: '先看一下整体。', action: { tool: 'look' } },
+      { thought: '正文颜色想淡一点。', action: { tool: 'style', k: k('p0'), css: { color: '#888888' } } },
+      { thought: '标题在逗号处换行更好看。', action: { tool: 'set_text', k: k('T'), text: '直播助力非遗传承\n文创赋能乡村振兴' } },
+      { thought: '没有问题了。', action: { tool: 'finish', summary: '标题换行，其余符合规范' } },
+    ];
+    await route.fulfill({ json: { ok: true, data: { text: JSON.stringify(script[requests.length - 1]), images: true } } });
+    void text;
+  });
+  const result = await page.evaluate(async template => {
+    (await import('/src/api.ts')).setWorkspace('u', 't');
+    const core = await import('/@id/@kiumi/core');
+    const agent = await import('/src/lib/layout-agent.ts');
+    const T = (i: number, t: string) => ({ i, kind: 'text', text: t, html: `<p>${t}</p>` });
+    const facts = [T(0, '直播助力非遗传承，文创赋能乡村振兴'), T(1, '第一段正文内容，足够长以免被识别为标题，并以句号结尾。'), { i: 2, kind: 'image', text: '', html: '', images: ['a'] }, T(3, '第二段正文内容，同样足够长，并以句号结尾。')];
+    const manuscript = core.assembleManuscript(facts as never, core.classifyFacts(facts as never));
+    const seen: number[] = [];
+    const c = document.createElement('canvas'); c.width = 400; c.height = 300;
+    const g = c.getContext('2d')!; g.fillStyle = '#4a7'; g.fillRect(0, 0, 400, 300);
+    const photo = c.toDataURL('image/jpeg');
+    const out = await agent.runLayoutAgent({ template, manuscript, rules: core.DEFAULT_RULES, plan: null, resolveImage: () => photo, onStep: s => seen.push(s.n) });
+    return { ...out, seen };
+  }, TEMPLATE);
+
+  expect(requests.length).toBe(4);
+  // The first observation carries the report and screenshot tiles.
+  const first = requests[0].messages[0].content;
+  const firstText = first.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n');
+  expect(firstText).toContain('请审看并精修这篇图文的版面');
+  expect(firstText).toMatch(/#\d+ \[T\]/);
+  expect(firstText).toContain('当前排版方案');
+  const tiles = first.filter((p: any) => p.type === 'image');
+  expect(tiles.length).toBeGreaterThan(0);
+  expect(tiles[0].mime).toBe('image/jpeg');
+  expect(tiles[0].data.length).toBeGreaterThan(2000);
+  // Only the newest observation keeps its pictures.
+  const last = requests[3].messages;
+  const withImages = last.filter((m: any) => Array.isArray(m.content) && m.content.some((p: any) => p.type === 'image'));
+  expect(withImages.length).toBe(1);
+  expect(JSON.stringify(last)).toContain('旧截图已省略');
+  // The rule-breaking step was refused and said why; the allowed one applied.
+  expect(result.steps.map((s: any) => s.outcome)).toEqual(['looked', 'rejected', 'done', 'finished']);
+  expect(result.steps[1].note).toContain('由团队规范固定');
+  expect(JSON.stringify(requests[2].messages.at(-1))).toContain('动作被驳回');
+  expect(result.html).toContain('直播助力非遗传承<br>文创赋能乡村振兴');
+  expect(result.html).not.toMatch(/data-k=|data-kiumi/);
+  expect(result.html).not.toContain('#888888');
+  expect(result.stop).toBe('satisfied');
+  expect(result.seen).toEqual([1, 2, 3, 4]);
+});
+
+test('layout review loop: finishing with a serious problem is sent back once, and a missing model stops it quietly', async ({ page }) => {
+  await harness(page);
+  let calls = 0;
+  await page.route('**/api/manuscript/agent', async route => {
+    calls++;
+    const reply = calls <= 2 ? { thought: '好了', action: { tool: 'finish', summary: '完成' } } : { thought: '标题框太小修不了', action: { tool: 'finish', summary: '完成', unresolved: '标题框是插画的一部分，无法放大' } };
+    await route.fulfill({ json: { ok: true, data: { text: JSON.stringify(reply), images: false } } });
+  });
+  const run = (template: string) => page.evaluate(async template => {
+    (await import('/src/api.ts')).setWorkspace('u', 't');
+    const core = await import('/@id/@kiumi/core');
+    const agent = await import('/src/lib/layout-agent.ts');
+    const T = (i: number, t: string) => ({ i, kind: 'text', text: t, html: `<p>${t}</p>` });
+    const facts = [T(0, '直播助力非遗传承，文创赋能乡村振兴'), T(1, '第一段正文内容，足够长以免被识别为标题，并以句号结尾。'), T(2, '第二段正文内容，同样足够长，并以句号结尾。')];
+    const manuscript = core.assembleManuscript(facts as never, core.classifyFacts(facts as never));
+    return agent.runLayoutAgent({ template, manuscript, rules: core.DEFAULT_RULES, plan: null, resolveImage: r => r });
+  }, template);
+  // A title clipped by a fixed box inside an SVG foreignObject: measured, not guessed.
+  const clipped = `<section><div><section><svg viewBox="0 0 375 60" width="375" height="60"><foreignObject width="375" height="30"><div style="font-size:200%;color:rgb(201, 6, 4)"><p>${'正文' + ' ​'.repeat(6)}</p></div></foreignObject></svg></section></div><div><section><div><p>${'正文' + ' ​'.repeat(60)}</p></div></section></div><div><section><div><p>${'正文' + ' ​'.repeat(60)}</p></div></section></div><div><section><div><p>${'正文' + ' ​'.repeat(60)}</p></div></section></div></section>`;
+  const out = await run(clipped);
+  expect(out.steps[0].outcome).toBe('rejected');
+  expect(out.steps[0].note).toContain('终检未通过');
+  expect(out.steps[0].note).toContain('裁掉');
+  expect(out.stop).toBe('accepted-with-issues');
+  expect(out.unresolved).toContain('无法放大');
+
+  await page.unroute('**/api/manuscript/agent');
+  await page.route('**/api/manuscript/agent', route => route.fulfill({ status: 501, json: { ok: false, error: { code: 'LLM_NOT_CONFIGURED', message: '没有模型' } } }));
+  expect((await run(TEMPLATE)).stop).toBe('unavailable');
+});
+
 test('local submission ZIP sample is recognized end to end', async ({ page }) => {
   const sample = process.env.KIUMI_ZIP_SAMPLE;
   test.skip(!sample, 'Set KIUMI_ZIP_SAMPLE (and optionally KIUMI_STYLE_RECORD) to try a real submission ZIP.');

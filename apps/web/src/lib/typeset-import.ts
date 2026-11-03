@@ -54,6 +54,12 @@ export interface StyledResult {
   manuscript: Manuscript;
   /** model: a reviewed model plan was used; unavailable: no model answered; rejected: the model's plans failed review. */
   planStatus: PlanStatus;
+  /** What the layout review loop works from: the sanitized template, the plan used, and how images resolve. */
+  template: string;
+  plan: PlanEntry[] | null;
+  resolveImage: (ref: string) => string | null;
+  /** Paragraph list for structure fixes during review, and how to apply them on top of the import's patches. */
+  structure: { prompt: string; apply: (patches: Array<[number, string]>) => Manuscript };
 }
 
 /** Review rounds a model plan gets after the first answer before falling back to the rule plan. */
@@ -96,7 +102,8 @@ export async function typesetPreview(preview: ImportPreview, atomTplId: string, 
   const replacements = preview.replacements ?? {};
   const template = sanitizeHtml(record.html);
   const asked = await Promise.race([requestPlan(template, manuscript, rules, options.session), new Promise<{ plan: null; status: PlanStatus }>(resolve => setTimeout(() => resolve({ plan: null, status: 'unavailable' }), options.planTimeoutMs ?? 60_000))]);
-  const { html, report } = fillTemplate(template, manuscript, { rules, plan: asked.plan, planSource: 'model', resolveImage: ref => replacements[ref] ?? ref });
+  const resolveImage = (ref: string) => replacements[ref] ?? ref;
+  const { html, report } = fillTemplate(template, manuscript, { rules, plan: asked.plan, planSource: 'model', resolveImage });
   if (asked.status === 'rejected') report.warnings.unshift(`模型的排版方案经 ${PLAN_REVIEW_ROUNDS + 1} 轮复核仍不合格，已改用规则排版。`);
   const styled: ImportPreview = {
     ...preview,
@@ -105,5 +112,11 @@ export async function typesetPreview(preview: ImportPreview, atomTplId: string, 
     items: [{ label: '风格排版稿件', block: { kind: 'library', id: `blk-${Date.now().toString(36)}`, tplId: record.atomTplId, matrix: [], html } }],
     issues: [...preview.issues, ...report.warnings.map(message => ({ location: report.plan === 'model' ? 'AI 排版' : '风格排版', message }))],
   };
-  return { preview: styled, report, manuscript, planStatus: report.plan === 'model' ? 'model' : asked.status === 'model' ? 'rejected' : asked.status };
+  const recognized = recognize(preview, patches);
+  const base = Array.isArray(patches) ? patches : [];
+  const structure = {
+    prompt: annotationRequest(recognized.facts, recognized.classified, { all: true }).prompt,
+    apply: (more: Array<[number, string]>) => recognize(preview, [...base, ...more]).manuscript,
+  };
+  return { preview: styled, report, manuscript, planStatus: report.plan === 'model' ? 'model' : asked.status === 'model' ? 'rejected' : asked.status, template, plan: report.plan === 'model' ? asked.plan : null, resolveImage, structure };
 }

@@ -830,6 +830,15 @@ input.font-size { width: 46px; min-height: 32px; margin: 0 3px; padding: 0 4px 0
 .import-issues h3 { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--warn); }
 .import-issues ul { max-height: 110px; overflow-y: auto; padding-left: 18px; list-style: disc; line-height: 1.6; }
 .inline-select { display: flex; align-items: center; gap: 8px; font-size: var(--text-md); color: var(--ink-500); }
+.import-agent { display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--r-md); background: color-mix(in srgb, var(--lilac) 32%, transparent); font-size: var(--text-md); }
+.import-agent-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.import-agent-head [role=status] { color: var(--ink-700, inherit); text-wrap: pretty; }
+.import-agent-steps { display: grid; gap: 2px; max-height: 168px; overflow-y: auto; padding: 0; list-style: none; font-size: var(--text-sm); }
+.import-agent-steps summary { cursor: pointer; padding: 2px 0; color: var(--ink-500); }
+.import-agent-steps summary b { display: inline-block; min-width: 1.6em; font-variant-numeric: tabular-nums; color: var(--lilac-deep); }
+.import-agent-steps li[data-outcome=rejected] summary { color: var(--warn); }
+.import-agent-steps p { margin: 2px 0 6px 1.6em; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.import-agent-note { color: var(--ink-500); }
 
 /* ---------------------------------------------------------------- Toast */
 

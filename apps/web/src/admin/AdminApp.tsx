@@ -12,7 +12,7 @@ import { Grip, SortableList } from './Sortable.tsx';
  */
 
 type Protocol = 'openai-chat' | 'openai-responses' | 'anthropic-messages' | 'google-generative-ai';
-type Purpose = 'annotate' | 'plan';
+type Purpose = 'annotate' | 'plan' | 'polish';
 const PROTOCOL_OPTIONS: { value: Protocol; label: string }[] = [
   { value: 'openai-chat', label: 'OpenAI 兼容 · Chat Completions' },
   { value: 'openai-responses', label: 'OpenAI · Responses' },
@@ -22,6 +22,7 @@ const PROTOCOL_OPTIONS: { value: Protocol; label: string }[] = [
 const PURPOSE_LABEL: Record<Purpose, { title: string; detail: string }> = {
   annotate: { title: '结构识别', detail: '导入时复核每段是标题、小标题、正文还是署名' },
   plan: { title: '风格编排', detail: '决定稿件每部分放进模板的哪个单元，并为小标题条拟写短标题' },
+  polish: { title: '版面精修', detail: '导入预览里看着渲染截图反复检查和修改版面，直到满意；请选能读图片的模型，单步超时建议 60–120 秒' },
 };
 const REASON: Record<string, string> = { provider_disabled: '提供商已停用', model_disabled: '模型已停用', no_key: '没有可用 Key' };
 /**
@@ -219,7 +220,7 @@ function ProviderCard({ provider: p, catalog, status, onChange, onRemove, nextOr
           <label className="field-label">会话请求头<input className="field" value={p.sessionHeader ?? ''} placeholder="网关要求时填写，如 x-opencode-session" onChange={e => { const v = e.target.value.trim(); onChange(x => { x.sessionHeader = v || undefined; }); }} /></label>
           <label className="field-label">User-Agent<input className="field" value={p.userAgent ?? ''} placeholder="留空用 kiumi-typesetter/1.0" onChange={e => { const v = e.target.value; onChange(x => { x.userAgent = v || undefined; }); }} /></label>
         </div>
-        <p className="admin-muted">会话请求头：一次导入里的所有调用带同一个随机 id（结构识别与风格编排共用），供网关做路由和提示缓存。</p>
+        <p className="admin-muted">会话请求头：一次导入里的所有调用带同一个随机 id（结构识别、风格编排与版面精修共用），供网关做路由和提示缓存。</p>
 
         <h4>Key</h4>
         <ul className="admin-list">

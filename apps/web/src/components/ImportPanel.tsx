@@ -7,6 +7,7 @@ import { Segmented, Select, SheetHeader } from './ui.tsx';
 import { preloadUploads, prepareClipboard, prepareFile, prepareText, prepareRichHtml, releasePreview, setHeading, uploadPreview, type ImportPreview } from '../lib/word-import/index.ts';
 import { applyMatching, chooseOriginal } from '../lib/word-import/bundle.ts';
 import { annotate, importSession, recognize, typesetPreview, type StyledResult } from '../lib/typeset-import.ts';
+import { AGENT_MAX_MS, AGENT_MAX_STEPS, runLayoutAgent, type AgentResult, type AgentStep } from '../lib/layout-agent.ts';
 
 type Mode = 'paste' | 'markdown' | 'html' | 'url';
 const SOURCES = [{ value: 'paste', label: '粘贴 Word / WPS / 秀米' }, { value: 'markdown', label: 'Markdown' }, { value: 'html', label: 'HTML' }, { value: 'url', label: '网页地址' }] as const;
@@ -28,9 +29,13 @@ export function ImportPanel() {
   const cancellation = useRef<AbortController | null>(null);
   /** Background uploads started with the preview, so pictures are on the server by the time the AI is done. */
   const preload = useRef<AbortController | null>(null);
+  /** The layout review loop: runs after the style is poured, while the user watches (and may stop or confirm). */
+  const review = useRef<AbortController | null>(null);
+  const [agent, setAgent] = useState<{ running: boolean; steps: AgentStep[]; status: string } | null>(null);
+  const stopReview = () => { review.current?.abort(); review.current = null; };
   const selected = useStore(s => s.selected);
-  const reset = () => { preload.current?.abort(); preload.current = null; if (base.current) releasePreview(base.current); base.current = null; current.current = null; setPreview(null); setStyled(null); setOutline([]); setAcknowledged(false); setMessage(''); };
-  useEffect(() => () => { cancellation.current?.abort(); preload.current?.abort(); if (base.current) releasePreview(base.current); }, []);
+  const reset = () => { stopReview(); setAgent(null); preload.current?.abort(); preload.current = null; if (base.current) releasePreview(base.current); base.current = null; current.current = null; setPreview(null); setStyled(null); setOutline([]); setAcknowledged(false); setMessage(''); };
+  useEffect(() => () => { cancellation.current?.abort(); preload.current?.abort(); review.current?.abort(); if (base.current) releasePreview(base.current); }, []);
   const close = () => { if (busy) return; reset(); setOpen(false); };
 
   const prepare = async (operation: () => Promise<ImportPreview>) => {
@@ -48,6 +53,7 @@ export function ImportPanel() {
   };
   /** Recognize structure and, when a style is chosen, pour the manuscript into it. */
   const arrange = async (source: ImportPreview, withStyle: boolean) => {
+    stopReview(); setAgent(null);
     if (source.preserveLayout) { current.current = source; setPreview({ ...source }); setStyled(null); setOutline([]); return; }
     try {
       const first = recognize(source);
@@ -62,8 +68,49 @@ export function ImportPanel() {
         const result = await typesetPreview(source, styleTemplate.id, rules, patches, { session });
         current.current = result.preview; setStyled(result); setPreview({ ...result.preview });
         setMessage(result.planStatus === 'model' ? '' : result.planStatus === 'rejected' ? '模型的排版方案未通过规范复核，已按规则排版。' : '未连接到排版模型，已按规则排版。');
+        void polish(result, session);
       } else { current.current = source; setStyled(null); setPreview({ ...source }); setMessage(''); }
     } catch (error) { current.current = source; setStyled(null); setPreview({ ...source }); setMessage(`风格排版失败，已保留原文结构：${(error as Error).message}`); }
+  };
+  /** Let the model look at the rendered article and fix it step by step until it is satisfied. */
+  const polish = async (result: StyledResult, session: string) => {
+    const controller = new AbortController();
+    review.current = controller;
+    const steps: AgentStep[] = [];
+    setAgent({ running: true, steps: [], status: 'AI 正在查看排好的版面…' });
+    const show = (html: string) => {
+      if (controller.signal.aborted) return;
+      const next = { ...result.preview, items: result.preview.items.map((item, i) => (i === 0 ? { ...item, block: { ...item.block, html } } : item)) };
+      result.preview = next; current.current = next; setPreview(next);
+    };
+    let outcome: AgentResult;
+    try {
+      outcome = await runLayoutAgent({
+        template: result.template, manuscript: result.manuscript, rules, plan: result.plan, resolveImage: result.resolveImage,
+        structure: result.structure, session, signal: controller.signal,
+        onStep: (step, html) => { steps.push(step); show(html); setAgent({ running: true, steps: [...steps], status: `AI 精修中 · 第 ${step.n} 步：${step.action}` }); },
+      });
+    } catch (error) {
+      if (!controller.signal.aborted) setAgent({ running: false, steps, status: `版面精修中断：${(error as Error).message}` });
+      return;
+    }
+    if (review.current === controller) review.current = null;
+    if (outcome.stop === 'cancelled') { setAgent(a => (a ? { ...a, running: false, status: `已停止精修，使用第 ${steps.length} 步的结果。` } : a)); return; }
+    if (outcome.stop === 'unavailable') { setAgent(null); return; }
+    show(outcome.html);
+    const status = {
+      satisfied: `AI 精修完成（${steps.length} 步）：${outcome.summary}`,
+      'accepted-with-issues': `AI 精修结束（${steps.length} 步），有问题留给人工核对。`,
+      budget: `已达到精修上限（${AGENT_MAX_STEPS} 步 / ${AGENT_MAX_MS / 60_000} 分钟），使用当前结果。`,
+      failed: `模型中途不可用，使用第 ${steps.length} 步的结果。`,
+    }[outcome.stop];
+    setAgent({ running: false, steps, status });
+    // What the model could not fix goes to the human checklist.
+    if (outcome.unresolved || outcome.findings.some(f => f.level === 'error')) {
+      const issues = [...result.preview.issues, ...(outcome.unresolved ? [{ location: 'AI 精修', message: outcome.unresolved }] : []), ...outcome.findings.filter(f => f.level === 'error' && !outcome.unresolved).map(f => ({ location: 'AI 精修', message: f.message }))];
+      const next = { ...result.preview, issues };
+      result.preview = next; current.current = next; setPreview(next); setAcknowledged(false);
+    }
   };
   const prepareValue = () => prepare(async () => {
     if (mode === 'url') {
@@ -74,6 +121,8 @@ export function ImportPanel() {
   });
   const confirm = async () => {
     if (!preview || busy) return;
+    // Confirming takes the layout as it stands; a running review stops here.
+    stopReview();
     const original = useStore.getState().doc;
     cancellation.current = new AbortController(); setBusy(true); setMessage('正在导入…');
     try {
@@ -141,6 +190,17 @@ export function ImportPanel() {
               {styleTemplate && <button type="button" className="btn btn-plain" disabled={busy} onClick={() => { setStyleTemplate(null); setUseStyle(false); if (base.current) void arrange(base.current, false); }}>清除风格</button>}
             </div>
             {outline.length > 0 && <details className="import-outline"><summary>识别到的文章结构</summary><pre>{outline.join('\n')}</pre></details>}
+          </div>}
+          {agent && <div className="import-agent" role="group" aria-label="AI 版面精修" aria-busy={agent.running}>
+            <div className="import-agent-head">
+              <span role="status">{agent.status}</span>
+              {agent.running && <button type="button" className="btn btn-plain" onClick={stopReview}>停止，用当前结果</button>}
+            </div>
+            {agent.steps.length > 0 && <ol className="import-agent-steps">{agent.steps.map(step => <li key={step.n} data-outcome={step.outcome}>
+              <details><summary><b>{step.n}</b> {step.action}{step.outcome === 'rejected' ? ' · 被驳回' : ''}</summary>
+                {step.thought && <p>{step.thought}</p>}{step.note && <p className="import-agent-note">{step.note.length > 400 ? `${step.note.slice(0, 400)}…` : step.note}</p>}
+              </details>
+            </li>)}</ol>}
           </div>}
           {preview.matching && <div className="import-matches" role="group" aria-label="原图匹配">
             <h3>原图匹配 · {preview.matching.rows.filter(r => r.originalId).length}/{preview.matching.rows.length} 张已找到原图</h3>
