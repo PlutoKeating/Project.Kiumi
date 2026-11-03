@@ -129,7 +129,7 @@ test('a smaller line in the title unit takes the subtitle; a long title breaks a
   assert.match(between, /<br>/, 'blank line between the photo and its copy inside the card');
 });
 
-test('a subtitle without a slot is a display line in the template accent, not body text', () => {
+test('a subtitle without a slot is a black display line under the title, not body text', () => {
   const title = unit(`<div style="font-size:200%"><p><span style="color:rgb(149, 73, 49)">${ph(14)}</span></p></div>`);
   const tpl = `<section>${[title, text(120), photo, text(120)].join('')}</section>`;
   const f = [
@@ -140,11 +140,54 @@ test('a subtitle without a slot is a display line in the template accent, not bo
     T(4, '第二段正文内容，同样足够长，并以句号结尾。'),
   ];
   const { html, report } = fillTemplate(tpl, assembleManuscript(f, classifyFacts(f)), { resolveImage: r => `/uploads/${r}.jpg` });
-  assert.match(html, /<p style="[^"]*font-size:16px;font-weight:bold;[^"]*color:rgb\(149, 73, 49\);">——走进广州从化罗洞工匠小镇<\/p>/);
+  assert.match(html, /<p style="[^"]*font-size:16px;font-weight:bold;line-height:2;letter-spacing:2px;color:#000000;">——走进广州从化罗洞工匠小镇<\/p>/);
   assert.equal(html.split('走进广州从化罗洞工匠小镇').length, 2, 'set once');
   assert.ok(html.indexOf('走进广州') < html.indexOf('第一段正文'));
   assert.equal(report.spilled, 0);
   const around = (a: string, b: string) => html.slice(html.indexOf(a), html.indexOf(b));
   assert.match(around('第一段正文', '/uploads/a.jpg'), /<br>/);
   assert.match(around('/uploads/a.jpg', '第二段正文'), /<br>/);
+});
+
+test('house rules hold on template text: black, default font, sizes, spacing, 90% pictures and blank lines', () => {
+  const font = 'font-family:&quot;Noto Serif&quot;, serif;';
+  const title = unit(`<div style="font-size:200%"><p><span style="color:rgb(149, 73, 49)">${ph(6)}</span></p></div>`);
+  // A heading bar in the template's colour and font at 21px, and a light label on a colour band.
+  const heading = unit(`<div style="${font}color:rgb(149, 73, 49);font-size:133%"><p><strong>${ph(4)}</strong></p></div>`);
+  const band = unit(`<div style="background-color:rgb(149, 73, 49)"><p style="color:#ffffff;font-size:18px">${ph(4)}</p></div>`);
+  // The text unit is the template paragraph itself, with its own gap and font.
+  const para = `<p style="margin-bottom: 10px;${font}"><span style="color:rgb(127, 127, 127)">${ph(60)}</span></p>`;
+  const spacer = unit('<div><p><br></p></div>');
+  const pic = unit('<div style="display:inline-block;width:300px"><img src="/assets/x/y/mat/i/fvId/abc_sz-773899.jpg"></div>');
+  const tpl = `<section>${[title, text(120), heading, spacer, para, band, text(120), pic, text(120)].join('')}</section>`;
+  const f = [
+    T(0, '直播助力非遗传承'),
+    T(1, '一、活动背景'),
+    T(2, '第一段正文内容，足够长以免被识别为标题，并以句号结尾。'),
+    T(3, '二、活动过程'),
+    T(4, '第二段正文内容，同样足够长，并以句号结尾。'),
+    I(5, 'a'),
+    T(6, '第三段正文内容，同样足够长，并以句号结尾。'),
+  ];
+  const m = assembleManuscript(f, classifyFacts(f));
+  const plan = [{ u: 0, t: { 0: ['T'] } }, { u: 2, t: { 0: ['h0'] } }, { u: 4, t: { 0: ['p0'] } }, { u: 5, t: { 0: ['h1'] } }, { u: 6, t: { 0: ['p1'] } }, { u: 7, img: ['f0'] }, { u: 8, t: { 0: ['p2'] } }];
+  const { html } = executePlan(tpl, m, plan, { resolveImage: r => `/uploads/${r}.jpg` });
+  const body = html.replace(/<div style="font-size:200%">[\s\S]*?<\/div>/, '');
+  assert.ok(!/font-family/.test(body), 'template fonts do not reach filled text');
+  assert.ok(!/rgb\(127, 127, 127\)/.test(html), 'no grey text');
+  assert.ok(!/margin-bottom: 10px/.test(html), 'paragraph gap 0');
+  assert.ok(!/<p[^>]*>\s*<section/.test(html), 'no paragraphs nested in a <p>');
+  assert.match(html, /<p style="[^"]*color:#000000;line-height:2;letter-spacing:2px;font-size:16px;font-weight:bold;"><strong>一、活动背景<\/strong><\/p>/);
+  assert.match(html, /<p style="color:#ffffff;line-height:2;letter-spacing:2px;font-size:16px;font-weight:bold;">二、活动过程<\/p>/, 'light text on a colour band keeps its colour');
+  assert.match(html, /<img src="\/uploads\/a.jpg" style="width:90%;max-width:90%;/);
+  assert.ok(!/width:300px/.test(html), 'the picture holder spans the slot');
+  // 文字和文字不用空行: the template spacer between the heading and its text is gone.
+  assert.equal(html.slice(html.indexOf('一、活动背景'), html.indexOf('第一段正文')).includes('<br>'), false);
+  const around = (a: string, b: string) => html.slice(html.indexOf(a), html.indexOf(b));
+  assert.match(around('第二段正文', '/uploads/a.jpg'), /<br>/);
+  assert.match(around('/uploads/a.jpg', '第三段正文'), /<br>/);
+  assert.ok(!/<br><\/p>\s*<p[^>]*><br><\/p>/.test(html), 'never two blank lines in a row');
+  assert.ok(html.startsWith('<section><p style="margin:0;line-height:2;font-size:14px;"><br></p>'), 'blank line first');
+  assert.ok(html.endsWith('<p style="margin:0;line-height:2;font-size:14px;"><br></p></section>'), 'blank line last');
+  assert.match(html, /<p style="font-weight:bold;"><span style="color:rgb\(149, 73, 49\)">直播助力非遗传承<\/span><\/p>/, 'the title keeps the template look and is bold');
 });

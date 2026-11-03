@@ -566,8 +566,14 @@ function boxed(el: HNode, unit: HNode): boolean {
 function setBlock(zone: Zone, unit: HNode, html: string, rules: TypesetRules) {
   const pad = boxed(zone.el, unit) ? 0 : rules.sidePadding;
   const content = `<section style="padding:0 ${pad}px;text-align:left;">${html}</section>`;
-  if (zone.el === unit) unit.set_content(content);
-  else if (/^(p|h[1-6]|li)$/i.test(zone.el.tagName)) zone.el.replaceWith(content);
+  dropInheritedFont(zone.el, unit);
+  const paragraph = /^(p|h[1-6]|li)$/i.test(zone.el.tagName);
+  if (zone.el === unit) {
+    // The unit is the template paragraph itself: it becomes a plain box, so our
+    // paragraphs are not nested in a <p> and keep the rule's paragraph gap.
+    if (paragraph) { unit.tagName = 'section'; dropCss(unit, ['margin', 'margin-top', 'margin-bottom']); }
+    unit.set_content(content);
+  } else if (paragraph) zone.el.replaceWith(content);
   else zone.el.set_content(content);
 }
 
@@ -595,9 +601,11 @@ function fillPhotos(unit: HNode, urls: string[], rules: TypesetRules): number {
       img.removeAttribute('srcset');
       img.removeAttribute('width');
       img.removeAttribute('height');
-      // Sample pictures are often sized by their own pixels; ours must fill the slot.
-      const style = (img.getAttribute('style') ?? '').replace(/(^|;)\s*(width|height)\s*:[^;]*/gi, '$1');
-      img.setAttribute('style', `${style};width:100%;height:auto;display:block;`.replace(/^;+/, ''));
+      // Sample pictures are often sized by their own pixels. A single picture
+      // takes the rule width itself (宽度 90%); photos side by side fill their column.
+      const style = (img.getAttribute('style') ?? '').replace(/(^|;)\s*(max-)?(width|height)\s*:[^;]*/gi, '$1').replace(/;{2,}/g, ';');
+      const width = imgs.length === 1 ? `width:${rules.imageWidth}%;max-width:${rules.imageWidth}%;margin-left:auto;margin-right:auto;` : 'width:100%;max-width:100%;';
+      img.setAttribute('style', `${style};${width}height:auto;display:block;`.replace(/^;+/, ''));
       used++;
     } else {
       const holder = img.parentNode as HNode;
@@ -605,8 +613,13 @@ function fillPhotos(unit: HNode, urls: string[], rules: TypesetRules): number {
     }
   });
   if (imgs.length === 1 && urls.length >= 1) {
-    const holder = imgs[0].parentNode as HNode;
-    if (holder && holder !== unit && !/(?:^|;)\s*width\s*:/.test(holder.getAttribute('style') ?? '')) holder.setAttribute('style', `${holder.getAttribute('style') ?? ''};width:${rules.imageWidth}%;margin-left:auto;margin-right:auto;`.replace(/^;/, ''));
+    // The holder spans the slot so 90% is measured against the slot, not a sample's pixel box.
+    for (let n = imgs[0].parentNode as HNode | null; n && n !== unit; n = n.parentNode as HNode | null) {
+      if (visibleText(n)) break;
+      const s = n.getAttribute?.('style') ?? '';
+      if (/(?:^|;)\s*width\s*:\s*([\d.]+px|auto)/i.test(s)) n.setAttribute('style', s.replace(/(^|;)\s*width\s*:\s*([\d.]+px|auto)/gi, '$1width:100%'));
+      else if (/display\s*:\s*inline-(block|flex)/i.test(s) && !/(?:^|;)\s*width\s*:/i.test(s)) addCss(n, 'width:100%;');
+    }
   }
   return used;
 }
@@ -637,15 +650,105 @@ function setTitle(title: string, zones: Zone[]): number {
   return 1;
 }
 
-/** The template's own accent: the colour of its title text. */
-function accentOf(node: HNode | undefined, fallback: string): string {
-  if (!node) return fallback;
-  for (const el of node.querySelectorAll('*')) {
-    if (!visibleText(el)) continue;
-    const c = styleOf(el, 'color');
-    if (c && !/^(#000(000)?|black|rgb\(\s*0\s*,\s*0\s*,\s*0\s*\))$/i.test(c)) return c;
+// ---------------------------------------------------------------------------
+// House rules on template text: everything except the article title is black,
+// in the default font, line height and letter spacing of the rules.
+// ---------------------------------------------------------------------------
+
+const TYPO = ['color', 'font-size', 'font-family', 'line-height', 'letter-spacing', 'font-weight'];
+
+function dropCss(el: HNode, names: string[]) {
+  const style = el.getAttribute?.('style');
+  if (!style) return;
+  const kept = style.split(';').filter(d => { const k = d.split(':')[0]?.trim().toLowerCase(); return d.trim() && !names.includes(k); });
+  el.setAttribute('style', kept.join(';'));
+}
+
+const addCss = (el: HNode, css: string) => el.setAttribute('style', `${(el.getAttribute('style') ?? '').replace(/;?\s*$/, '')};${css}`.replace(/^;/, ''));
+
+/** Inherited template fonts must not reach filled text (秀米默认字体). */
+function dropInheritedFont(el: HNode, unit: HNode) {
+  for (let n: HNode | null = el; n; n = n.parentNode as HNode | null) {
+    dropCss(n, ['font-family']);
+    if (n === unit) break;
   }
-  return fallback;
+}
+
+const luminance = (value: string | undefined): number | null => {
+  if (!value) return null;
+  const v = value.trim().toLowerCase();
+  let rgb: number[] | null = null;
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.exec(v);
+  if (hex) rgb = (hex[1].length === 3 ? [...hex[1]].map(c => c + c) : hex[1].match(/../g)!).map(h => parseInt(h, 16));
+  const fn = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(v);
+  if (fn) rgb = [fn[1], fn[2], fn[3]].map(Number);
+  if (v === 'white' || v === '#fff') rgb = [255, 255, 255];
+  return rgb ? (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255 : null;
+};
+
+/** The colour the template gives a line of text (own, inner or inherited). */
+function textColorOf(el: HNode, unit: HNode): string | undefined {
+  for (const d of [el, ...el.querySelectorAll('*')]) { const c = styleOf(d, 'color'); if (c && visibleText(d)) return c; }
+  for (let n: HNode | null = el.parentNode as HNode | null; n; n = n.parentNode as HNode | null) {
+    const c = styleOf(n, 'color');
+    if (c) return c;
+    if (n === unit) break;
+  }
+  return undefined;
+}
+
+/**
+ * A short line we wrote into the template (section heading, subtitle, label,
+ * short caption): black, default font, rule line height and spacing; headings
+ * at heading size and bold, other lines keep the slot's size. Light text the template sets on a colour band keeps its colour,
+ * since black would vanish into the band.
+ */
+function conformLine(zone: Zone, unit: HNode, role: 'heading' | 'line', rules: TypesetRules) {
+  const light = (luminance(textColorOf(zone.el, unit)) ?? 0) > 0.8;
+  const strip = role === 'line' ? TYPO.filter(k => k !== 'font-size') : TYPO;
+  for (const el of [zone.el, ...zone.el.querySelectorAll('*')]) dropCss(el, light ? strip.filter(k => k !== 'color') : strip);
+  dropInheritedFont(zone.el, unit);
+  const css = [
+    light ? '' : `color:${rules.textColor};`,
+    `line-height:${rules.lineHeight};letter-spacing:${rules.letterSpacing}px;`,
+    role === 'heading' ? `font-size:${rules.headingSize}px;${rules.headingBold ? 'font-weight:bold;' : ''}` : '',
+  ].join('');
+  addCss(zone.el, css);
+}
+
+/** A blank line (the template's or ours): no text, no picture, nothing drawn. */
+function isSpacer(el: HNode): boolean {
+  if (!/^(p|section|div)$/i.test(el.tagName ?? '')) return false;
+  if (visibleText(el) || el.querySelector('img') || el.querySelector('svg')) return false;
+  for (const n of [el, ...el.querySelectorAll('*')]) if (/background|border|box-shadow|(?:^|;)\s*(min-)?height\s*:\s*[1-9]/i.test(n.getAttribute?.('style') ?? '')) return false;
+  return /^p$/i.test(el.tagName) || !!el.querySelector('br');
+}
+
+/**
+ * 空行规范 on the finished tree: no blank line between two pieces of text,
+ * never two blank lines in a row, and one blank line at the very start and end.
+ * The title unit keeps the template's own spacing (大标题按照模板).
+ */
+function normalizeBlanks(wrapper: HNode, ours: Set<string>, title: HNode | undefined, rules: TypesetRules) {
+  const inside = (el: HNode, box: HNode | undefined) => { for (let n: HNode | null = el; n && box; n = n.parentNode as HNode | null) if (n === box) return true; return false; };
+  const textOnly = (el: HNode) => !!visibleText(el) && !el.querySelectorAll('img').some(i => ours.has(i.getAttribute('src') ?? ''));
+  const spacers: HNode[] = [];
+  const walk = (n: HNode) => { for (const c of elements(n)) { if (isSpacer(c)) spacers.push(c); else walk(c); } };
+  walk(wrapper);
+  for (const s of spacers) {
+    if (inside(s, title)) continue;
+    const sibs = elements(s.parentNode as HNode);
+    const i = sibs.indexOf(s);
+    const prev = sibs[i - 1], next = sibs[i + 1];
+    if (prev && isSpacer(prev)) { s.remove(); continue; }
+    if (prev && next && prev !== title && textOnly(prev) && textOnly(next)) s.remove();
+  }
+  if (rules.blankAtEdges) {
+    const blank = blankLineHtml(rules);
+    const kids = elements(wrapper);
+    if (kids.length && !isSpacer(kids[0])) wrapper.insertAdjacentHTML('afterbegin', blank);
+    if (kids.length && !isSpacer(kids.at(-1)!)) wrapper.insertAdjacentHTML('beforeend', blank);
+  }
 }
 
 const norm = (s: string) => s.replace(ZWS, '').replace(/&[a-z]+;/g, '');
@@ -735,7 +838,7 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
       if (typeof value === 'string') {
         const text = value.slice(0, Math.max(zone.len + 4, 4));
         setLine(zone, zone.len <= NUM_ZONE ? text.slice(0, 4) : text);
-        if (zone.len > NUM_ZONE) report.generated.push(text);
+        if (zone.len > NUM_ZONE) { report.generated.push(text); conformLine(zone, node, info.kind === 'heading' ? 'heading' : 'line', rules); }
         continue;
       }
       for (const x of value) placed.set(x.id, node);
@@ -746,13 +849,15 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
         const head = headlineZones(zones).filter(i => !subtitleZones.has(i));
         if (!head.includes(zi)) head.unshift(zi);
         const n = setTitle(formatArticleTitle(manuscript.title, rules), head.map(i => zones[i]));
-        for (const i of head.slice(0, n)) used.add(i);
+        for (const i of head.slice(0, n)) { used.add(i); if (!zones[i].bold) addCss(zones[i].el, 'font-weight:bold;'); }
         report.title = true;
         continue;
       }
       const short = value.length === 1 && value[0].kind !== 'para' && zone.len < BODY_ZONE;
-      if (short) setLine(zone, value[0].kind === 'subtitle' ? undash(value[0].text) : value[0].text);
-      else setBlock(zone, node, value.map(x => x.html).join(''), rules);
+      if (short) {
+        setLine(zone, value[0].kind === 'subtitle' ? undash(value[0].text) : value[0].text);
+        conformLine(zone, node, value[0].kind === 'heading' ? 'heading' : 'line', rules);
+      } else setBlock(zone, node, value.map(x => x.html).join(''), rules);
       if (value.some(x => x.kind === 'subtitle')) report.subtitle = true;
       report.paragraphs += value.filter(x => x.kind === 'para').length;
     }
@@ -817,9 +922,8 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
       ours.add(src);
       report.images++;
     } else if (piece.kind === 'subtitle') {
-      // No slot for it: still a display line under the title, in the template's accent.
-      const accent = accentOf(instances.find(x => x.info.kind === 'title')?.node, rules.textColor);
-      markup = `<section style="padding:0 ${rules.sidePadding}px;"><p style="margin:0;text-align:center;font-size:${rules.headingSize}px;font-weight:bold;line-height:1.75;letter-spacing:${rules.letterSpacing}px;color:${accent};">${escapeHtml(piece.text)}</p></section>${rules.blankAroundImages || rules.blankAtEdges ? blankLineHtml(rules) : ''}`;
+      // No slot for it: still a display line under the title (black like all text but the title).
+      markup = `<section style="padding:0 ${rules.sidePadding}px;"><p style="margin:${rules.paragraphGap}px 0;text-align:center;font-size:${rules.headingSize}px;font-weight:bold;line-height:${rules.lineHeight};letter-spacing:${rules.letterSpacing}px;color:${rules.textColor};">${escapeHtml(piece.text)}</p></section>`;
       report.subtitle = true;
     } else {
       markup = `<section style="padding:0 ${rules.sidePadding}px;">${piece.html}</section>`;
@@ -867,10 +971,7 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
       if (after && content(after)) after.insertAdjacentHTML('beforebegin', blank);
     }
   }
-  if (rules.blankAtEdges && instances.length) {
-    const first = instances.find(x => x.info.kind !== 'title' && x.info.kind !== 'subtitle');
-    if (first && first.node.parentNode === wrapper && elements(wrapper)[0] === first.node) first.node.insertAdjacentHTML('beforebegin', blank);
-  }
+  normalizeBlanks(wrapper, ours, instances.find(x => x.info.kind === 'title')?.node, rules);
 
   // Last line of defence: every paragraph and picture must be in the output.
   let out = root.toString();
