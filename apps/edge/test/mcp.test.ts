@@ -169,6 +169,17 @@ test('remote MCP: OAuth discovery, bearer auth, import, edit, lint, preview and 
     // Re-style and structure correction work from the stored manuscript.
     const manuscript = (await call('kiumi_get_manuscript', { documentId: docId })).data;
     assert.equal(manuscript.style, 'shop:paper/test');
+    // The Agent plans the layout itself: it reads the prompt and submits a plan.
+    const described = (await call('kiumi_describe_style', { atomTplId: 'shop:paper/test', documentId: docId })).data;
+    assert.match(described.planPrompt, /只输出 JSON/);
+    assert.match(described.planPrompt, /\nf0 图片/);
+    assert.equal((await call('kiumi_apply_style', { documentId: docId, style: 'shop:paper/test', plan: 'nonsense' })).error.code, 'INVALID_PLAN');
+    const units = [...described.planPrompt.matchAll(/^u(\d+) (\w+)/gm)].map(m => ({ u: Number(m[1]), kind: m[2] }));
+    const textUnit = units.find(x => x.kind === 'text' || x.kind === 'mixed')!;
+    const planned = (await call('kiumi_apply_style', { documentId: docId, style: 'shop:paper/test', plan: { entries: [{ u: textUnit.u, t: { 0: ['p0'] } }] } })).data;
+    assert.ok(planned.rev > edited.data.rev);
+    const plannedDoc = (await call('kiumi_get_document', { documentId: docId, view: 'full' })).data;
+    assert.match(plannedDoc.blocks[0].html, /\/uploads\/img_aaaa/, 'pieces the plan left out are still set');
     const unstyled = (await call('kiumi_apply_style', { documentId: docId, style: null })).data;
     assert.ok(unstyled.rev > edited.data.rev);
     const plain = (await call('kiumi_get_document', { documentId: docId })).data;

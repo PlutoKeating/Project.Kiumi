@@ -6,6 +6,7 @@ import {
   classifyFacts,
   fillTemplate,
   lintBlocks,
+  parsePlan,
   manuscriptImages,
   normalizeRules,
   outlineOf,
@@ -16,6 +17,7 @@ import {
   type DocOp,
   type KiumiDocument,
   type Manuscript,
+  type PlanEntry,
   type SourceFact,
   type TypesetRules,
 } from '@kiumi/core';
@@ -81,6 +83,8 @@ export interface StoredManuscript {
   patches: unknown[];
   /** Style template the document is currently poured into. */
   style?: string;
+  /** Layout plan an Agent submitted for `style`; dropped when the style or structure changes. */
+  plan?: PlanEntry[];
   warnings: string[];
 }
 
@@ -122,7 +126,9 @@ export async function buildBlocks(env: Env, deps: Deps, stored: StoredManuscript
   if (stored.style) {
     const record = await deps.getTemplate(stored.style);
     if (!record) throw new ApiError(404, 'TEMPLATE_NOT_FOUND', `风格模板 ${stored.style} 不存在`);
-    const result = fillTemplate(sanitizeHtml(record.html), manuscript, { rules, resolveImage: ref => ref });
+    const html = sanitizeHtml(record.html);
+    // Agent flows plan with the Agent's own model (kiumi_describe_style -> kiumi_apply_style plan); otherwise rules.
+    const result = fillTemplate(html, manuscript, { rules, resolveImage: ref => ref, plan: stored.plan, planSource: 'agent' });
     warnings.push(...result.report.warnings);
     fill = result.report;
     blocks = [{ kind: 'library', id: `blk-${stamp}`, tplId: record.atomTplId, matrix: [], html: result.html }];
@@ -147,12 +153,17 @@ async function writeDocument(env: Env, deps: Deps, teamId: string, docId: string
 }
 
 /** Re-pour the stored manuscript with a different style or extra role corrections. */
-export async function restyle(env: Env, deps: Deps, teamId: string, docId: string, change: { style?: string | null; patches?: unknown }) {
+export async function restyle(env: Env, deps: Deps, teamId: string, docId: string, change: { style?: string | null; patches?: unknown; plan?: unknown }) {
   await loadDocument(env, teamId, docId);
   const stored = await loadStored(env, docId);
   if (!stored) throw new ApiError(404, 'NO_MANUSCRIPT', '这篇文稿不是由稿件导入生成的，没有可重新排版的原稿。请先导入稿件。');
-  if (change.style !== undefined) stored.style = change.style ?? undefined;
-  if (Array.isArray(change.patches)) stored.patches = [...stored.patches, ...change.patches.filter(p => Array.isArray(p) && p.length >= 2)];
+  if (change.style !== undefined && change.style !== stored.style) { stored.style = change.style ?? undefined; stored.plan = undefined; }
+  if (Array.isArray(change.patches)) { stored.patches = [...stored.patches, ...change.patches.filter(p => Array.isArray(p) && p.length >= 2)]; stored.plan = undefined; }
+  if (change.plan !== undefined) {
+    const plan = change.plan === null ? null : parsePlan(change.plan);
+    if (change.plan !== null && !plan) throw new ApiError(400, 'INVALID_PLAN', 'plan 需要是 {entries:[{u,t,img}]} 或其数组');
+    stored.plan = plan ?? undefined;
+  }
   return writeDocument(env, deps, teamId, docId, stored, await teamRules(env, teamId));
 }
 
@@ -276,24 +287,42 @@ export async function previewRoute(request: Request, env: Env, deps: Deps): Prom
 // Optional model second opinion for the web importer
 // ---------------------------------------------------------------------------
 
-export async function annotateRoute(request: Request, env: Env): Promise<Response> {
-  await teamContext(env, request);
-  if (!env.LLM_API_URL || !env.LLM_API_KEY) throw new ApiError(501, 'LLM_NOT_CONFIGURED', '服务端未配置模型，已使用规则识别');
-  const { prompt } = await request.json() as { prompt?: string };
-  if (typeof prompt !== 'string' || !prompt || prompt.length > 8000) throw new ApiError(400, 'INVALID_BODY', '提示内容无效');
+/** One chat completion against the configured OpenAI-compatible endpoint. */
+export async function callModel(env: Env, system: string, prompt: string, options: { maxTokens: number; timeoutMs: number }): Promise<string> {
+  if (!env.LLM_API_URL || !env.LLM_API_KEY) throw new ApiError(501, 'LLM_NOT_CONFIGURED', '服务端未配置模型，已使用规则排版');
   const response = await fetch(env.LLM_API_URL, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${env.LLM_API_KEY}` },
-    body: JSON.stringify({ model: env.LLM_MODEL ?? 'default', temperature: 0, max_tokens: 400, messages: [{ role: 'system', content: '你是中文公众号编辑。只输出 JSON 数组，不要解释。' }, { role: 'user', content: prompt }] }),
-    signal: AbortSignal.timeout(20_000),
+    body: JSON.stringify({ model: env.LLM_MODEL ?? 'default', temperature: 0, max_tokens: options.maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] }),
+    signal: AbortSignal.timeout(options.timeoutMs),
   }).catch(() => null);
-  if (!response?.ok) throw new ApiError(502, 'LLM_FAILED', '模型暂时不可用，已使用规则识别');
+  if (!response?.ok) throw new ApiError(502, 'LLM_FAILED', '模型暂时不可用，已使用规则排版');
   const out = await response.json() as { choices?: { message?: { content?: string } }[] };
-  const text = out.choices?.[0]?.message?.content ?? '';
+  return out.choices?.[0]?.message?.content ?? '';
+}
+
+const PLAN_SYSTEM = '你是资深公众号排版编辑，负责把稿件编排进风格模板。只输出 JSON，不要解释。';
+
+/** Structure recognition: role corrections for the listed paragraphs. */
+export async function annotateRoute(request: Request, env: Env): Promise<Response> {
+  await teamContext(env, request);
+  const { prompt } = await request.json() as { prompt?: string };
+  if (typeof prompt !== 'string' || !prompt || prompt.length > 20_000) throw new ApiError(400, 'INVALID_BODY', '提示内容无效');
+  const text = await callModel(env, '你是中文公众号编辑。只输出 JSON 数组，不要解释。', prompt, { maxTokens: 1500, timeoutMs: 30_000 });
   const match = /\[[\s\S]*\]/.exec(text);
   let patches: unknown = [];
   try { patches = match ? JSON.parse(match[0]) : []; } catch { patches = []; }
-  return reply({ patches: Array.isArray(patches) ? patches.slice(0, 200) : [] });
+  return reply({ patches: Array.isArray(patches) ? patches.slice(0, 400) : [] });
+}
+
+/** Layout planning for the web importer: the browser builds the prompt with the same core code. */
+export async function planRoute(request: Request, env: Env): Promise<Response> {
+  await teamContext(env, request);
+  const { prompt } = await request.json() as { prompt?: string };
+  if (typeof prompt !== 'string' || !prompt || prompt.length > 60_000) throw new ApiError(400, 'INVALID_BODY', '提示内容无效');
+  const plan = parsePlan(await callModel(env, PLAN_SYSTEM, prompt, { maxTokens: 4000, timeoutMs: 60_000 }));
+  if (!plan) throw new ApiError(502, 'LLM_FAILED', '模型没有给出可用的排版方案，已使用规则排版');
+  return reply({ entries: plan });
 }
 
 // ---------------------------------------------------------------------------

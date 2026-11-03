@@ -10,7 +10,7 @@ import {
 } from '@kiumi/core';
 import { currentUser, handleAuth } from './auth.js';
 import { workspaceRoutes, privateUpload, exportImages, signedImages, ApiError, teamContext } from './workspace.js';
-import { annotateRoute, importRoute, previewRoute, rulesRoutes, type Deps } from './manuscript.js';
+import { annotateRoute, importRoute, planRoute, previewRoute, rulesRoutes, type Deps } from './manuscript.js';
 import { mcpRoutes } from './mcp.js';
 import { wechatRoutes } from './wechat.js';
 import { dataFetch } from './data.js';
@@ -202,6 +202,7 @@ export default {
       if (path === '/api/import/manuscript' && request.method === 'POST') return await importRoute(request, env, manuscriptDeps(env));
       if (path.startsWith('/api/preview/') && request.method === 'GET') return await previewRoute(request, env, manuscriptDeps(env));
       if (path === '/api/manuscript/annotate' && request.method === 'POST') return await annotateRoute(request, env);
+      if (path === '/api/manuscript/plan' && request.method === 'POST') return await planRoute(request, env);
       const rules = await rulesRoutes(request, env);
       if (rules) return rules;
       const live = /^\/api\/documents\/([^/]+)\/live$/.exec(path);

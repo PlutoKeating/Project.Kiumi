@@ -1,4 +1,4 @@
-import { analyzeTemplate, outlineOf, sanitizeHtml, validateOps, type DocOp, type TypesetRules } from '@kiumi/core';
+import { analyzeTemplate, manuscriptPieces, outlineOf, planPrompt, sanitizeHtml, validateOps, type DocOp, type TypesetRules } from '@kiumi/core';
 import { bearerUser, type SessionUser } from './auth.js';
 import { dataFetch } from './data.js';
 import { commitOps, loadDocument } from './docs.js';
@@ -113,13 +113,23 @@ const TOOLS: Tool[] = [
     },
   },
   {
-    name: 'kiumi_describe_style', readOnly: true, description: '查看一个风格模板的版面结构：有几处正文、几处图片位、是否有大标题/副标题。',
-    properties: { atomTplId: str('模板编号，如 shop:paper/100584') }, required: ['atomTplId'],
+    name: 'kiumi_describe_style', readOnly: true,
+    description: '查看一个风格模板的版面结构。带上 documentId（已导入稿件的文稿）时还返回 planPrompt：模板单元与稿件编号的精简清单和编排规则。按它写出排版方案后用 kiumi_apply_style 的 plan 提交，即可由你决定哪段放进哪个单元、哪些单元重复或删除、小标题条写什么。',
+    properties: { atomTplId: str('模板编号，如 shop:paper/100584'), documentId: { type: 'string', description: '可选：已导入稿件的文稿编号' }, team: TEAM }, required: ['atomTplId'],
     async run(ctx, a) {
       const record = await ctx.deps.getTemplate(String(a.atomTplId));
       if (!record) throw new ApiError(404, 'TEMPLATE_NOT_FOUND', '模板不存在');
       const schema = analyzeTemplate(sanitizeHtml(record.html));
-      return { atomTplId: record.atomTplId, name: record.displayName, ...schema.summary, units: schema.units.length };
+      const out: Record<string, unknown> = { atomTplId: record.atomTplId, name: record.displayName, ...schema.summary, units: schema.units.length };
+      if (a.documentId) {
+        const t = await team(ctx, a.team);
+        await loadDocument(ctx.env, t.id, a.documentId);
+        const row = await ctx.env.DB.prepare('SELECT data FROM manuscripts WHERE doc_id=?').bind(a.documentId).first<{ data: string }>();
+        if (!row) throw new ApiError(404, 'NO_MANUSCRIPT', '这篇文稿没有导入过稿件');
+        const { manuscript } = recognizeStored(JSON.parse(row.data));
+        out.planPrompt = planPrompt(schema, manuscriptPieces(manuscript, await teamRules(ctx.env, t.id)));
+      }
+      return out;
     },
   },
   {
@@ -148,11 +158,11 @@ const TOOLS: Tool[] = [
     },
   },
   {
-    name: 'kiumi_apply_style', description: '把已导入的稿件换一个风格模板重新排版（style 传 null 则取消模板，用纯文字排版）。会整体替换文稿内容。',
-    properties: { documentId: DOC, style: { type: ['string', 'null'], description: '风格模板编号或 null' }, team: TEAM }, required: ['documentId', 'style'],
+    name: 'kiumi_apply_style', description: '把已导入的稿件换一个风格模板重新排版（style 传 null 则取消模板，用纯文字排版）。会整体替换文稿内容。可选 plan：按 kiumi_describe_style 的 planPrompt 写出的排版方案 {entries:[{u,t,img}]}；不传则用服务端模型（若已配置）或规则排版。模板放不下的内容会按规范排在相邻位置，不会丢失。',
+    properties: { documentId: DOC, style: { type: ['string', 'null'], description: '风格模板编号或 null' }, plan: { type: ['object', 'array', 'null'], description: '可选：排版方案；null 清除之前提交的方案' }, team: TEAM }, required: ['documentId', 'style'],
     async run(ctx, a) {
       const t = await team(ctx, a.team);
-      const { doc, report } = await restyle(ctx.env, ctx.deps, t.id, a.documentId, { style: a.style });
+      const { doc, report } = await restyle(ctx.env, ctx.deps, t.id, a.documentId, { style: a.style, ...(a.plan !== undefined ? { plan: a.plan } : {}) });
       return { rev: doc.meta.rev, ...report };
     },
   },
