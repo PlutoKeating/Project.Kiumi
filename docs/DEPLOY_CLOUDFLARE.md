@@ -52,7 +52,7 @@ npx wrangler secret put ID_ISSUER_URL           # 账号服务地址
 npx wrangler secret put ID_CLIENT_ID
 ```
 
-可选变量：`MCP_CLIENT_IDS`（允许调用 `/mcp` 的 OAuth 客户端，默认 `kiumi-mcp`）；`LLM_API_URL` / `LLM_API_KEY` / `LLM_MODEL`（OpenAI 兼容的 chat completions 接口，用于网页导入的结构复核与风格排版方案，见 [MANUSCRIPT.md](MANUSCRIPT.md)；不配置则只用规则方案，稿件没有小标题时模板的小标题条会被删掉而不是拟写）。用 `wrangler secret put LLM_API_KEY` 设置密钥，URL 与模型可放 secret 或 vars。
+可选变量：`MCP_CLIENT_IDS`（允许调用 `/mcp` 的 OAuth 客户端，默认 `kiumi-mcp`）；`KIUMI_ADMIN_SUBS`（站点管理员的账号 sub 或邮箱，逗号分隔，可进入 `/admin` 配置模型）；`MODEL_CATALOG_URL`（模型目录默认来源，`wrangler.jsonc` 的 vars 已设为 models.dev，面板可覆盖）。模型提供商、Key、模型与调用顺序都在 `/admin` 面板配置并热生效，见 [MODELS.md](MODELS.md)；旧的 `LLM_API_URL` / `LLM_API_KEY` / `LLM_MODEL`（可选 `LLM_PROTOCOL`）只在面板还没有提供商时使用。没有任何模型时网页按规则排版。
 
 本地部署时这些值也可以写进 `.env.local`（已被忽略）。公众号凭证由团队创建者在网站绑定，加密保存到 D1，不使用全站共享公众号。`KIUMI_DATA_KEY` 同时用于派生凭证加密密钥，轮换前必须迁移已存凭证。
 
@@ -61,7 +61,7 @@ npx wrangler secret put ID_CLIENT_ID
 上线前先应用迁移（只执行增量，不要重复执行完整 schema）：
 
 ```bash
-pnpm d1:schema      # 含 0002_manuscripts.sql：documents.rev、teams.typeset_rules、manuscripts 表
+pnpm d1:schema      # 0002_manuscripts.sql：documents.rev、teams.typeset_rules、manuscripts 表；0003_settings.sql：settings 表（模型配置）
 ```
 
 迁移必须早于使用新字段的 Worker。`wrangler.jsonc` 已声明 Durable Object `DocHub` 及其首个迁移（SQLite 类，无状态，仅做实时通知转发）；`/mcp` 与 `/.well-known/*` 已加入 `run_worker_first`。账号中心需登记公共客户端 `kiumi-mcp`，见 [MCP.md](MCP.md)。

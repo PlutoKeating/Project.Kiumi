@@ -33,6 +33,7 @@ Worker 通过 VPC/Tunnel 连接自建数据服务。模板与镜像素材目录�
 - 每个打开的文稿对应一个 Durable Object（`DocHub`，只转发通知，不存文稿）。写入后 Worker 推送 `{rev, by, from, ops}`，编辑器按同一份 ops 在本地应用，作为一步可撤销的修改。
 - 导入大文件走预签名上传地址：Worker 把请求体流式转给数据服务，数据服务完成解析与图片处理，Worker 登记图库并写入文稿，同时把识别后的稿件保存在 `manuscripts` 表，供之后换风格或纠正结构。
 - 团队排版规范存 `teams.typeset_rules`。
+- 站点级设置存 D1 `settings`（每个键一份 JSON 加乐观锁版本）。模型提供商、Key（AES-GCM 加密）、调用顺序与各用途参数由 `/admin` 面板编辑（管理员见 `KIUMI_ADMIN_SUBS`），`apps/edge/src/llm.ts` 在每次调用时读取，热生效；模型目录（models.dev 格式，地址可配置）缓存在 Workers Cache API。见 [MODELS.md](MODELS.md)。
 
 ## 渲染
 

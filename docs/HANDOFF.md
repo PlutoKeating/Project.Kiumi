@@ -49,7 +49,7 @@ Kiumi 是公开免费的桌面公众号排版工具。匿名用户可以浏览�
 1. `pnpm d1:schema` 应用 `0002_manuscripts.sql`，再部署 Worker（Durable Object `DocHub` 随 `wrangler.jsonc` 声明）。
 2. 数据服务：同步 `deploy/ecs-data` 全目录（含 `core/`、`manuscript.mjs`），`docker compose up -d --build`；容器内存上限已提到 512 MB。
 3. 账号中心登记公共客户端 `kiumi-mcp`（片段见 MCP.md），用真实 MCP 客户端走一遍登录与回调。
-4. 建议：配置 `LLM_API_URL / LLM_API_KEY / LLM_MODEL`（OpenAI 兼容接口）。网页导入用它复核结构并编排风格模板；不配置则只用规则方案。
+4. 建议：应用 `0003_settings.sql`，设置 `KIUMI_ADMIN_SUBS`，由管理员在 `/admin` 添加模型提供商与 Key（见 [MODELS.md](MODELS.md)）。网页导入用它复核结构并编排风格模板；没有模型时只用规则方案。
 
 **尚未实测：** 真实 MCP 客户端经账号中心登录的完整授权流程（需要人用邮箱验证码登录一次）；真实公众号草稿经 MCP 同步；服务端 DOCX 提取（Agent 路径）比浏览器路径（Mammoth）覆盖的 Word 特性少，表格按纯文字，脚注、文本框、公式不导入，均在报告的 warnings 中说明。
 
