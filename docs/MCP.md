@@ -47,11 +47,11 @@ claude mcp add --transport http --client-id kiumi-mcp kiumi https://<站点>/mcp
 | `kiumi_whoami` | 当前用户与团队 |
 | `kiumi_list_documents` / `kiumi_create_document` | 文稿列表 / 新建 |
 | `kiumi_get_document` | 默认返回每块摘要（省 token）；`view=block` 取单块，`view=full` 取全文 |
-| `kiumi_search_styles` / `kiumi_describe_style` | 找风格模板，查看版面结构（几处正文、几处图片位） |
+| `kiumi_search_styles` / `kiumi_describe_style` | 找风格模板，查看版面结构；带 `documentId` 时返回 `planPrompt`（模板单元与稿件编号清单），供 Agent 自己编排 |
 | `kiumi_begin_import` | 返回 15 分钟有效的上传地址，见下 |
 | `kiumi_get_manuscript` | 识别出的文章结构大纲，以及仍不确定的段落清单 |
 | `kiumi_fix_structure` | 按 `[[序号, 角色]]` 纠正结构并重新排版 |
-| `kiumi_apply_style` | 换风格重新排版（`null` 为纯文字） |
+| `kiumi_apply_style` | 换风格重新排版（`null` 为纯文字）；可带 `plan`（按 `planPrompt` 写的排版方案，`null` 清除），放不下的内容按规范排在相邻位置，不会丢失 |
 | `kiumi_edit_document` | 精细修改：`title` `meta` `insert` `replace` `html` `remove` `move`，按块 id |
 | `kiumi_replace_text` | 只改标签之间的文字 |
 | `kiumi_lint` | 团队排版规范 + 微信兼容检查，返回带块 id 的问题 |

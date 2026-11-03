@@ -47,7 +47,7 @@ React + Zustand。左上角团队入口提供创建/加入/切换团队、成员
 ## 稿件导入、风格排版与实时更新
 
 - `lib/word-import/bundle.ts`：投递包 ZIP（Word + 原图）。浏览器内指纹匹配（`lib/image-match.ts`，canvas 取 32×32 灰度，算法在 `@kiumi/core/imagematch`），原图缩放去 EXIF；`applyMatching` 重算替换表与上传集合，`chooseOriginal` 支持逐张改选。
-- `lib/typeset-import.ts`：预览 → `SourceFact` → 结构识别（规则，可选服务端模型补 8 秒内的第二意见）→ `fillTemplate` 排入风格；成功后预览变成一个保留布局的 HTML 块，封面取第一张正文图。
+- `lib/typeset-import.ts`：预览 → `SourceFact` → 结构识别（规则初判，服务端模型 30 秒内复核全文）→ `requestPlan` 请模型按 `planPrompt` 编排版面（60 秒内）→ `fillTemplate` 执行方案，模型不可用或方案不完整时用规则方案；放不下的内容排在相邻位置，不会丢失。成功后预览变成一个保留布局的 HTML 块，封面取第一张正文图；面板显示「AI 正在识别/编排」进度，模型拟写的小标题和放不下的内容列在待核对项里。
 - `ImportPanel.tsx`：风格开关与识别到的结构大纲、原图匹配卡片（低把握标黄、可下拉改选）；风格由模板卡片上的「排入稿件」选定，保存在本机。
 - `lib/live.ts`：为当前文稿维持一个 WebSocket，收到 `changed` 后 `store.receiveChange` 按 ops 在本地应用（连续修订）或载入服务器版本，均为一步可撤销；保存携带 `baseRev`，409 时提示并载入最新版本。
 - `ArticleSettings.tsx` 的「排版规范」：与 Agent 的 `kiumi_lint` 共用 `lintBlocks`；创建者可把数值保存为团队规范。

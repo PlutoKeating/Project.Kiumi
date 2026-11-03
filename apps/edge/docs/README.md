@@ -25,7 +25,7 @@ Word 导入不增加 Worker 转换接口。扩展的 Worker/D1 回归验证导�
 - `mcp.ts`：远程 MCP（JSON-RPC over HTTP）。只接受 Bearer 令牌（`auth.ts` 的 `bearerUser`：JWKS 验签、签发者、`client_id` 白名单、可选 `aud`）。工具均先确认团队成员关系，再经 `docs.ts` 的 `commitOps` 写入。
 - `docs.ts`：`commitOps` 在当前修订号上乐观写入（最多重试 4 次）并通知；`documentFrom` 把 `rev` 带进 `meta`。
 - `hub.ts`：`DocHub` Durable Object，每篇文稿一个，WebSocket Hibernation，不保存状态。`/api/documents/:id/live` 先校验会话与团队成员，再转发到 DO。
-- `manuscript.ts`：预签名导入（令牌绑定用户/团队/文稿，15 分钟，HMAC 密钥派生自 `KIUMI_DATA_KEY` 并按用途隔离）、重新排版、lint、预览链接、团队排版规范、模型第二意见路由。大文件流式转给数据服务，Worker 不在内存里解压。
+- `manuscript.ts`：预签名导入（令牌绑定用户/团队/文稿，15 分钟，HMAC 密钥派生自 `KIUMI_DATA_KEY` 并按用途隔离）、重新排版、lint、预览链接、团队排版规范、模型路由（`callModel` 统一调用 OpenAI 兼容接口：`/api/manuscript/annotate` 结构复核、`/api/manuscript/plan` 排版方案，只供网页；MCP 流程用 Agent 提交的 `plan` 或规则方案，不调用服务端模型）。大文件流式转给数据服务，Worker 不在内存里解压。
 - 迁移 `0002_manuscripts.sql` 新增 `documents.rev`、`teams.typeset_rules`、`manuscripts`。已有 `INSERT INTO teams` 改为显式列名，避免新增列破坏位置参数写入。
 
 `pnpm test` 的 `mcp.test.ts` 用 Miniflare 覆盖：401 挑战与元数据、错误客户端/过期/错误受众令牌、导入、按块编辑、重新排版、lint、预览链接、跨用户隔离、WebSocket 实时通知与 `baseRev` 冲突。

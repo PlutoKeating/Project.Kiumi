@@ -52,7 +52,7 @@ npx wrangler secret put ID_ISSUER_URL           # 账号服务地址
 npx wrangler secret put ID_CLIENT_ID
 ```
 
-可选变量：`MCP_CLIENT_IDS`（允许调用 `/mcp` 的 OAuth 客户端，默认 `kiumi-mcp`）；`LLM_API_URL` / `LLM_API_KEY` / `LLM_MODEL`（OpenAI 兼容接口，只用于网页导入时对不确定段落的第二意见，不配置则只用规则）。
+可选变量：`MCP_CLIENT_IDS`（允许调用 `/mcp` 的 OAuth 客户端，默认 `kiumi-mcp`）；`LLM_API_URL` / `LLM_API_KEY` / `LLM_MODEL`（OpenAI 兼容的 chat completions 接口，用于网页导入的结构复核与风格排版方案，见 [MANUSCRIPT.md](MANUSCRIPT.md)；不配置则只用规则方案，稿件没有小标题时模板的小标题条会被删掉而不是拟写）。用 `wrangler secret put LLM_API_KEY` 设置密钥，URL 与模型可放 secret 或 vars。
 
 本地部署时这些值也可以写进 `.env.local`（已被忽略）。公众号凭证由团队创建者在网站绑定，加密保存到 D1，不使用全站共享公众号。`KIUMI_DATA_KEY` 同时用于派生凭证加密密钥，轮换前必须迁移已存凭证。
 
