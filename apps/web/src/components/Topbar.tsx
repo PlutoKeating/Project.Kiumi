@@ -90,6 +90,7 @@ export function Topbar({ session, workspaceVersion, onWorkspaceChange, onPreview
         {session && !session.unavailable && session.loginEnabled && (session.user ? (
           <PopMenu label={`账号：${userLabel(session.user)}`} trigger={<span className="avatar">{userLabel(session.user).slice(0, 1).toUpperCase()}</span>}>
             <p className="pop-note">{userLabel(session.user)}</p>
+            {session.admin && <a href="/admin"><Icon name="palette" />模型配置</a>}
             <a href="/auth/logout"><Icon name="logout" />退出登录</a>
           </PopMenu>
         ) : (

@@ -8,7 +8,11 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   // The server owns `/assets/*` for mirrored template media, so the app's own
   // bundles must not live there.
-  build: { assetsDir: 'static' },
+  build: {
+    assetsDir: 'static',
+    // The site admin panel is its own page so the workbench bundle stays unchanged.
+    rollupOptions: { input: { main: 'index.html', admin: 'admin.html' } },
+  },
   server: {
     port: 5180,
     proxy: {

@@ -122,6 +122,8 @@ export interface SessionUser {
 export interface SessionState {
   user: SessionUser | null;
   loginEnabled: boolean;
+  /** Site admin (KIUMI_ADMIN_SUBS): may open the model configuration panel. */
+  admin?: boolean;
   /** Static builds talk to the local server directly, so there may be no session endpoint. */
   unavailable?: boolean;
 }
