@@ -1,10 +1,16 @@
 import {
   DEFAULT_RULES,
+  analyzeTemplate,
+  annotateSystem,
   annotationRequest,
+  manuscriptPieces,
+  planSystem,
+  reviewPlan,
   applyAnnotations,
   assembleManuscript,
   classifyFacts,
   fillTemplate,
+  formatArticleTitle,
   lintBlocks,
   parsePlan,
   manuscriptImages,
@@ -147,7 +153,7 @@ export async function buildBlocks(env: Env, deps: Deps, stored: StoredManuscript
 async function writeDocument(env: Env, deps: Deps, teamId: string, docId: string, stored: StoredManuscript, rules: TypesetRules) {
   const { blocks, manuscript, report } = await buildBlocks(env, deps, stored, rules);
   const cover = manuscriptImages(manuscript)[0];
-  const ops: DocOp[] = [{ op: 'set', blocks, title: manuscript.title.slice(0, 200), meta: { ...(cover ? { cover } : {}), ...(manuscript.byline?.writer ? { author: manuscript.byline.writer } : {}) } }];
+  const ops: DocOp[] = [{ op: 'set', blocks, title: formatArticleTitle(manuscript.title, rules).slice(0, 200), meta: { ...(cover ? { cover } : {}), ...(manuscript.byline?.writer ? { author: manuscript.byline.writer } : {}) } }];
   const { doc } = await commitOps(env, teamId, docId, ops, 'agent');
   await saveStored(env, teamId, docId, stored);
   return { doc, report };
@@ -163,9 +169,23 @@ export async function restyle(env: Env, deps: Deps, teamId: string, docId: strin
   if (change.plan !== undefined) {
     const plan = change.plan === null ? null : parsePlan(change.plan);
     if (change.plan !== null && !plan) throw new ApiError(400, 'INVALID_PLAN', 'plan 需要是 {entries:[{u,t,img}]} 或其数组');
+    if (plan) await checkPlan(deps, stored, plan, await teamRules(env, teamId));
     stored.plan = plan ?? undefined;
   }
   return writeDocument(env, deps, teamId, docId, stored, await teamRules(env, teamId));
+}
+
+/**
+ * The mandatory review round for an Agent's plan: a plan that drops, repeats or
+ * misplaces content is sent back with the list of problems instead of applied.
+ */
+async function checkPlan(deps: Deps, stored: StoredManuscript, plan: PlanEntry[], rules: TypesetRules) {
+  if (!stored.style) throw new ApiError(409, 'STYLE_REQUIRED', '先用 style 指定风格模板，plan 才有对应的单元');
+  const record = await deps.getTemplate(stored.style);
+  if (!record) throw new ApiError(404, 'TEMPLATE_NOT_FOUND', `风格模板 ${stored.style} 不存在`);
+  const { manuscript } = recognizeStored(stored);
+  const errors = reviewPlan(analyzeTemplate(sanitizeHtml(record.html)), manuscriptPieces(manuscript, rules), plan).filter(x => x.level === 'error');
+  if (errors.length) throw new ApiError(422, 'PLAN_REJECTED', `排版方案未通过复核，没有应用。请全部改正后重新提交：\n${errors.map((x, i) => `${i + 1}. ${x.message}`).join('\n')}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -230,11 +250,14 @@ export async function importRoute(request: Request, env: Env, deps: Deps): Promi
   const { doc, report } = await writeDocument(env, deps, claim.t, claim.d, { ...stored, title: recognizeStored(stored).manuscript.title }, rules);
 
   const low = data.matches.filter(m => m.level !== 'high');
+  const lint = await lintDocument(env, deps, claim.t, doc, url.origin);
   return reply({
     documentId: claim.d,
     rev: doc.meta.rev,
     source: data.docName,
     ...report,
+    // Mandatory review of what was written: house rules and WeChat checks.
+    review: { passed: !lint.style.length && !lint.wechat.some(x => x.level === 'error'), style: lint.style, wechat: lint.wechat },
     images: {
       placeholders: data.matches.length,
       matchedToOriginals: data.matches.filter(m => m.original).length,
@@ -291,26 +314,28 @@ export async function previewRoute(request: Request, env: Env, deps: Deps): Prom
 /** The browser's id for one import, so its model calls share a gateway session. */
 const sessionId = (value: unknown) => (typeof value === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value) ? value : undefined);
 
-const PLAN_SYSTEM = '你是资深公众号排版编辑，负责把稿件编排进风格模板。只输出 JSON，不要解释。';
-
 /** Structure recognition: role corrections for the listed paragraphs. */
 export async function annotateRoute(request: Request, env: Env): Promise<Response> {
-  await teamContext(env, request);
+  const { teamId } = await teamContext(env, request);
   const { prompt, session } = await request.json() as { prompt?: string; session?: string };
   if (typeof prompt !== 'string' || !prompt || prompt.length > 20_000) throw new ApiError(400, 'INVALID_BODY', '提示内容无效');
-  const { text } = await runModel(env, 'annotate', '你是中文公众号编辑。只输出 JSON 数组，不要解释。', prompt, { session: sessionId(session) });
+  const { text } = await runModel(env, 'annotate', annotateSystem(await teamRules(env, teamId)), prompt, { session: sessionId(session) });
   const match = /\[[\s\S]*\]/.exec(text);
   let patches: unknown = [];
   try { patches = match ? JSON.parse(match[0]) : []; } catch { patches = []; }
   return reply({ patches: Array.isArray(patches) ? patches.slice(0, 400) : [] });
 }
 
-/** Layout planning for the web importer: the browser builds the prompt with the same core code. */
+/**
+ * Layout planning for the web importer: the browser builds the prompt (and,
+ * for a review round, the follow-up with the rejected plan and its problems)
+ * with the same core code. The system prompt carries this team's house rules.
+ */
 export async function planRoute(request: Request, env: Env): Promise<Response> {
-  await teamContext(env, request);
+  const { teamId } = await teamContext(env, request);
   const { prompt, session } = await request.json() as { prompt?: string; session?: string };
   if (typeof prompt !== 'string' || !prompt || prompt.length > 60_000) throw new ApiError(400, 'INVALID_BODY', '提示内容无效');
-  const { text } = await runModel(env, 'plan', PLAN_SYSTEM, prompt, { session: sessionId(session) });
+  const { text } = await runModel(env, 'plan', planSystem(await teamRules(env, teamId)), prompt, { session: sessionId(session) });
   const plan = parsePlan(text);
   if (!plan) throw new ApiError(502, 'LLM_FAILED', '模型没有给出可用的排版方案，已使用规则排版');
   return reply({ entries: plan });

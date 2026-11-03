@@ -100,6 +100,10 @@ test('remote MCP: OAuth discovery, bearer auth, import, edit, lint, preview and 
 
     const init = await rpc('initialize', { protocolVersion: '2025-06-18' });
     assert.equal(init.body.result.protocolVersion, '2025-06-18');
+    // The Agent is told the house rules and the mandatory review before it does anything.
+    assert.match(init.body.result.instructions, /团队排版规范（必须全部满足）/);
+    assert.match(init.body.result.instructions, /文字和文字之间不空行/);
+    assert.match(init.body.result.instructions, /强制复核/);
     const names = (await rpc('tools/list')).body.result.tools.map((t: any) => t.name);
     for (const n of ['kiumi_begin_import', 'kiumi_edit_document', 'kiumi_lint', 'kiumi_preview_link']) assert.ok(names.includes(n), n);
 
@@ -138,6 +142,7 @@ test('remote MCP: OAuth discovery, bearer auth, import, edit, lint, preview and 
     const report = importedBody.data;
     assert.equal(report.title, '测试稿件标题');
     assert.equal(report.images.matchedToOriginals, 1);
+    assert.equal(typeof report.review.passed, 'boolean', 'the import answer carries the house-rule review');
     assert.deepEqual(report.images.unusedOriginalsInGallery, ['spare.jpg']);
     assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM uploads').first<{ n: number }>())!.n, 2);
 
@@ -173,13 +178,26 @@ test('remote MCP: OAuth discovery, bearer auth, import, edit, lint, preview and 
     const described = (await call('kiumi_describe_style', { atomTplId: 'shop:paper/test', documentId: docId })).data;
     assert.match(described.planPrompt, /只输出 JSON/);
     assert.match(described.planPrompt, /\nf0 图片/);
+    assert.match(described.planPrompt, /行距 2，字距 2/, 'the plan prompt carries the team rules');
     assert.equal((await call('kiumi_apply_style', { documentId: docId, style: 'shop:paper/test', plan: 'nonsense' })).error.code, 'INVALID_PLAN');
     const units = [...described.planPrompt.matchAll(/^u(\d+) (\w+)/gm)].map(m => ({ u: Number(m[1]), kind: m[2] }));
     const textUnit = units.find(x => x.kind === 'text' || x.kind === 'mixed')!;
-    const planned = (await call('kiumi_apply_style', { documentId: docId, style: 'shop:paper/test', plan: { entries: [{ u: textUnit.u, t: { 0: ['p0'] } }] } })).data;
+    // A plan that leaves pieces out is sent back, not applied.
+    const before = (await call('kiumi_get_document', { documentId: docId })).data.rev;
+    const rejected = await call('kiumi_apply_style', { documentId: docId, style: 'shop:paper/test', plan: { entries: [{ u: textUnit.u, t: { 0: ['p0'] } }] } });
+    assert.equal(rejected.error.code, 'PLAN_REJECTED');
+    assert.match(rejected.error.message, /没有排进方案/);
+    assert.equal((await call('kiumi_get_document', { documentId: docId })).data.rev, before, 'a rejected plan changes nothing');
+    // The corrected plan places every piece once.
+    const ids = [...described.planPrompt.matchAll(/^([A-Za-z]\d*) (\S+)/gm)].map(m => ({ id: m[1], label: m[2] })).filter(x => /^(T|S|Y|[hpcf]\d+)$/.test(x.id));
+    const titleUnit = units.find(x => x.kind === 'title'), photoUnit = units.find(x => x.kind === 'photo' || x.kind === 'mixed')!;
+    // Without a title unit the title stays the article title and is not placed.
+    const entries = ids.filter(x => x.id !== 'T' || titleUnit).map(x => x.id === 'T' ? { u: titleUnit!.u, t: { 0: ['T'] } } : x.label === '图片' ? { u: photoUnit.u, img: [x.id] } : { u: textUnit.u, t: { 0: [x.id] } });
+    const planned = (await call('kiumi_apply_style', { documentId: docId, style: 'shop:paper/test', plan: { entries } })).data;
     assert.ok(planned.rev > edited.data.rev);
+    assert.equal(typeof planned.review.passed, 'boolean', 'every write returns the house-rule review');
     const plannedDoc = (await call('kiumi_get_document', { documentId: docId, view: 'full' })).data;
-    assert.match(plannedDoc.blocks[0].html, /\/uploads\/img_aaaa/, 'pieces the plan left out are still set');
+    assert.match(plannedDoc.blocks[0].html, /\/uploads\/img_aaaa/);
     const unstyled = (await call('kiumi_apply_style', { documentId: docId, style: null })).data;
     assert.ok(unstyled.rev > edited.data.rev);
     const plain = (await call('kiumi_get_document', { documentId: docId })).data;
@@ -188,6 +206,17 @@ test('remote MCP: OAuth discovery, bearer auth, import, edit, lint, preview and 
     // Review: lint and a signed preview link readable without login.
     const lint = (await call('kiumi_lint', { documentId: docId })).data;
     assert.ok(Array.isArray(lint.style));
+    // Grey text written by the Agent is reported right away and blocks the WeChat draft.
+    const grey = (await call('kiumi_edit_document', { documentId: docId, ops: [{ op: 'insert', blocks: [{ kind: 'library', id: 'grey', tplId: 'imported:段落', matrix: [], html: '<p style="color:#555555">灰色的一句话</p>' }], at: 'end' }] })).data;
+    assert.equal(grey.review.passed, false);
+    assert.ok(grey.review.style.some((x: any) => x.rule === 'text-color'));
+    const blocked = await call('kiumi_create_wechat_draft', { documentId: docId });
+    assert.equal(blocked.error.code, 'REVIEW_REQUIRED');
+    assert.match(blocked.error.message, /深灰/);
+    // Only an explicit, explained human sign-off gets past the review (then the missing account stops it here).
+    assert.equal((await call('kiumi_create_wechat_draft', { documentId: docId, reviewed: true })).error.code, 'REVIEW_REQUIRED');
+    assert.equal((await call('kiumi_create_wechat_draft', { documentId: docId, reviewed: true, reviewNote: '负责人已核对，引用原文保留灰色' })).error.code, 'ACCOUNT_REQUIRED');
+    await call('kiumi_edit_document', { documentId: docId, ops: [{ op: 'remove', ids: ['grey'] }] });
     const link = (await call('kiumi_preview_link', { documentId: docId })).data;
     const page = await mf.dispatchFetch(link.url);
     assert.equal(page.status, 200);

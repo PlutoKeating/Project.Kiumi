@@ -1,4 +1,4 @@
-import { analyzeTemplate, manuscriptPieces, outlineOf, planPrompt, sanitizeHtml, validateOps, type DocOp, type TypesetRules } from '@kiumi/core';
+import { DEFAULT_RULES, agentInstructions, analyzeTemplate, manuscriptPieces, outlineOf, planPrompt, sanitizeHtml, validateOps, type DocOp, type TypesetRules } from '@kiumi/core';
 import { bearerUser, type SessionUser } from './auth.js';
 import { dataFetch } from './data.js';
 import { commitOps, loadDocument } from './docs.js';
@@ -58,6 +58,16 @@ function summarize(doc: Awaited<ReturnType<typeof loadDocument>>) {
   });
 }
 
+/**
+ * The review that follows every write: the house-rule and WeChat checks on the
+ * document as it now stands, so the Agent sees what to fix before moving on.
+ */
+async function review(ctx: Ctx, teamId: string, documentId: string) {
+  const result = await lintDocument(ctx.env, ctx.deps, teamId, await loadDocument(ctx.env, teamId, documentId), ctx.origin);
+  const problems = result.style.length + result.wechat.filter(x => x.level === 'error').length;
+  return { passed: problems === 0, note: problems ? '有不符合团队排版规范或微信规则的地方，请先修正再继续。' : '符合团队排版规范。', style: result.style, wechat: result.wechat };
+}
+
 const TOOLS: Tool[] = [
   {
     name: 'kiumi_whoami', readOnly: true, description: '查看当前登录用户及其所在团队。',
@@ -114,7 +124,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'kiumi_describe_style', readOnly: true,
-    description: '查看一个风格模板的版面结构。带上 documentId（已导入稿件的文稿）时还返回 planPrompt：模板单元与稿件编号的精简清单和编排规则。按它写出排版方案后用 kiumi_apply_style 的 plan 提交，即可由你决定哪段放进哪个单元、哪些单元重复或删除、小标题条写什么。',
+    description: '查看一个风格模板的版面结构。带上 documentId（已导入稿件的文稿）时还返回 planPrompt：模板单元与稿件编号的精简清单和编排规则。按它写出排版方案后用 kiumi_apply_style 的 plan 提交，即可由你决定哪段放进哪个单元、哪些单元重复或删除、小标题条写什么。planPrompt 末尾附有本团队排版规范，方案必须满足。',
     properties: { atomTplId: str('模板编号，如 shop:paper/100584'), documentId: { type: 'string', description: '可选：已导入稿件的文稿编号' }, team: TEAM }, required: ['atomTplId'],
     async run(ctx, a) {
       const record = await ctx.deps.getTemplate(String(a.atomTplId));
@@ -127,7 +137,8 @@ const TOOLS: Tool[] = [
         const row = await ctx.env.DB.prepare('SELECT data FROM manuscripts WHERE doc_id=?').bind(a.documentId).first<{ data: string }>();
         if (!row) throw new ApiError(404, 'NO_MANUSCRIPT', '这篇文稿没有导入过稿件');
         const { manuscript } = recognizeStored(JSON.parse(row.data));
-        out.planPrompt = planPrompt(schema, manuscriptPieces(manuscript, await teamRules(ctx.env, t.id)));
+        const rules = await teamRules(ctx.env, t.id);
+        out.planPrompt = planPrompt(schema, manuscriptPieces(manuscript, rules), 30, rules);
       }
       return out;
     },
@@ -158,12 +169,12 @@ const TOOLS: Tool[] = [
     },
   },
   {
-    name: 'kiumi_apply_style', description: '把已导入的稿件换一个风格模板重新排版（style 传 null 则取消模板，用纯文字排版）。会整体替换文稿内容。可选 plan：按 kiumi_describe_style 的 planPrompt 写出的排版方案 {entries:[{u,t,img}]}；不传则用服务端模型（若已配置）或规则排版。模板放不下的内容会按规范排在相邻位置，不会丢失。',
+    name: 'kiumi_apply_style', description: '把已导入的稿件换一个风格模板重新排版（style 传 null 则取消模板，用纯文字排版）。会整体替换文稿内容。可选 plan：按 kiumi_describe_style 的 planPrompt 写出的排版方案 {entries:[{u,t,img}]}；不传则用服务端模型（若已配置）或规则排版。模板放不下的内容会按规范排在相邻位置，不会丢失。plan 会先经程序复核（漏排、重复、主标题拆进副标题位、正文放进标题条、拟写超长等），不合格时不应用并返回问题清单，改正后重新提交。返回结果里的 review 是排版后的规范检查。',
     properties: { documentId: DOC, style: { type: ['string', 'null'], description: '风格模板编号或 null' }, plan: { type: ['object', 'array', 'null'], description: '可选：排版方案；null 清除之前提交的方案' }, team: TEAM }, required: ['documentId', 'style'],
     async run(ctx, a) {
       const t = await team(ctx, a.team);
       const { doc, report } = await restyle(ctx.env, ctx.deps, t.id, a.documentId, { style: a.style, ...(a.plan !== undefined ? { plan: a.plan } : {}) });
-      return { rev: doc.meta.rev, ...report };
+      return { rev: doc.meta.rev, ...report, review: await review(ctx, t.id, a.documentId) };
     },
   },
   {
@@ -173,19 +184,19 @@ const TOOLS: Tool[] = [
     async run(ctx, a) {
       const t = await team(ctx, a.team);
       const { doc, report } = await restyle(ctx.env, ctx.deps, t.id, a.documentId, { patches: a.patches });
-      return { rev: doc.meta.rev, ...report };
+      return { rev: doc.meta.rev, ...report, review: await review(ctx, t.id, a.documentId) };
     },
   },
   {
     name: 'kiumi_edit_document',
-    description: '精细修改文稿，ops 为操作数组：{op:"title",title} {op:"meta",meta:{digest,cover,author,tags}} {op:"insert",blocks:[…],at:数字|"end"|{after:块id}} {op:"replace",id,block} {op:"html",id,html} {op:"remove",ids:[…]} {op:"move",id,to}。块 id 见 kiumi_get_document。修改会立即出现在已打开的编辑画布上。',
+    description: '精细修改文稿，ops 为操作数组：{op:"title",title} {op:"meta",meta:{digest,cover,author,tags}} {op:"insert",blocks:[…],at:数字|"end"|{after:块id}} {op:"replace",id,block} {op:"html",id,html} {op:"remove",ids:[…]} {op:"move",id,to}。块 id 见 kiumi_get_document。修改会立即出现在已打开的编辑画布上。写入的 HTML 必须满足团队排版规范（见 kiumi_typeset_rules）：除大标题外文字黑色、不设 font-family、行距与字距按规范、正文首行缩进用 text-indent、空行用一个 <p><br></p>；返回结果里的 review 是写入后的规范检查，有问题请继续修正。',
     properties: { documentId: DOC, ops: { type: 'array', items: { type: 'object' } }, team: TEAM }, required: ['documentId', 'ops'],
     async run(ctx, a) {
       const t = await team(ctx, a.team);
       let ops: DocOp[];
       try { ops = validateOps(a.ops); } catch (error) { throw new ApiError(400, 'INVALID_OPS', (error as Error).message); }
       const { doc } = await commitOps(ctx.env, t.id, a.documentId, ops, 'agent');
-      return { rev: doc.meta.rev, blocks: doc.blocks.length };
+      return { rev: doc.meta.rev, blocks: doc.blocks.length, review: await review(ctx, t.id, a.documentId) };
     },
   },
   {
@@ -211,7 +222,7 @@ const TOOLS: Tool[] = [
       }
       if (!ops.length) return { replaced: 0 };
       const { doc: committed } = await commitOps(ctx.env, t.id, a.documentId, ops, 'agent');
-      return { replaced: count, rev: committed.meta.rev };
+      return { replaced: count, rev: committed.meta.rev, review: await review(ctx, t.id, a.documentId) };
     },
   },
   {
@@ -242,11 +253,16 @@ const TOOLS: Tool[] = [
     },
   },
   {
-    name: 'kiumi_create_wechat_draft', description: '把文稿同步到团队公众号的草稿箱（不会发表，发表由人在微信后台完成）。cover 省略时使用文稿封面。',
-    properties: { documentId: DOC, accountId: str('公众号编号；团队只有一个公众号时可省略'), cover: str('封面图片地址'), team: TEAM }, required: ['documentId'],
+    name: 'kiumi_create_wechat_draft', description: '把文稿同步到团队公众号的草稿箱（不会发表，发表由人在微信后台完成）。cover 省略时使用文稿封面。同步前强制审稿：仍有不符合团队排版规范或微信规则的问题时拒绝同步并列出问题；确实无法修正、且已请人逐条核对过时，才可传 reviewed=true 并在 reviewNote 写明原因。',
+    properties: { documentId: DOC, accountId: str('公众号编号；团队只有一个公众号时可省略'), cover: str('封面图片地址'), reviewed: { type: 'boolean', description: '剩余问题已由人逐条核对并接受' }, reviewNote: str('reviewed=true 时必填：为什么这些问题可以接受'), team: TEAM }, required: ['documentId'],
     async run(ctx, a) {
       const t = await team(ctx, a.team);
       const doc = await loadDocument(ctx.env, t.id, a.documentId);
+      const check = await review(ctx, t.id, a.documentId);
+      if (!check.passed && !(a.reviewed === true && String(a.reviewNote ?? '').trim().length >= 4)) {
+        const list = [...check.style.map(x => x.message), ...check.wechat.filter(x => x.level === 'error').map(x => x.message)];
+        throw new ApiError(409, 'REVIEW_REQUIRED', `文稿还不符合团队排版规范，未同步。请先修正：\n${list.map((m, i) => `${i + 1}. ${m}`).join('\n')}`);
+      }
       const accounts = (await ctx.env.DB.prepare('SELECT id,name FROM wechat_accounts WHERE team_id=?').bind(t.id).all<{ id: string; name: string }>()).results;
       const account = a.accountId ? accounts.find(x => x.id === a.accountId || x.name === a.accountId) : accounts.length === 1 ? accounts[0] : undefined;
       if (!account) throw new ApiError(409, 'ACCOUNT_REQUIRED', `请指定 accountId：${accounts.map(x => `${x.name}(${x.id})`).join('、') || '团队尚未绑定公众号'}`);
@@ -278,7 +294,7 @@ async function handle(ctx: Ctx, message: any): Promise<unknown | null> {
         protocolVersion: PROTOCOLS.includes(wanted) ? wanted : '2025-06-18',
         capabilities: { tools: { listChanged: false } },
         serverInfo: { name: 'kiumi', version: '0.2.0' },
-        instructions: 'Kiumi 排版工作流：kiumi_create_document → kiumi_search_styles → kiumi_begin_import（用 curl 上传稿件 ZIP）→ kiumi_get_manuscript / kiumi_fix_structure 校正 → kiumi_edit_document 微调 → kiumi_lint 与 kiumi_preview_link 审稿 → 提醒人工在编辑器核对，再 kiumi_create_wechat_draft。',
+        instructions: agentInstructions(DEFAULT_RULES),
       } };
     }
     case 'ping': return { jsonrpc: '2.0', id, result: {} };
