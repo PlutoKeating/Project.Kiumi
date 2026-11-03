@@ -1,4 +1,4 @@
-import { DEFAULT_RULES, agentInstructions, analyzeTemplate, manuscriptPieces, outlineOf, planPrompt, sanitizeHtml, validateOps, type DocOp, type TypesetRules } from '@kiumi/core';
+import { DEFAULT_RULES, agentInstructions, analyzeTemplate, applyPolish, layoutFindings, numberElements, stripAgentMarks, type AgentAction, manuscriptPieces, outlineOf, planPrompt, sanitizeHtml, validateOps, type DocOp, type TypesetRules } from '@kiumi/core';
 import { bearerUser, type SessionUser } from './auth.js';
 import { dataFetch } from './data.js';
 import { commitOps, loadDocument } from './docs.js';
@@ -223,6 +223,52 @@ const TOOLS: Tool[] = [
       if (!ops.length) return { replaced: 0 };
       const { doc: committed } = await commitOps(ctx.env, t.id, a.documentId, ops, 'agent');
       return { replaced: count, rev: committed.meta.rev, review: await review(ctx, t.id, a.documentId) };
+    },
+  },
+  {
+    name: 'kiumi_layout_report', readOnly: true,
+    description: '版面检查报告（精修前先看）：给每个块里的元素编号 #k，列出含文字或图片的元素（标签、字号、文字摘要、外框尺寸样式），以及检测到的问题（模板样例照片残留、空框、占位文字、团队规范）。这里没有渲染，裁切、重叠等视觉问题请用 kiumi_preview_link 打开预览确认。编号只对报告里的 rev 有效。',
+    properties: { documentId: DOC, blockId: str('只看这个块'), team: TEAM }, required: ['documentId'],
+    async run(ctx, a) {
+      const t = await team(ctx, a.team);
+      const doc = await loadDocument(ctx.env, t.id, a.documentId);
+      const rules = await teamRules(ctx.env, t.id);
+      const blocks = doc.blocks.filter(b => b.kind === 'library' && (!a.blockId || b.id === a.blockId));
+      return {
+        rev: doc.meta.rev,
+        blocks: blocks.map(b => {
+          const html = numberElements((b as { html?: string }).html ?? '');
+          const elements: string[] = [];
+          for (const m of html.matchAll(/<(\w+)([^>]*?)\sdata-k="(\d+)"[^>]*>([^<]{0,40})/g)) {
+            const [, tag, attrs, k, textStart] = m;
+            const text = textStart.replace(/[\u200b\s]+/g, ' ').trim();
+            const style = /style="([^"]*)"/.exec(attrs)?.[1] ?? '';
+            const sized = /(^|;)\s*(height|width|overflow|max-height)\s*:/i.test(style) || /^(svg|foreignobject)$/i.test(tag);
+            if (tag.toLowerCase() === 'img') elements.push(`#${k} <img> ${/src="([^"]*)"/.exec(attrs)?.[1]?.slice(-48) ?? ''} ${style.slice(0, 80)}`);
+            else if (text || sized) elements.push(`#${k} <${tag.toLowerCase()}> ${text ? `「${text}」 ` : ''}${style.slice(0, 100)}`);
+            if (elements.length >= 200) break;
+          }
+          return { blockId: b.id, elements, findings: layoutFindings(html, rules) };
+        }),
+      };
+    },
+  },
+  {
+    name: 'kiumi_polish',
+    description: '精修版面的一个元素（编号来自 kiumi_layout_report，rev 必须与报告一致）。action：{tool:"style",k,css:{…}} 改内联样式（SVG 的 width/height/x/y 写成属性）；{tool:"remove",k} 删除装饰、样例图或空框。稿件文字和图片不能删除或隐藏，正文/小标题的颜色、字号、行距、字距、首行缩进与稿件图片宽度由团队规范锁定，违反会被驳回并说明原因。返回值带写入后的 review。',
+    properties: { documentId: DOC, blockId: str('块编号'), rev: { type: 'integer', description: 'kiumi_layout_report 返回的 rev' }, action: { type: 'object' }, team: TEAM }, required: ['documentId', 'blockId', 'rev', 'action'],
+    async run(ctx, a) {
+      const t = await team(ctx, a.team);
+      const doc = await loadDocument(ctx.env, t.id, a.documentId);
+      if (Number(a.rev) !== doc.meta.rev) throw new ApiError(409, 'REV_CONFLICT', `文稿已变化（当前 rev ${doc.meta.rev}），编号失效，请重新 kiumi_layout_report`);
+      const block = doc.blocks.find(b => b.id === a.blockId);
+      if (!block || block.kind !== 'library' || !block.html) throw new ApiError(404, 'BLOCK_NOT_FOUND', `找不到块 ${a.blockId}`);
+      const action = a.action as AgentAction;
+      if (!action || !['style', 'remove'].includes(action.tool)) throw new ApiError(400, 'INVALID_ACTION', 'action.tool 只能是 style 或 remove（改文字用 kiumi_replace_text）');
+      const done = applyPolish(numberElements(block.html), { ...action, k: Number((action as { k: unknown }).k) } as AgentAction, { rules: await teamRules(ctx.env, t.id) });
+      if ('error' in done) throw new ApiError(422, 'POLISH_REJECTED', done.error);
+      const { doc: committed } = await commitOps(ctx.env, t.id, a.documentId, [{ op: 'html', id: block.id, html: stripAgentMarks(done.html) }], 'agent');
+      return { done: done.done, rev: committed.meta.rev, review: await review(ctx, t.id, a.documentId) };
     },
   },
   {

@@ -11,7 +11,7 @@ import {
 import { currentUser, handleAuth } from './auth.js';
 import { workspaceRoutes, privateUpload, exportImages, signedImages, ApiError, teamContext } from './workspace.js';
 import { adminRoutes, isAdmin } from './admin.js';
-import { annotateRoute, importRoute, planRoute, previewRoute, rulesRoutes, type Deps } from './manuscript.js';
+import { annotateRoute, importRoute, planRoute, agentRoute, previewRoute, rulesRoutes, type Deps } from './manuscript.js';
 import { mcpRoutes } from './mcp.js';
 import { wechatRoutes } from './wechat.js';
 import { dataFetch } from './data.js';
@@ -213,6 +213,7 @@ export default {
       if (path.startsWith('/api/admin/')) { const handled = await adminRoutes(request, env); if (handled) return handled; }
       if (path === '/api/manuscript/annotate' && request.method === 'POST') return await annotateRoute(request, env);
       if (path === '/api/manuscript/plan' && request.method === 'POST') return await planRoute(request, env);
+      if (path === '/api/manuscript/agent' && request.method === 'POST') return await agentRoute(request, env);
       const rules = await rulesRoutes(request, env);
       if (rules) return rules;
       const live = /^\/api\/documents\/([^/]+)\/live$/.exec(path);

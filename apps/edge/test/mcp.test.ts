@@ -206,6 +206,19 @@ test('remote MCP: OAuth discovery, bearer auth, import, edit, lint, preview and 
     // Review: lint and a signed preview link readable without login.
     const lint = (await call('kiumi_lint', { documentId: docId })).data;
     assert.ok(Array.isArray(lint.style));
+    // Layout review over MCP: numbered report, protected polish, rev-checked numbers.
+    const layout = (await call('kiumi_layout_report', { documentId: docId })).data;
+    assert.ok(layout.blocks.length > 0 && Array.isArray(layout.blocks[0].findings));
+    const textLine = layout.blocks.flatMap((b: any) => b.elements.map((e: string) => ({ b: b.blockId, e }))).find((x: any) => /「/.test(x.e))!;
+    const textK = Number(/^#(\d+)/.exec(textLine.e)![1]);
+    const refused = await call('kiumi_polish', { documentId: docId, blockId: textLine.b, rev: layout.rev, action: { tool: 'remove', k: textK } });
+    assert.equal(refused.error.code, 'POLISH_REJECTED');
+    assert.match(refused.error.message, /稿件内容/);
+    assert.equal((await call('kiumi_polish', { documentId: docId, blockId: textLine.b, rev: layout.rev - 1, action: { tool: 'remove', k: textK } })).error.code, 'REV_CONFLICT');
+    const styled = await call('kiumi_polish', { documentId: docId, blockId: textLine.b, rev: layout.rev, action: { tool: 'style', k: textK, css: { 'margin-top': '8px' } } });
+    assert.ok(styled.data.rev > layout.rev, JSON.stringify(styled));
+    assert.ok(!(await call('kiumi_get_document', { documentId: docId, view: 'full' })).data.blocks.some((b: any) => /data-k=/.test(b.html ?? '')), 'numbers never reach the stored document');
+
     // Grey text written by the Agent is reported right away and blocks the WeChat draft.
     const grey = (await call('kiumi_edit_document', { documentId: docId, ops: [{ op: 'insert', blocks: [{ kind: 'library', id: 'grey', tplId: 'imported:段落', matrix: [], html: '<p style="color:#555555">灰色的一句话</p>' }], at: 'end' }] })).data;
     assert.equal(grey.review.passed, false);

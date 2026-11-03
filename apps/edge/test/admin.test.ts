@@ -11,6 +11,8 @@ const CATALOG = 'https://catalog.test/api.json';
 /** Upstream doubles: a models.dev-shaped catalog and two model gateways. */
 const calls: Array<{ url: string; headers: Record<string, string>; body: any }> = [];
 let chatFails = true;
+/** Acme reads text only: pictures in a chat request are refused as a model would. */
+let acmeTextOnly = false;
 async function upstream(req: Request): Promise<Response> {
   const url = new URL(req.url);
   if (url.href === CATALOG) return Response.json({
@@ -26,12 +28,15 @@ async function upstream(req: Request): Promise<Response> {
   calls.push({ url: url.href, headers: Object.fromEntries(req.headers), body });
   if (url.href === 'https://gw.acme.test/v1/chat/completions') {
     if (chatFails) return new Response('overloaded', { status: 503 });
+    if (acmeTextOnly && JSON.stringify(body.messages).includes('image_url')) return Response.json({ error: { message: 'image input is not supported by this model' } }, { status: 400 });
+    if (body.messages?.[0]?.content?.includes?.('ReAct')) return Response.json({ choices: [{ message: { content: '{"thought":"标题被裁","action":{"tool":"look"}}' } }] });
     return Response.json({ choices: [{ message: { content: '{"entries":[{"u":0,"t":{"0":["T"]}}]}' } }] });
   }
   if (url.href === 'https://og.test/inference/go/anthropic/v1/messages') {
     if (!req.headers.get('x-opencode-session')) return Response.json({ error: 'MissingSessionID' }, { status: 400 });
     return Response.json({ content: [{ type: 'text', text: body?.system?.includes('JSON 数组') ? '[[1,"b"]]' : '{"entries":[{"u":2,"t":{"0":["p1"]}}]}' }] });
   }
+  if (url.href === 'https://claude.test/v1/messages' && body?.system?.includes('ReAct')) return Response.json({ content: [{ type: 'text', text: '{"thought":"好","action":{"tool":"finish","summary":"满意"}}' }], stop_reason: 'end_turn' });
   if (url.href === 'https://claude.test/v1/messages') return Response.json({ content: [{ type: 'text', text: '{"entries":[{"u":1,"t":{"0":["p0"]}}]}' }], stop_reason: 'end_turn' });
   return new Response('not found', { status: 404 });
 }
@@ -210,4 +215,53 @@ test('gateways like OpenCode Go: per-model protocol and address from the catalog
   } finally {
     await mf.dispose();
   }
+});
+
+test('layout review steps: team rules in the system prompt, screenshots in each protocol, text-only models get the report alone', async () => {
+  const { mf, api } = await setup({ KIUMI_ADMIN_SUBS: 'root' });
+  try {
+    chatFails = false; acmeTextOnly = true;
+    const draft = {
+      version: 0,
+      providers: [
+        { id: 'acme', name: 'Acme', catalogId: 'acme', protocol: 'openai-chat', baseUrl: 'https://gw.acme.test/v1', enabled: true, headers: {}, keys: [{ label: '', apiKey: 'sk-acme-0001' }], models: [{ id: 'acme-large', enabled: true, order: 0 }] },
+        { id: 'claude', name: 'Claude', catalogId: 'claudeish', protocol: 'anthropic-messages', baseUrl: 'https://claude.test/v1', enabled: true, headers: {}, keys: [{ label: '', apiKey: 'sk-claude-9999' }], models: [{ id: 'c-1', enabled: true, order: 1 }] },
+      ],
+      purposes: { polish: { targets: ['claude/c-1'], maxTokens: 2500, timeoutMs: 60000 } },
+    };
+    const saved = await api('/api/admin/llm', 'root', { method: 'PUT', body: draft });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    assert.equal(saved.body.data.purposes.polish.maxTokens, 2500);
+    const team = (await api('/api/teams', 'root', { method: 'POST', body: { name: '团队' } })).body.data;
+    const teamId = team.id ?? team.team?.id;
+    await api('/api/teams/typeset', 'root', { method: 'PUT', team: teamId, body: { letterSpacing: 1 } });
+    const shot = Buffer.from('fake-jpeg-bytes').toString('base64');
+    const messages = [{ role: 'user', content: [{ type: 'text', text: '请审看并精修这篇图文的版面。' }, { type: 'image', mime: 'image/jpeg', data: shot }] }];
+
+    // A vision model gets the picture in its own format, and the team's rules in the system prompt.
+    calls.length = 0;
+    const step = await api('/api/manuscript/agent', 'root', { method: 'POST', team: teamId, body: { messages, session: 'session-12345678' } });
+    assert.equal(step.status, 200, JSON.stringify(step.body));
+    assert.deepEqual(step.body.data, { text: '{"thought":"好","action":{"tool":"finish","summary":"满意"}}', images: true });
+    assert.match(calls[0].body.system, /ReAct/);
+    assert.match(calls[0].body.system, /字距 1/, 'this team rules, not the defaults');
+    assert.deepEqual(calls[0].body.messages[0].content[1], { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: shot } });
+    assert.equal(calls[0].body.max_tokens, 2500);
+
+    // A text-only model refuses the picture: the same model is asked again with the report alone.
+    await api('/api/admin/llm', 'root', { method: 'PUT', body: { ...draft, version: 1, providers: (await api('/api/admin/llm', 'root')).body.data.providers.map((p: any) => ({ ...p, keys: p.keys.map((k: any) => ({ id: k.id, label: k.label, enabled: k.enabled })) })), purposes: { polish: { targets: ['acme/acme-large'], maxTokens: 2500, timeoutMs: 60000 } } } });
+    calls.length = 0;
+    const textOnly = await api('/api/manuscript/agent', 'root', { method: 'POST', team: teamId, body: { messages } });
+    assert.equal(textOnly.status, 200, JSON.stringify(textOnly.body));
+    assert.equal(textOnly.body.data.images, false);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[0].body.messages[1].content[1], { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${shot}` } });
+    assert.match(JSON.stringify(calls[1].body.messages), /截图：当前模型不读图片/);
+    assert.ok(!JSON.stringify(calls[1].body.messages).includes('image_url'));
+
+    // Bad conversations are refused before any model call.
+    for (const bad of [[], [{ role: 'assistant', content: 'x' }], [{ role: 'user', content: [{ type: 'image', mime: 'image/svg+xml', data: shot }] }], Array.from({ length: 81 }, () => ({ role: 'user', content: 'x' }))]) {
+      assert.equal((await api('/api/manuscript/agent', 'root', { method: 'POST', team: teamId, body: { messages: bad } })).status, 400);
+    }
+  } finally { chatFails = true; acmeTextOnly = false; await mf.dispose(); }
 });

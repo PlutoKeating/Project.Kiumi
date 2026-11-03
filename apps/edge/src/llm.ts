@@ -16,8 +16,8 @@ import { ApiError } from './workspace.js';
 
 export type Protocol = 'openai-chat' | 'openai-responses' | 'anthropic-messages' | 'google-generative-ai';
 export const PROTOCOLS: Protocol[] = ['openai-chat', 'openai-responses', 'anthropic-messages', 'google-generative-ai'];
-export type Purpose = 'annotate' | 'plan';
-export const PURPOSES: Purpose[] = ['annotate', 'plan'];
+export type Purpose = 'annotate' | 'plan' | 'polish';
+export const PURPOSES: Purpose[] = ['annotate', 'plan', 'polish'];
 
 export interface ProviderKey { id: string; label: string; enc: string; last4: string; enabled: boolean; addedAt: string }
 export interface ProviderModel {
@@ -63,6 +63,8 @@ export interface LlmConfig {
 export const DEFAULT_PURPOSES: Record<Purpose, PurposeConfig> = {
   annotate: { targets: [], maxTokens: 1500, timeoutMs: 30_000 },
   plan: { targets: [], maxTokens: 4000, timeoutMs: 60_000 },
+  // One ReAct step of the layout review: a thought and one action.
+  polish: { targets: [], maxTokens: 3000, timeoutMs: 90_000 },
 };
 
 const KEY = 'llm-config';
@@ -279,7 +281,33 @@ export interface CallTarget {
 export function endpointOf(provider: Pick<Provider, 'protocol' | 'baseUrl'>, model: Pick<ProviderModel, 'protocol' | 'baseUrl'>) {
   return { protocol: model.protocol ?? provider.protocol, baseUrl: model.baseUrl ?? provider.baseUrl };
 }
-export interface CallInput { system: string; prompt: string; maxTokens: number; timeoutMs: number }
+/** A turn of a multi-step conversation; user turns may carry images (layout screenshots). */
+export type ChatPart = { type: 'text'; text: string } | { type: 'image'; mime: string; data: string };
+export interface ChatMessage { role: 'user' | 'assistant'; content: string | ChatPart[] }
+export interface CallInput { system: string; prompt?: string; messages?: ChatMessage[]; maxTokens: number; timeoutMs: number }
+
+const partsOf = (m: ChatMessage): ChatPart[] => (typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : m.content);
+const conversation = (input: CallInput): ChatMessage[] => input.messages ?? [{ role: 'user', content: input.prompt ?? '' }];
+export const hasImages = (messages: ChatMessage[]) => messages.some(m => partsOf(m).some(p => p.type === 'image'));
+/** The same conversation with every picture replaced by a note, for models that only read text. */
+export const withoutImages = (messages: ChatMessage[]): ChatMessage[] => messages.map(m => ({ role: m.role, content: partsOf(m).map(p => (p.type === 'image' ? { type: 'text' as const, text: '［截图：当前模型不读图片，已省略，请依据文字报告判断］' } : p)) }));
+
+/** Request bodies per protocol for a whole conversation. */
+function openaiChatMessages(system: string, messages: ChatMessage[]) {
+  return [{ role: 'system', content: system }, ...messages.map(m => ({
+    role: m.role,
+    content: typeof m.content === 'string' || m.role === 'assistant' ? partsOf(m).map(p => (p.type === 'text' ? p.text : '')).join('') : m.content.map(p => (p.type === 'text' ? { type: 'text', text: p.text } : { type: 'image_url', image_url: { url: `data:${p.mime};base64,${p.data}` } })),
+  }))];
+}
+function responsesInput(messages: ChatMessage[]) {
+  return messages.map(m => ({ role: m.role, content: partsOf(m).map(p => (p.type === 'text' ? { type: m.role === 'assistant' ? 'output_text' : 'input_text', text: p.text } : { type: 'input_image', image_url: `data:${p.mime};base64,${p.data}` })) }));
+}
+function anthropicMessages(messages: ChatMessage[]) {
+  return messages.map(m => ({ role: m.role, content: partsOf(m).map(p => (p.type === 'text' ? { type: 'text', text: p.text } : { type: 'image', source: { type: 'base64', media_type: p.mime, data: p.data } })) }));
+}
+function googleContents(messages: ChatMessage[]) {
+  return messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: partsOf(m).map(p => (p.type === 'text' ? { text: p.text } : { inline_data: { mime_type: p.mime, data: p.data } })) }));
+}
 
 class CallError extends Error { constructor(message: string, readonly status = 0, readonly final = false) { super(message); } }
 
@@ -301,7 +329,7 @@ export async function callTarget(target: CallTarget, input: CallInput): Promise<
   switch (t.protocol) {
     case 'openai-chat': {
       const headers = { authorization: `Bearer ${t.apiKey}`, ...t.headers };
-      const body: Record<string, unknown> = { model: t.model, messages: [{ role: 'system', content: input.system }, { role: 'user', content: input.prompt }], max_tokens: input.maxTokens };
+      const body: Record<string, unknown> = { model: t.model, messages: openaiChatMessages(input.system, conversation(input)), max_tokens: input.maxTokens };
       let out: any;
       try { out = await post(`${base}/chat/completions`, headers, body, input.timeoutMs); }
       catch (error) {
@@ -314,18 +342,18 @@ export async function callTarget(target: CallTarget, input: CallInput): Promise<
       break;
     }
     case 'openai-responses': {
-      const out = await post(`${base}/responses`, { authorization: `Bearer ${t.apiKey}`, ...t.headers }, { model: t.model, instructions: input.system, input: input.prompt, max_output_tokens: input.maxTokens }, input.timeoutMs);
+      const out = await post(`${base}/responses`, { authorization: `Bearer ${t.apiKey}`, ...t.headers }, { model: t.model, instructions: input.system, input: input.messages ? responsesInput(input.messages) : input.prompt, max_output_tokens: input.maxTokens }, input.timeoutMs);
       text = typeof out?.output_text === 'string' ? out.output_text : (out?.output ?? []).flatMap((o: any) => o?.content ?? []).map((c: any) => c?.text ?? '').join('');
       break;
     }
     case 'anthropic-messages': {
-      const out = await post(`${base}/messages`, { 'x-api-key': t.apiKey, 'anthropic-version': '2023-06-01', ...t.headers }, { model: t.model, max_tokens: input.maxTokens, system: input.system, messages: [{ role: 'user', content: input.prompt }] }, input.timeoutMs);
+      const out = await post(`${base}/messages`, { 'x-api-key': t.apiKey, 'anthropic-version': '2023-06-01', ...t.headers }, { model: t.model, max_tokens: input.maxTokens, system: input.system, messages: anthropicMessages(conversation(input)) }, input.timeoutMs);
       if (out?.stop_reason === 'refusal') throw new CallError('模型拒绝了这次请求', 200, true);
       text = (out?.content ?? []).filter((b: any) => b?.type === 'text').map((b: any) => b.text).join('');
       break;
     }
     case 'google-generative-ai': {
-      const out = await post(`${base}/models/${encodeURIComponent(t.model)}:generateContent`, { 'x-goog-api-key': t.apiKey, ...t.headers }, { systemInstruction: { parts: [{ text: input.system }] }, contents: [{ role: 'user', parts: [{ text: input.prompt }] }], generationConfig: { maxOutputTokens: input.maxTokens } }, input.timeoutMs);
+      const out = await post(`${base}/models/${encodeURIComponent(t.model)}:generateContent`, { 'x-goog-api-key': t.apiKey, ...t.headers }, { systemInstruction: { parts: [{ text: input.system }] }, contents: googleContents(conversation(input)), generationConfig: { maxOutputTokens: input.maxTokens } }, input.timeoutMs);
       text = (out?.candidates?.[0]?.content?.parts ?? []).map((p: any) => p?.text ?? '').join('');
       break;
     }
@@ -350,7 +378,7 @@ export async function modelsAvailable(env: Env): Promise<boolean> {
  * Call the model chain for a purpose: the purpose's own targets (or the global
  * order), each model with each enabled Key in turn, until one answers.
  */
-export async function runModel(env: Env, purpose: Purpose, system: string, prompt: string, options: { session?: string } = {}): Promise<{ text: string; target: string; attempts: Attempt[] }> {
+export async function runModel(env: Env, purpose: Purpose, system: string, prompt: string | ChatMessage[], options: { session?: string } = {}): Promise<{ text: string; target: string; attempts: Attempt[]; images: boolean }> {
   // One id for every call of a job (an import's structure review and layout plan), as gateways ask.
   const session = options.session ?? crypto.randomUUID();
   const cfg = await loadConfig(env);
@@ -373,13 +401,23 @@ export async function runModel(env: Env, purpose: Purpose, system: string, promp
   for (const target of chain) {
     for (const key of target.keys) {
       const started = Date.now();
+      const call = (messages: ChatMessage[] | undefined) => key.get().then(apiKey => callTarget({
+        protocol: target.protocol, baseUrl: target.baseUrl, model: target.model, apiKey, headers: target.provider.headers ?? {},
+        userAgent: target.provider.userAgent, session: target.provider.sessionHeader ? { header: target.provider.sessionHeader, id: session } : undefined,
+      }, { system, ...(messages ? { messages } : { prompt: prompt as string }), maxTokens: settings.maxTokens, timeoutMs: settings.timeoutMs }));
+      const messages = Array.isArray(prompt) ? prompt : undefined;
       try {
-        const text = await callTarget({
-          protocol: target.protocol, baseUrl: target.baseUrl, model: target.model, apiKey: await key.get(), headers: target.provider.headers ?? {},
-          userAgent: target.provider.userAgent, session: target.provider.sessionHeader ? { header: target.provider.sessionHeader, id: session } : undefined,
-        }, { system, prompt, maxTokens: settings.maxTokens, timeoutMs: settings.timeoutMs });
+        let images = !!messages && hasImages(messages);
+        let text: string;
+        try { text = await call(messages); }
+        catch (error) {
+          // A text-only model rejects pictures with a 4xx: ask the same model again without them.
+          if (!images || !(error instanceof CallError) || error.status < 400 || error.status >= 500) throw error;
+          images = false;
+          text = await call(withoutImages(messages!));
+        }
         attempts.push({ target: target.id, key: key.id, ok: true, ms: Date.now() - started });
-        return { text, target: target.id, attempts };
+        return { text, target: target.id, attempts, images };
       } catch (error) {
         attempts.push({ target: target.id, key: key.id, ok: false, ms: Date.now() - started, error: (error as Error).message.slice(0, 200) });
         if (error instanceof CallError && error.final) throw new ApiError(422, 'LLM_REJECTED', '模型拒绝了这次请求，已使用规则排版');

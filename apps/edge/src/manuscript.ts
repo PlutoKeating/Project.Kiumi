@@ -5,6 +5,7 @@ import {
   annotationRequest,
   manuscriptPieces,
   planSystem,
+  layoutAgentSystem,
   reviewPlan,
   applyAnnotations,
   assembleManuscript,
@@ -28,7 +29,7 @@ import {
   type TypesetRules,
 } from '@kiumi/core';
 import { dataFetch } from './data.js';
-import { runModel } from './llm.js';
+import { runModel, type ChatMessage, type ChatPart } from './llm.js';
 import { commitOps, loadDocument } from './docs.js';
 import type { Env } from './index.js';
 import { ApiError, reply, teamContext } from './workspace.js';
@@ -339,6 +340,43 @@ export async function planRoute(request: Request, env: Env): Promise<Response> {
   const plan = parsePlan(text);
   if (!plan) throw new ApiError(502, 'LLM_FAILED', '模型没有给出可用的排版方案，已使用规则排版');
   return reply({ entries: plan });
+}
+
+/** Limits for one layout-review step: the conversation so far, with screenshots. */
+const AGENT_LIMITS = { messages: 80, bytes: 8 * 1024 * 1024, images: 12, imageBytes: 1_500_000 };
+
+function agentMessages(input: unknown): ChatMessage[] {
+  if (!Array.isArray(input) || !input.length || input.length > AGENT_LIMITS.messages) throw new ApiError(400, 'INVALID_BODY', '对话内容无效');
+  let bytes = 0, images = 0;
+  const out = input.map((m: any, i): ChatMessage => {
+    const role = m?.role === 'assistant' ? 'assistant' : m?.role === 'user' ? 'user' : null;
+    if (!role || (i === 0 && role !== 'user')) throw new ApiError(400, 'INVALID_BODY', '对话需从用户消息开始');
+    const parts: ChatPart[] = typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : Array.isArray(m.content) ? m.content.map((p: any): ChatPart => {
+      if (p?.type === 'text' && typeof p.text === 'string') { bytes += p.text.length; return { type: 'text', text: p.text }; }
+      if (role === 'user' && p?.type === 'image' && /^image\/(jpeg|png|webp)$/.test(p.mime) && typeof p.data === 'string' && /^[A-Za-z0-9+/=]+$/.test(p.data) && p.data.length <= AGENT_LIMITS.imageBytes) {
+        images++; bytes += p.data.length; return { type: 'image', mime: p.mime, data: p.data };
+      }
+      throw new ApiError(400, 'INVALID_BODY', '对话里有无法识别的内容');
+    }) : [];
+    if (!parts.length) throw new ApiError(400, 'INVALID_BODY', '对话里有空消息');
+    return { role, content: parts };
+  });
+  if (bytes > AGENT_LIMITS.bytes || images > AGENT_LIMITS.images) throw new ApiError(413, 'TOO_LARGE', '对话或截图太大');
+  return out;
+}
+
+/**
+ * One step of the layout review loop (ReAct) the web importer runs: the
+ * browser renders, measures and screenshots the article, sends the whole
+ * conversation, and gets back the model's next thought and action. The system
+ * prompt carries this team's rules; the loop itself stays in the browser.
+ */
+export async function agentRoute(request: Request, env: Env): Promise<Response> {
+  const { teamId } = await teamContext(env, request);
+  const body = await request.json().catch(() => null) as { messages?: unknown; session?: string } | null;
+  const messages = agentMessages(body?.messages);
+  const { text, images } = await runModel(env, 'polish', layoutAgentSystem(await teamRules(env, teamId)), messages, { session: sessionId(body?.session) });
+  return reply({ text, images });
 }
 
 // ---------------------------------------------------------------------------
