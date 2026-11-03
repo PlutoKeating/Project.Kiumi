@@ -83,3 +83,51 @@ test('a provider is added from the catalog, given a key and models, and saved as
   expect(body.purposes.plan.targets).toEqual(['acme/acme-large']);
   await expect(page.getByText('已同步 · 版本 1 · root')).toBeVisible();
 });
+
+test('cards are dragged by their grip: others make way, the order changes locally and is saved once', async ({ page }) => {
+  const saved = await stub(page);
+  const writes: string[] = [];
+  page.on('request', r => { if (r.method() !== 'GET' && r.url().includes('/api/admin/llm') && !r.url().endsWith('/test')) writes.push(r.method()); });
+  await page.goto('/admin.html');
+  await page.getByRole('button', { name: '添加提供商' }).click();
+  await page.getByRole('combobox').fill('acme');
+  await page.keyboard.press('Enter');
+  await page.getByPlaceholder('粘贴 API Key').fill('sk-test-12345678');
+  await page.getByRole('button', { name: '添加 Key' }).click();
+  for (const id of ['m-one', 'm-two', 'm-three']) {
+    await page.getByPlaceholder('或手动输入模型 id').fill(id);
+    await page.getByRole('button', { name: '添加', exact: true }).click();
+  }
+  await page.getByRole('button', { name: '调用顺序与用途' }).click();
+  const rows = page.locator('.admin-card').first().locator('.sortable > li');
+  await expect(rows).toHaveCount(3);
+
+  // Lift the first card and carry it past the other two.
+  const grip = rows.nth(0).locator('[data-sort-handle]');
+  const box = (await grip.boundingBox())!;
+  const step = (await rows.nth(1).boundingBox())!.y - (await rows.nth(0).boundingBox())!.y;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + step * 2.1, { steps: 12 });
+  await expect(rows.nth(0)).toHaveAttribute('data-lifted', 'true');
+  await expect(rows.nth(1)).toHaveAttribute('data-shifted', 'true');
+  await expect(rows.nth(2)).toHaveAttribute('data-shifted', 'true');
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: 'test-results/admin-drag.png' });
+  await page.mouse.up();
+  await expect(rows.locator('code')).toHaveText(['acme/m-two', 'acme/m-three', 'acme/m-one']);
+  await expect(rows.nth(2)).toHaveAttribute('data-landing', 'true');
+
+  // Keyboard: the focused grip moves its card up, focus stays with it.
+  await rows.nth(2).locator('[data-sort-handle]').focus();
+  await page.keyboard.press('ArrowUp');
+  await expect(rows.locator('code')).toHaveText(['acme/m-two', 'acme/m-one', 'acme/m-three']);
+  await expect(rows.nth(1).locator('[data-sort-handle]')).toBeFocused();
+
+  // Nothing was written while editing; one save carries the whole draft.
+  expect(writes).toEqual([]);
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+  await expect(page.getByText(/已保存（版本 1）/)).toBeVisible();
+  expect(writes).toEqual(['PUT']);
+  expect(saved[0].providers[0].models.map((m: any) => [m.id, m.order])).toEqual([['m-one', 1], ['m-two', 0], ['m-three', 2]]);
+});

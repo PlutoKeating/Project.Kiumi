@@ -1,4 +1,5 @@
 /* Site admin page. Same tokens as the workbench; one scrolling column of quiet glass cards. */
+/* Reordering is the one place that springs: cards make way with a slight overshoot so the gap reads as elastic. */
 
 .admin-page { height: 100%; overflow: auto; background: radial-gradient(1200px 600px at 10% -10%, rgb(188 216 255 / 55%), transparent 60%), radial-gradient(900px 500px at 100% 0%, rgb(255 200 222 / 40%), transparent 60%), var(--ground); }
 .admin-page code { font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace; font-size: var(--text-sm); color: var(--ink-700); }
@@ -58,7 +59,20 @@
 .admin-danger-row { justify-content: flex-end; padding-top: 6px; border-top: 1px solid var(--hairline); font-size: var(--text-sm); }
 
 .order-list { display: grid; gap: 4px; list-style: none; margin: 0; padding: 0; }
-.order-list > li { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 6px; border-radius: var(--r-sm); background: rgb(255 255 255 / 55%); }
+.order-list > li { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 6px; border-radius: var(--r-sm); background: rgb(255 255 255 / 72%); box-shadow: inset 0 0 0 1px var(--hairline); }
+
+.sortable { --spring: cubic-bezier(.34, 1.45, .64, 1); position: relative; }
+.sortable > li { position: relative; transition: transform 340ms var(--spring), box-shadow var(--t-base) ease, background-color var(--t-base) ease; will-change: transform; touch-action: pan-y; }
+.sortable[data-dragging="true"] { user-select: none; cursor: grabbing; }
+.sortable > li[data-shifted] { background: rgb(255 255 255 / 60%); }
+.sortable > li[data-lifted] { z-index: 2; transition: box-shadow var(--t-base) ease, background-color var(--t-base) ease; background: #fff; box-shadow: 0 14px 30px -12px rgb(42 56 120 / 42%), inset 0 0 0 1.5px var(--focus); scale: 1.015; }
+.sortable > li[data-landing] { animation: sort-land 420ms var(--spring); }
+@keyframes sort-land { 0% { scale: 1.03; box-shadow: 0 14px 30px -12px rgb(42 56 120 / 42%), inset 0 0 0 1.5px var(--focus); } 100% { scale: 1; } }
+.sort-grip { display: grid; place-items: center; width: 22px; height: 30px; margin-left: -2px; border-radius: var(--r-xs); color: var(--ink-500); cursor: grab; touch-action: none; }
+.sort-grip:hover { background: rgb(112 130 196 / 12%); color: var(--ink-900); }
+.sort-grip:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); }
+.sortable[data-dragging="true"] .sort-grip { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) { .sortable > li, .sortable > li[data-landing] { transition: none; animation: none; } }
 .order-index { width: 22px; text-align: right; font-size: var(--text-sm); color: var(--ink-500); }
 .order-actions { margin-left: auto; display: flex; gap: 2px; }
 .purpose-targets { display: flex; flex-wrap: wrap; gap: 4px 16px; }

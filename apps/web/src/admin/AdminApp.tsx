@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { request, fetchSession, loginUrl, type SessionState } from '../api.ts';
 import { Icon } from '../components/Icon.tsx';
 import { Segmented, Select } from '../components/ui.tsx';
+import { Grip, SortableList } from './Sortable.tsx';
 
 /**
  * Site admin: model providers, Keys, call order and per-purpose settings.
@@ -327,29 +328,31 @@ function OrderPanel({ draft, update, saved }: { draft: Draft; update: (fn: (d: D
     if (!t.provider.keys.some(k => k.enabled)) return REASON.no_key;
     return '';
   };
-  const move = (index: number, dir: -1 | 1) => update(d => {
+  /** Local reorder only; the draft is saved with the page. */
+  const reorder = (from: number, to: number) => update(d => {
     const list = d.providers.flatMap(p => p.models).sort((a, b) => a.order - b.order);
-    const j = index + dir;
-    if (j < 0 || j >= list.length) return d;
-    [list[index].order, list[j].order] = [list[j].order, list[index].order];
+    if (to < 0 || to >= list.length) return d;
+    const [moved] = list.splice(from, 1);
+    list.splice(to, 0, moved);
+    list.forEach((m, i) => { m.order = i; });
     return d;
   });
   return <section className="admin-section">
     <div className="admin-card">
       <h3>全局调用顺序</h3>
       <p className="admin-muted">每次调用按此顺序尝试，同一模型依次换 Key；超时、限流、5xx 或网络错误都会换下一个。</p>
-      <ol className="order-list">
-        {all.map((t, i) => <li key={t.id}>
+      {all.length ? <SortableList items={all} keyOf={t => t.id} label={t => t.id} onMove={reorder}>
+        {(t, i, handle) => <>
+          <Grip {...handle} />
           <span className="order-index">{i + 1}</span><code>{t.id}</code>
           {statusOf(t.id) ? <span className="admin-badge" data-tone="warn">{statusOf(t.id)}</span> : <span className="admin-badge" data-tone="ok">可调用</span>}
           {!saved.some(s => s.id === t.id) && <span className="admin-badge">待保存</span>}
           <span className="order-actions">
-            <button type="button" className="icon-btn" aria-label="上移" disabled={i === 0} onClick={() => move(i, -1)}><Icon name="up" size={15} /></button>
-            <button type="button" className="icon-btn" aria-label="下移" disabled={i === all.length - 1} onClick={() => move(i, 1)}><Icon name="down" size={15} /></button>
+            <button type="button" className="icon-btn" aria-label="上移" disabled={i === 0} onClick={() => reorder(i, i - 1)}><Icon name="up" size={15} /></button>
+            <button type="button" className="icon-btn" aria-label="下移" disabled={i === all.length - 1} onClick={() => reorder(i, i + 1)}><Icon name="down" size={15} /></button>
           </span>
-        </li>)}
-        {!all.length && <li className="admin-muted">还没有模型。</li>}
-      </ol>
+        </>}
+      </SortableList> : <p className="admin-muted">还没有模型。</p>}
     </div>
     {(['annotate', 'plan'] as Purpose[]).map(purpose => {
       const cfg = draft.purposes[purpose];
@@ -361,13 +364,16 @@ function OrderPanel({ draft, update, saved }: { draft: Draft; update: (fn: (d: D
         <div className="purpose-targets">
           {all.map(t => <label key={t.id} className="tool-check"><input type="checkbox" checked={pinned.includes(t.id)} onChange={e => { const on = e.target.checked; set(c => { c.targets = on ? [...c.targets, t.id] : c.targets.filter(x => x !== t.id); }); }} /><code>{t.id}</code></label>)}
         </div>
-        {pinned.length > 0 && <ol className="order-list">
-          {pinned.map((id, i) => <li key={id}><span className="order-index">{i + 1}</span><code>{id}</code>{statusOf(id) && <span className="admin-badge" data-tone="warn">{statusOf(id)}</span>}
+        {pinned.length > 0 && <SortableList items={pinned} keyOf={id => id} label={id => id} onMove={(from, to) => set(c => { const [m] = c.targets.splice(from, 1); c.targets.splice(to, 0, m); })}>
+          {(id, i, handle) => <>
+            <Grip {...handle} />
+            <span className="order-index">{i + 1}</span><code>{id}</code>{statusOf(id) && <span className="admin-badge" data-tone="warn">{statusOf(id)}</span>}
             <span className="order-actions">
               <button type="button" className="icon-btn" aria-label="上移" disabled={i === 0} onClick={() => set(c => { [c.targets[i - 1], c.targets[i]] = [c.targets[i], c.targets[i - 1]]; })}><Icon name="up" size={15} /></button>
               <button type="button" className="icon-btn" aria-label="下移" disabled={i === pinned.length - 1} onClick={() => set(c => { [c.targets[i + 1], c.targets[i]] = [c.targets[i], c.targets[i + 1]]; })}><Icon name="down" size={15} /></button>
-            </span></li>)}
-        </ol>}
+            </span>
+          </>}
+        </SortableList>}
         <div className="field-pair">
           <label className="field-label">输出上限（token）<input className="field" type="number" min={64} max={64000} step={100} value={cfg.maxTokens} onChange={e => { const v = Number(e.target.value); set(c => { c.maxTokens = v; }); }} /></label>
           <label className="field-label">单次超时（秒）<input className="field" type="number" min={3} max={180} value={Math.round(cfg.timeoutMs / 1000)} onChange={e => { const v = Number(e.target.value) * 1000; set(c => { c.timeoutMs = v; }); }} /></label>
