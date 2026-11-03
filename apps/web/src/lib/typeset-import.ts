@@ -1,4 +1,4 @@
-import { assembleManuscript, classifyFacts, fillTemplate, sanitizeHtml, applyAnnotations, annotationRequest, outlineOf, type Classified, type FillReport, type Manuscript, type SourceFact, type TypesetRules } from '@kiumi/core';
+import { analyzeTemplate, assembleManuscript, classifyFacts, fillTemplate, manuscriptPieces, parsePlan, planPrompt, sanitizeHtml, applyAnnotations, annotationRequest, outlineOf, type Classified, type FillReport, type Manuscript, type PlanEntry, type SourceFact, type TypesetRules } from '@kiumi/core';
 import * as api from '../api.ts';
 import type { ImportPreview } from './word-import/index.ts';
 
@@ -36,11 +36,11 @@ export function recognize(preview: ImportPreview, patches?: unknown): Typeset {
 }
 
 /**
- * Ask the server model about the few uncertain paragraphs. Fails closed: any
- * error simply leaves the rule-based result in place.
+ * Ask the server model to review every paragraph's role (rules give the
+ * starting point). Fails closed: any error leaves the rule-based result.
  */
 export async function annotate(facts: SourceFact[], classified: Classified[]): Promise<unknown | undefined> {
-  const { prompt, ask } = annotationRequest(facts, classified);
+  const { prompt, ask } = annotationRequest(facts, classified, { all: true });
   if (!ask.length) return undefined;
   try {
     const result = await api.request<{ patches: unknown }>('/api/manuscript/annotate', { method: 'POST', body: JSON.stringify({ prompt }) });
@@ -54,18 +54,29 @@ export interface StyledResult {
   manuscript: Manuscript;
 }
 
-/** Pour the recognized manuscript into a chosen style template. */
-export async function typesetPreview(preview: ImportPreview, atomTplId: string, rules: TypesetRules, patches?: unknown): Promise<StyledResult> {
+/** Ask the server model how to lay the manuscript out in the template. Null when unavailable. */
+export async function requestPlan(templateHtml: string, manuscript: Manuscript, rules: TypesetRules): Promise<PlanEntry[] | null> {
+  const prompt = planPrompt(analyzeTemplate(templateHtml), manuscriptPieces(manuscript, rules));
+  try {
+    const result = await api.request<{ entries: unknown }>('/api/manuscript/plan', { method: 'POST', body: JSON.stringify({ prompt }) });
+    return parsePlan(result.entries);
+  } catch { return null; }
+}
+
+/** Pour the recognized manuscript into a chosen style template, planned by the model when it answers in time. */
+export async function typesetPreview(preview: ImportPreview, atomTplId: string, rules: TypesetRules, patches?: unknown, options: { planTimeoutMs?: number } = {}): Promise<StyledResult> {
   const record = await api.fetchTemplate(atomTplId);
   const { manuscript } = recognize(preview, patches);
   const replacements = preview.replacements ?? {};
-  const { html, report } = fillTemplate(sanitizeHtml(record.html), manuscript, { rules, resolveImage: ref => replacements[ref] ?? ref });
+  const template = sanitizeHtml(record.html);
+  const plan = await Promise.race([requestPlan(template, manuscript, rules), new Promise<null>(resolve => setTimeout(() => resolve(null), options.planTimeoutMs ?? 60_000))]);
+  const { html, report } = fillTemplate(template, manuscript, { rules, plan, planSource: 'model', resolveImage: ref => replacements[ref] ?? ref });
   const styled: ImportPreview = {
     ...preview,
     title: manuscript.title || preview.title,
     preserveLayout: true,
     items: [{ label: '风格排版稿件', block: { kind: 'library', id: `blk-${Date.now().toString(36)}`, tplId: record.atomTplId, matrix: [], html } }],
-    issues: [...preview.issues, ...report.warnings.map(message => ({ location: '风格排版', message }))],
+    issues: [...preview.issues, ...report.warnings.map(message => ({ location: report.plan === 'model' ? 'AI 排版' : '风格排版', message }))],
   };
   return { preview: styled, report, manuscript };
 }

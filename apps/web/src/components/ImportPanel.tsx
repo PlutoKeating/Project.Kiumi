@@ -50,12 +50,14 @@ export function ImportPanel() {
       const first = recognize(source);
       setOutline(first.outline);
       if (withStyle && styleTemplate) {
-        setMessage('正在套用风格排版…');
-        // Only the few uncertain paragraphs are sent to the model; rules already did the rest.
-        const patches = await Promise.race([annotate(first.facts, first.classified), new Promise<undefined>(resolve => setTimeout(resolve, 8000))]);
-        const result = await typesetPreview(source, styleTemplate.id, rules, patches);
+        setMessage('AI 正在识别文章结构…');
+        // The model reviews every paragraph's role, then plans the layout; rules stand in when it is unavailable.
+        const patches = await Promise.race([annotate(first.facts, first.classified), new Promise<undefined>(resolve => setTimeout(resolve, 30_000))]);
         setOutline(recognize(source, patches).outline);
-        current.current = result.preview; setStyled(result); setPreview({ ...result.preview }); setMessage('');
+        setMessage('AI 正在按风格编排版面…');
+        const result = await typesetPreview(source, styleTemplate.id, rules, patches);
+        current.current = result.preview; setStyled(result); setPreview({ ...result.preview });
+        setMessage(result.report.plan === 'model' ? '' : '未连接到排版模型，已按规则排版。');
       } else { current.current = source; setStyled(null); setPreview({ ...source }); setMessage(''); }
     } catch (error) { current.current = source; setStyled(null); setPreview({ ...source }); setMessage(`风格排版失败，已保留原文结构：${(error as Error).message}`); }
   };
