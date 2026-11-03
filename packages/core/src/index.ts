@@ -110,6 +110,9 @@ export {
   planPrompt,
   parsePlan,
   executePlan,
+  reviewPlan,
+  reviewPrompt,
+  type PlanIssue,
   type Piece,
   type PieceKind,
   type PlanEntry,
@@ -121,5 +124,6 @@ export {
   type FillOptions,
   type FillReport,
 } from './templatefill.ts';
+export { rulesBrief, planSystem, annotateSystem, agentInstructions } from './prompts.ts';
 export { parseDocx, type DocxParts, type DocxFacts } from './docxfacts.ts';
 export { applyOps, validateOps, type DocOp, type OpResult } from './docops.ts';

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { analyzeTemplate, assembleManuscript, autoPlan, classifyFacts, executePlan, fillTemplate, manuscriptPieces, parsePlan, planPrompt, type SourceFact } from '../src/index.ts';
+import { DEFAULT_RULES, analyzeTemplate, annotateSystem, agentInstructions, assembleManuscript, autoPlan, classifyFacts, executePlan, fillTemplate, manuscriptPieces, normalizeRules, parsePlan, planPrompt, planSystem, reviewPlan, reviewPrompt, rulesBrief, type SourceFact } from '../src/index.ts';
 
 const ph = (n: number) => '正文' + ' ​'.repeat(n);
 const unit = (inner: string) => `<div style="position:static"><section>${inner}</section></div>`;
@@ -190,4 +190,60 @@ test('house rules hold on template text: black, default font, sizes, spacing, 90
   assert.ok(html.startsWith('<section><p style="margin:0;line-height:2;font-size:14px;"><br></p>'), 'blank line first');
   assert.ok(html.endsWith('<p style="margin:0;line-height:2;font-size:14px;"><br></p></section>'), 'blank line last');
   assert.match(html, /<p style="font-weight:bold;"><span style="color:rgb\(149, 73, 49\)">直播助力非遗传承<\/span><\/p>/, 'the title keeps the template look and is bold');
+});
+
+test('every model or Agent plan is reviewed: dropped, repeated or misplaced content sends it back', () => {
+  const title = unit(`<div style="font-size:200%"><p><span>${ph(6)}</span></p></div><div style="border:1px solid"><p>${ph(2)}</p></div>`);
+  const heading = unit(`<div><p><strong>${ph(4)}</strong></p></div>`);
+  const tpl = `<section>${[title, text(120), heading, photo, text(120)].join('')}</section>`;
+  const schema = analyzeTemplate(tpl);
+  assert.deepEqual(schema.units.map(u => u.kind), ['title', 'text', 'heading', 'photo', 'text']);
+  const f = [T(0, '直播助力非遗传承，文创赋能乡村振兴'), T(1, '——走进罗洞工匠小镇'), T(2, '第一段正文内容，足够长以免被识别为标题，并以句号结尾。'), I(3, 'a'), T(4, '第二段正文内容，同样足够长，并以句号结尾。')];
+  const pieces = manuscriptPieces(assembleManuscript(f, classifyFacts(f)));
+  assert.deepEqual(pieces.map(p => p.id), ['T', 'S', 'p0', 'f0', 'p1']);
+  const errors = (plan: unknown) => reviewPlan(schema, pieces, parsePlan(plan)!).filter(x => x.level === 'error').map(x => x.message);
+
+  // The rule plan always passes its own review.
+  assert.deepEqual(errors(autoPlan(schema, pieces)), []);
+  const good = [{ u: 0, t: { 0: ['T'], 1: ['S'] } }, { u: 1, t: { 0: ['p0'] } }, { u: 2, t: { 0: '活动现场' } }, { u: 3, img: ['f0'] }, { u: 4, t: { 0: ['p1'] } }];
+  assert.deepEqual(errors(good), []);
+
+  // The title split into the pill, the subtitle on the headline.
+  assert.ok(errors([{ u: 0, t: { 0: ['S'], 1: ['T'] } }, ...good.slice(1)]).some(m => /主标题 T 只能放进大字区 z0/.test(m)));
+  assert.ok(errors([{ u: 0, t: { 0: ['S', 'T'] } }, ...good.slice(1)]).some(m => /副标题 S 不能占主标题的大字区，请放进小字区 z1/.test(m)));
+  // Dropped, repeated, unknown.
+  assert.ok(errors(good.filter(e => e.u !== 4)).some(m => /没有排进方案：p1/.test(m)));
+  assert.ok(errors([...good, { u: 4, t: { 0: ['p1'] } }]).some(m => /p1 出现了 2 次/.test(m)));
+  assert.ok(errors([...good, { u: 4, t: { 0: ['p9'] } }]).some(m => /没有编号 p9/.test(m)));
+  // Made-up text only on heading bars and short; body never in a heading bar; pictures only in picture slots.
+  assert.ok(errors([...good, { u: 4, t: { 0: '模型自己写的正文' } }]).some(m => /只有小标题条/.test(m)));
+  assert.ok(errors([good[0], good[1], { u: 2, t: { 0: '这是一个远远超过十二个字的拟写小标题' } }, ...good.slice(3)]).some(m => /超过/.test(m)));
+  assert.ok(errors([good[0], { u: 2, t: { 0: ['p0'] } }, { u: 3, img: ['f0'] }, { u: 4, t: { 0: ['p1'] } }]).some(m => /正文 p0 不能放进小标题条/.test(m)));
+  assert.ok(errors([good[0], { u: 1, t: { 0: ['p0', 'f0'] } }, { u: 4, t: { 0: ['p1'] } }]).some(m => /图片 f0 不能放进文字区/.test(m)));
+  assert.ok(errors([...good.slice(0, 3), { u: 3, img: ['f0', 'p1'] }]).some(m => /p1 不是图片/.test(m)));
+
+  // The review round repeats the task with the rejected plan and every problem.
+  const issues = reviewPlan(schema, pieces, parsePlan(good.slice(0, 3))!);
+  const again = reviewPrompt('原始任务', parsePlan(good.slice(0, 3))!, issues);
+  assert.match(again, /^原始任务\n/);
+  assert.match(again, /你上一次给出的方案：\n\{"entries":/);
+  assert.match(again, /程序复核发现以下问题，必须全部改正，同时继续满足团队排版规范：\n1\. 以下编号没有排进方案：f0、p1/);
+});
+
+test('model and Agent prompts carry the team rules, generated from the same data the code enforces', () => {
+  const brief = rulesBrief();
+  for (const rule of ['不能用回车造空行', '文字和文字之间不空行', '宽度 90%', '只保留冒号/竖杠前面', '逗号的全部改为空格', '绝不能用深灰', '秀米默认字体', '行距 2，字距 2，段落间距 0，左右边距 20', '首行缩进', '小标题：字号 16，加粗', '正文：字号 14']) assert.ok(brief.includes(rule), rule);
+  // A team that changed its rules is told its own numbers.
+  const custom = normalizeRules({ letterSpacing: 1, bodySize: 15, imageWidth: 100 });
+  assert.match(rulesBrief(custom), /字距 1/);
+  assert.match(rulesBrief(custom), /正文：字号 15/);
+  assert.match(rulesBrief(custom), /宽度 100%/);
+  for (const system of [planSystem(custom), annotateSystem(custom), agentInstructions(custom)]) assert.ok(system.includes(rulesBrief(custom)));
+  assert.match(planSystem(), /会被程序复核，不合格会被退回重做/);
+  assert.match(planSystem(), /主标题 T 只放进 title 单元的大字区/);
+  assert.match(agentInstructions(), /kiumi_typeset_rules/);
+  // The Agent-facing plan prompt includes the rules; the web one leaves them to the system prompt.
+  const schema = analyzeTemplate(template), pieces = manuscriptPieces(assembleManuscript(facts, classifyFacts(facts)));
+  assert.ok(planPrompt(schema, pieces, 30, DEFAULT_RULES).includes(brief));
+  assert.ok(!planPrompt(schema, pieces).includes(brief));
 });

@@ -8,6 +8,7 @@ import {
   paragraphCss,
   type TypesetRules,
 } from './typeset.ts';
+import { rulesBrief } from './prompts.ts';
 
 /**
  * Pour a manuscript into a recorded style template (a shop article skeleton).
@@ -428,7 +429,7 @@ export function autoPlan(schema: TemplateSchema, pieces: Piece[]): PlanEntry[] {
  * Compact prompt for a model: template units and manuscript pieces, one line
  * each, so a whole article costs a few thousand tokens.
  */
-export function planPrompt(schema: TemplateSchema, pieces: Piece[], clip = 30): string {
+export function planPrompt(schema: TemplateSchema, pieces: Piece[], clip = 30, rules?: TypesetRules): string {
   const unitLines = schema.units.filter(u => u.kind !== 'decor').map(u => {
     const zones = u.zoneInfo.map((z, i) => `z${i}:${z.len}字${z.size >= 18 ? `/${Math.round(z.size)}px` : ''}${z.bold ? '粗' : ''}`).join(' ');
     const photos = u.photos ? ` 图位${u.photos}${u.kind === 'mixed' ? (u.photoFirst ? '(图在上)' : '(图在下)') : ''}` : '';
@@ -451,6 +452,7 @@ export function planPrompt(schema: TemplateSchema, pieces: Piece[], clip = 30): 
     '5. 尽量让稿件结构与模板节奏一致：图文交替、每个小标题条后跟正文或图片。',
     '6. title 单元里字号明显较小的文字区（标签、胶囊）放副标题 S，不要拿来放主标题的后半句；模板没有副标题位时不要列出 S，排版器会把它醒目地排在标题下方。',
     '只输出 JSON：{"entries":[{"u":单元号,"t":{"区号":["编号",…] 或 "拟写文字"},"img":["f0",…]}]}',
+    ...(rules ? [rulesBrief(rules), '格式由排版器按规范强制写入，方案只决定放置；提交后会被程序复核，不合格会被退回。'] : []),
     '模板：',
     ...unitLines,
     '稿件：',
@@ -488,6 +490,90 @@ export function parsePlan(input: unknown): PlanEntry[] | null {
     out.push(entry);
   }
   return out.length ? out : null;
+}
+
+// ---------------------------------------------------------------------------
+// Plan review: the mandatory check every model or Agent plan goes through
+// ---------------------------------------------------------------------------
+
+export interface PlanIssue {
+  /** Errors send the plan back; warnings are reported with the result. */
+  level: 'error' | 'warn';
+  message: string;
+}
+
+/**
+ * Check a plan against the template, the manuscript and the house rules a plan
+ * can break (content dropped or repeated, the title split into the subtitle
+ * slot, made-up text outside heading bars, overlong labels, pictures in text
+ * zones). Formatting itself is enforced by the executor, not checked here.
+ */
+export function reviewPlan(schema: TemplateSchema, pieces: Piece[], plan: PlanEntry[]): PlanIssue[] {
+  const issues: PlanIssue[] = [];
+  const error = (message: string) => issues.push({ level: 'error', message });
+  const byId = new Map(pieces.map(p => [p.id, p]));
+  const count = new Map<string, number>();
+  const see = (id: string) => count.set(id, (count.get(id) ?? 0) + 1);
+  const title = schema.units.find(u => u.kind === 'title');
+  if (!plan.length) error('方案是空的。');
+  plan.forEach((entry, k) => {
+    const info = schema.units[entry.u];
+    const at = `第 ${k + 1} 项（u${entry.u}）`;
+    if (!info) { error(`${at}：模板没有这个单元。`); return; }
+    if (info.kind === 'decor') { error(`${at}：这是装饰单元，不能放内容。`); return; }
+    const head = headlineZones(info.zoneInfo);
+    for (const [key, value] of Object.entries(entry.t ?? {})) {
+      const zi = Number(key), len = info.zones[zi];
+      if (len === undefined) { error(`${at}：没有文字区 z${key}。`); continue; }
+      if (typeof value === 'string') {
+        if (len <= NUM_ZONE) continue; // number badges: 01, 02…
+        if (info.kind !== 'heading') error(`${at} z${key}：只有小标题条（heading）可以拟写文字，这里必须放稿件编号。`);
+        else if ([...value].length > Math.min(12, len + 4)) error(`${at} z${key}：拟写的「${value}」超过 ${Math.min(12, len + 4)} 字。`);
+        continue;
+      }
+      for (const id of value) {
+        const p = byId.get(id);
+        if (!p) { error(`${at} z${key}：稿件里没有编号 ${id}。`); continue; }
+        see(id);
+        if (p.kind === 'image') error(`${at} z${key}：图片 ${id} 不能放进文字区，请放进 img。`);
+        else if (p.kind === 'title') {
+          if (title && info.kind !== 'title') error(`${at}：主标题 T 必须放进标题单元 u${title.index}。`);
+          else if (info.kind === 'title' && head.length && !head.includes(zi)) error(`${at}：主标题 T 只能放进大字区 z${head[0]}，z${key} 是副标题位。`);
+        } else if (p.kind === 'subtitle') {
+          const sub = info.kind === 'title' ? titleSubZone(info) : -1;
+          if (info.kind === 'title' && head.includes(zi)) error(`${at}：副标题 S 不能占主标题的大字区${sub >= 0 ? `，请放进小字区 z${sub}` : ''}。`);
+        } else if (p.kind === 'para' && (info.kind === 'heading' || info.kind === 'title' || info.kind === 'subtitle')) {
+          error(`${at}：正文 ${id} 不能放进${info.kind === 'heading' ? '小标题条' : '标题区'}，请放进 text 或 mixed 单元。`);
+        }
+      }
+    }
+    const imgs = entry.img ?? [];
+    for (const id of imgs) {
+      const p = byId.get(id);
+      if (!p) error(`${at}：稿件里没有图片 ${id}。`);
+      else if (p.kind !== 'image') error(`${at}：${id} 不是图片，不能放进图片位。`);
+      else see(id);
+    }
+    if (imgs.length > info.photos) error(`${at}：这个单元只有 ${info.photos} 个图片位，放了 ${imgs.length} 张。`);
+  });
+  for (const [id, n] of count) if (n > 1) error(`编号 ${id} 出现了 ${n} 次，每个编号只能出现一次。`);
+  const subtitleSlot = schema.summary.subtitle || (title ? titleSubZone(title) >= 0 : false);
+  const missing = pieces.filter(p => !count.has(p.id) && !(p.kind === 'title' && !title) && !(p.kind === 'subtitle' && !subtitleSlot));
+  if (missing.length) error(`以下编号没有排进方案：${missing.map(p => p.id).join('、')}。每个编号都必须出现一次。`);
+  return issues;
+}
+
+/** Follow-up prompt for a review round: the original task, the rejected plan and what is wrong with it. */
+export function reviewPrompt(prompt: string, plan: PlanEntry[], issues: PlanIssue[]): string {
+  return [
+    prompt,
+    '',
+    '你上一次给出的方案：',
+    JSON.stringify({ entries: plan }),
+    '程序复核发现以下问题，必须全部改正，同时继续满足团队排版规范：',
+    ...issues.map((x, i) => `${i + 1}. ${x.message}`),
+    '请重新输出完整方案（只输出 JSON）。',
+  ].join('\n');
 }
 
 // ---------------------------------------------------------------------------
