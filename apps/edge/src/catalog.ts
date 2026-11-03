@@ -26,6 +26,9 @@ export interface CatalogModel {
   reasoning: boolean;
   openWeights: boolean;
   images: boolean;
+  /** Per-model wire protocol / Base URL when the gateway serves this model elsewhere (models.dev `provider`). */
+  protocol: Protocol | null;
+  baseUrl: string | null;
 }
 
 export interface CatalogProvider {
@@ -85,6 +88,8 @@ export function slimCatalog(raw: unknown): CatalogProvider[] {
       reasoning: m?.reasoning === true,
       openWeights: m?.open_weights === true,
       images: Array.isArray(m?.modalities?.input) && m.modalities.input.includes('image'),
+      protocol: str(m?.provider?.npm) ? NPM_PROTOCOLS[str(m.provider.npm)!] ?? null : null,
+      baseUrl: str(m?.provider?.api),
     })).filter(m => m.id).sort((a, b) => a.id.localeCompare(b.id));
     out.push({ id: str(value.id) ?? key, name: str(value.name) ?? key, doc: str(value.doc), baseUrl: str(value.api), npm, protocol: NPM_PROTOCOLS[npm] ?? null, models });
   }

@@ -17,12 +17,20 @@ async function upstream(req: Request): Promise<Response> {
     acme: { id: 'acme', name: 'Acme AI', npm: '@ai-sdk/openai-compatible', api: 'https://gw.acme.test/v1', doc: 'https://acme.test/docs', models: { 'acme-large': { id: 'acme-large', name: 'Acme Large', limit: { context: 128000, output: 8000 }, cost: { input: 1, output: 2 }, modalities: { input: ['text', 'image'] } } } },
     claudeish: { id: 'claudeish', name: 'Claudeish', npm: '@ai-sdk/anthropic', models: { 'c-1': { id: 'c-1', name: 'C 1' } } },
     weird: { id: 'weird', name: 'Weird', npm: '@ai-sdk/amazon-bedrock', models: {} },
+    'opencode-go': { id: 'opencode-go', name: 'OpenCode Go', npm: '@ai-sdk/openai-compatible', api: 'https://og.test/inference/go/openai/v1', models: {
+      'kimi-x': { id: 'kimi-x', name: 'Kimi X', provider: { api: 'https://og.test/inference/go/openai/v1' } },
+      'minimax-y': { id: 'minimax-y', name: 'MiniMax Y', provider: { npm: '@ai-sdk/anthropic', api: 'https://og.test/inference/go/anthropic/v1' } },
+    } },
   });
   const body = req.method === 'POST' ? await req.json() : null;
   calls.push({ url: url.href, headers: Object.fromEntries(req.headers), body });
   if (url.href === 'https://gw.acme.test/v1/chat/completions') {
     if (chatFails) return new Response('overloaded', { status: 503 });
     return Response.json({ choices: [{ message: { content: '{"entries":[{"u":0,"t":{"0":["T"]}}]}' } }] });
+  }
+  if (url.href === 'https://og.test/inference/go/anthropic/v1/messages') {
+    if (!req.headers.get('x-opencode-session')) return Response.json({ error: 'MissingSessionID' }, { status: 400 });
+    return Response.json({ content: [{ type: 'text', text: body?.system?.includes('JSON 数组') ? '[[1,"b"]]' : '{"entries":[{"u":2,"t":{"0":["p1"]}}]}' }] });
   }
   if (url.href === 'https://claude.test/v1/messages') return Response.json({ content: [{ type: 'text', text: '{"entries":[{"u":1,"t":{"0":["p0"]}}]}' }], stop_reason: 'end_turn' });
   return new Response('not found', { status: 404 });
@@ -159,6 +167,46 @@ test('without panel providers the legacy LLM_* variables still work, and no admi
     const planned = await api('/api/manuscript/plan', 'root', { method: 'POST', team: team.id ?? team.team?.id, body: { prompt: '排版' } });
     assert.equal(planned.status, 200, JSON.stringify(planned.body));
     assert.equal(calls[0].headers['x-api-key'], 'sk-env-1234');
+  } finally {
+    await mf.dispose();
+  }
+});
+
+test('gateways like OpenCode Go: per-model protocol and address from the catalog, one session id per import, client User-Agent', async () => {
+  const { mf, api } = await setup({ KIUMI_ADMIN_SUBS: 'root' });
+  try {
+    const models = (await api('/api/admin/catalog/models?provider=opencode-go', 'root')).body.data.models;
+    assert.deepEqual(models.map((m: any) => [m.id, m.protocol, m.baseUrl]), [['kimi-x', null, 'https://og.test/inference/go/openai/v1'], ['minimax-y', 'anthropic-messages', 'https://og.test/inference/go/anthropic/v1']]);
+    const provider = { id: 'og', name: 'OpenCode Go', catalogId: 'opencode-go', protocol: 'openai-chat', baseUrl: 'https://og.test/inference/go/openai/v1', enabled: true, headers: {}, sessionHeader: 'X-OpenCode-Session', keys: [{ apiKey: 'sk-og-00001111' }],
+      models: [{ id: 'minimax-y', enabled: true, order: 0, protocol: 'anthropic-messages', baseUrl: 'https://og.test/inference/go/anthropic/v1' }, { id: 'kimi-x', enabled: true, order: 1, protocol: 'openai-chat', baseUrl: 'https://og.test/inference/go/openai/v1' }] };
+    // User-Agent has its own field; it cannot be smuggled through extra headers.
+    assert.equal((await api('/api/admin/llm', 'root', { method: 'PUT', body: { version: 0, providers: [{ ...provider, headers: { 'User-Agent': 'curl/8' } }] } })).status, 400);
+    const saved = await api('/api/admin/llm', 'root', { method: 'PUT', body: { version: 0, providers: [provider] } });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    const og = saved.body.data.providers[0];
+    assert.equal(og.sessionHeader, 'x-opencode-session');
+    assert.deepEqual(og.models.map((m: any) => [m.id, m.protocol ?? null, m.baseUrl ?? null]), [['minimax-y', 'anthropic-messages', 'https://og.test/inference/go/anthropic/v1'], ['kimi-x', null, null]], 'overrides equal to the provider are not stored');
+
+    const team = (await api('/api/teams', 'root', { method: 'POST', body: { name: '团队' } })).body.data;
+    const teamId = team.id ?? team.team?.id;
+    calls.length = 0;
+    const session = 'import0123456789abcdef';
+    const annotated = await api('/api/manuscript/annotate', 'root', { method: 'POST', team: teamId, body: { prompt: '识别', session } });
+    assert.equal(annotated.status, 200, JSON.stringify(annotated.body));
+    const planned = await api('/api/manuscript/plan', 'root', { method: 'POST', team: teamId, body: { prompt: '排版', session } });
+    assert.equal(planned.status, 200, JSON.stringify(planned.body));
+    assert.deepEqual(calls.map(c => c.url), ['https://og.test/inference/go/anthropic/v1/messages', 'https://og.test/inference/go/anthropic/v1/messages']);
+    assert.deepEqual(calls.map(c => c.headers['x-opencode-session']), [session, session], 'both calls of one import share the session');
+    assert.equal(calls[0].headers['x-api-key'], 'sk-og-00001111');
+    assert.equal(calls[0].headers['user-agent'], 'kiumi-typesetter/1.0');
+
+    // Without a session from the browser each call still carries one; tests send one too.
+    calls.length = 0;
+    await api('/api/manuscript/plan', 'root', { method: 'POST', team: teamId, body: { prompt: '排版', session: 'bad id!' } });
+    assert.match(calls[0].headers['x-opencode-session'], /^[0-9a-f-]{36}$/);
+    const tested = (await api('/api/admin/llm/test', 'root', { method: 'POST', body: { provider: { id: 'og', protocol: 'anthropic-messages', baseUrl: 'https://og.test/inference/go/anthropic/v1', sessionHeader: 'x-opencode-session', userAgent: 'my-agent/2' }, model: 'minimax-y' } })).body.data;
+    assert.equal(tested.ok, true, JSON.stringify(tested));
+    assert.equal(calls.at(-1)!.headers['user-agent'], 'my-agent/2');
   } finally {
     await mf.dispose();
   }

@@ -288,14 +288,17 @@ export async function previewRoute(request: Request, env: Env, deps: Deps): Prom
 // Optional model second opinion for the web importer
 // ---------------------------------------------------------------------------
 
+/** The browser's id for one import, so its model calls share a gateway session. */
+const sessionId = (value: unknown) => (typeof value === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value) ? value : undefined);
+
 const PLAN_SYSTEM = '你是资深公众号排版编辑，负责把稿件编排进风格模板。只输出 JSON，不要解释。';
 
 /** Structure recognition: role corrections for the listed paragraphs. */
 export async function annotateRoute(request: Request, env: Env): Promise<Response> {
   await teamContext(env, request);
-  const { prompt } = await request.json() as { prompt?: string };
+  const { prompt, session } = await request.json() as { prompt?: string; session?: string };
   if (typeof prompt !== 'string' || !prompt || prompt.length > 20_000) throw new ApiError(400, 'INVALID_BODY', '提示内容无效');
-  const { text } = await runModel(env, 'annotate', '你是中文公众号编辑。只输出 JSON 数组，不要解释。', prompt);
+  const { text } = await runModel(env, 'annotate', '你是中文公众号编辑。只输出 JSON 数组，不要解释。', prompt, { session: sessionId(session) });
   const match = /\[[\s\S]*\]/.exec(text);
   let patches: unknown = [];
   try { patches = match ? JSON.parse(match[0]) : []; } catch { patches = []; }
@@ -305,9 +308,9 @@ export async function annotateRoute(request: Request, env: Env): Promise<Respons
 /** Layout planning for the web importer: the browser builds the prompt with the same core code. */
 export async function planRoute(request: Request, env: Env): Promise<Response> {
   await teamContext(env, request);
-  const { prompt } = await request.json() as { prompt?: string };
+  const { prompt, session } = await request.json() as { prompt?: string; session?: string };
   if (typeof prompt !== 'string' || !prompt || prompt.length > 60_000) throw new ApiError(400, 'INVALID_BODY', '提示内容无效');
-  const { text } = await runModel(env, 'plan', PLAN_SYSTEM, prompt);
+  const { text } = await runModel(env, 'plan', PLAN_SYSTEM, prompt, { session: sessionId(session) });
   const plan = parsePlan(text);
   if (!plan) throw new ApiError(502, 'LLM_FAILED', '模型没有给出可用的排版方案，已使用规则排版');
   return reply({ entries: plan });

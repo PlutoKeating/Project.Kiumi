@@ -20,7 +20,14 @@ export type Purpose = 'annotate' | 'plan';
 export const PURPOSES: Purpose[] = ['annotate', 'plan'];
 
 export interface ProviderKey { id: string; label: string; enc: string; last4: string; enabled: boolean; addedAt: string }
-export interface ProviderModel { id: string; enabled: boolean; order: number }
+export interface ProviderModel {
+  id: string;
+  enabled: boolean;
+  order: number;
+  /** Gateways that serve some models on another API (OpenCode Go, Zen): per-model overrides. */
+  protocol?: Protocol;
+  baseUrl?: string;
+}
 export interface Provider {
   id: string;
   name: string;
@@ -30,6 +37,10 @@ export interface Provider {
   enabled: boolean;
   /** Extra request headers some gateways require. */
   headers: Record<string, string>;
+  /** Header that carries one stable id per import (e.g. OpenCode's `x-opencode-session`). */
+  sessionHeader?: string;
+  /** Client identification some gateways require; empty = DEFAULT_USER_AGENT. */
+  userAgent?: string;
   keys: ProviderKey[];
   models: ProviderModel[];
 }
@@ -55,6 +66,10 @@ export const DEFAULT_PURPOSES: Record<Purpose, PurposeConfig> = {
 };
 
 const KEY = 'llm-config';
+/** Identifies this client to gateways that ask for a non-generic User-Agent. */
+export const DEFAULT_USER_AGENT = 'kiumi-typesetter/1.0';
+const HEADER_RE = /^[a-z0-9-]{1,64}$/i;
+const RESERVED_HEADER = /^(authorization|x-api-key|x-goog-api-key|host|content-length|content-type|user-agent)$/i;
 export const ID_RE = /^[a-z0-9][a-z0-9_.-]{0,63}$/i;
 const MODEL_RE = /^[^\s/][^\s]{0,199}$/;
 
@@ -169,6 +184,12 @@ export interface SaveInput {
 }
 
 const bad = (message: string) => new ApiError(400, 'INVALID_CONFIG', message);
+function httpsUrl(value: string, what: string): string {
+  let url: URL;
+  try { url = new URL(value); } catch { throw bad(`${what}无效`); }
+  if (url.protocol !== 'https:' && !/^(localhost|127\.0\.0\.1)$/.test(url.hostname)) throw bad(`${what}必须是 https`);
+  return url.toString().replace(/\/+$/, '');
+}
 
 export async function saveConfig(env: Env, input: SaveInput, by: string) {
   const current = await loadConfig(env);
@@ -182,14 +203,16 @@ export async function saveConfig(env: Env, input: SaveInput, by: string) {
     if (seen.has(id)) throw bad(`提供商 id「${id}」重复`);
     seen.add(id);
     if (!PROTOCOLS.includes(raw.protocol)) throw bad(`「${id}」的协议无效`);
-    let baseUrl: URL;
-    try { baseUrl = new URL(String(raw.baseUrl ?? '')); } catch { throw bad(`「${id}」的 Base URL 无效`); }
-    if (baseUrl.protocol !== 'https:' && !/^(localhost|127\.0\.0\.1)$/.test(baseUrl.hostname)) throw bad(`「${id}」的 Base URL 必须是 https`);
+    const baseUrl = new URL(httpsUrl(String(raw.baseUrl ?? ''), `「${id}」的 Base URL`));
     const headers: Record<string, string> = {};
     for (const [k, v] of Object.entries(raw.headers ?? {})) {
-      if (!/^[a-z0-9-]{1,64}$/i.test(k) || /^(authorization|x-api-key|x-goog-api-key|host|content-length)$/i.test(k)) throw bad(`「${id}」的请求头「${k}」不允许`);
+      if (!HEADER_RE.test(k) || RESERVED_HEADER.test(k)) throw bad(`「${id}」的请求头「${k}」不允许（鉴权头与 User-Agent 有专门的设置）`);
       headers[k] = String(v).slice(0, 500);
     }
+    const sessionHeader = String(raw.sessionHeader ?? '').trim();
+    if (sessionHeader && (!HEADER_RE.test(sessionHeader) || RESERVED_HEADER.test(sessionHeader))) throw bad(`「${id}」的会话请求头名称无效`);
+    const userAgent = String(raw.userAgent ?? '').trim();
+    if (userAgent.length > 200 || /[\r\n]/.test(userAgent)) throw bad(`「${id}」的 User-Agent 无效`);
     const old = current.providers.find(p => p.id === id);
     const keys: ProviderKey[] = [];
     for (const k of raw.keys ?? []) {
@@ -208,9 +231,18 @@ export async function saveConfig(env: Env, input: SaveInput, by: string) {
       const mid = String(m?.id ?? '').trim();
       if (!MODEL_RE.test(mid)) throw bad(`「${id}」的模型 id「${mid}」无效`);
       if (models.some(x => x.id === mid)) throw bad(`「${id}」的模型「${mid}」重复`);
-      models.push({ id: mid, enabled: m.enabled !== false, order: Number.isFinite(m.order) ? Number(m.order) : 1e6 });
+      const model: ProviderModel = { id: mid, enabled: m.enabled !== false, order: Number.isFinite(m.order) ? Number(m.order) : 1e6 };
+      if (m.protocol) {
+        if (!PROTOCOLS.includes(m.protocol)) throw bad(`「${id}/${mid}」的协议无效`);
+        if (m.protocol !== raw.protocol) model.protocol = m.protocol;
+      }
+      if (m.baseUrl) {
+        const u = httpsUrl(String(m.baseUrl), `「${id}/${mid}」的 Base URL`);
+        if (u !== baseUrl.toString().replace(/\/+$/, '')) model.baseUrl = u;
+      }
+      models.push(model);
     }
-    providers.push({ id, name: String(raw.name ?? id).slice(0, 60) || id, catalogId: raw.catalogId ? String(raw.catalogId).slice(0, 64) : null, protocol: raw.protocol, baseUrl: baseUrl.toString().replace(/\/+$/, ''), enabled: raw.enabled !== false, headers, keys, models });
+    providers.push({ id, name: String(raw.name ?? id).slice(0, 60) || id, catalogId: raw.catalogId ? String(raw.catalogId).slice(0, 64) : null, protocol: raw.protocol, baseUrl: baseUrl.toString().replace(/\/+$/, ''), enabled: raw.enabled !== false, headers, ...(sessionHeader ? { sessionHeader: sessionHeader.toLowerCase() } : {}), ...(userAgent ? { userAgent } : {}), keys, models });
   }
   renumber(providers);
   let catalogUrl = '';
@@ -232,7 +264,21 @@ export async function saveConfig(env: Env, input: SaveInput, by: string) {
 // Protocol adapters (non-streaming text)
 // ---------------------------------------------------------------------------
 
-export interface CallTarget { protocol: Protocol; baseUrl: string; model: string; apiKey: string; headers: Record<string, string> }
+export interface CallTarget {
+  protocol: Protocol;
+  baseUrl: string;
+  model: string;
+  apiKey: string;
+  headers: Record<string, string>;
+  userAgent?: string;
+  /** Header name and value for gateways that route or cache by session. */
+  session?: { header: string; id: string };
+}
+
+/** Effective endpoint of a configured model: its own overrides, else the provider's. */
+export function endpointOf(provider: Pick<Provider, 'protocol' | 'baseUrl'>, model: Pick<ProviderModel, 'protocol' | 'baseUrl'>) {
+  return { protocol: model.protocol ?? provider.protocol, baseUrl: model.baseUrl ?? provider.baseUrl };
+}
 export interface CallInput { system: string; prompt: string; maxTokens: number; timeoutMs: number }
 
 class CallError extends Error { constructor(message: string, readonly status = 0, readonly final = false) { super(message); } }
@@ -247,7 +293,9 @@ async function post(url: string, headers: Record<string, string>, body: unknown,
 
 const joinText = (parts: unknown) => (Array.isArray(parts) ? parts.map(p => (typeof p === 'string' ? p : typeof (p as any)?.text === 'string' ? (p as any).text : '')).join('') : typeof parts === 'string' ? parts : '');
 
-export async function callTarget(t: CallTarget, input: CallInput): Promise<string> {
+export async function callTarget(target: CallTarget, input: CallInput): Promise<string> {
+  // Client identity and session first; the provider's own extra headers may refine them.
+  const t = { ...target, headers: { 'user-agent': target.userAgent || DEFAULT_USER_AGENT, ...(target.session ? { [target.session.header]: target.session.id } : {}), ...target.headers } };
   const base = t.baseUrl.replace(/\/+$/, '');
   let text = '';
   switch (t.protocol) {
@@ -302,20 +350,23 @@ export async function modelsAvailable(env: Env): Promise<boolean> {
  * Call the model chain for a purpose: the purpose's own targets (or the global
  * order), each model with each enabled Key in turn, until one answers.
  */
-export async function runModel(env: Env, purpose: Purpose, system: string, prompt: string): Promise<{ text: string; target: string; attempts: Attempt[] }> {
+export async function runModel(env: Env, purpose: Purpose, system: string, prompt: string, options: { session?: string } = {}): Promise<{ text: string; target: string; attempts: Attempt[] }> {
+  // One id for every call of a job (an import's structure review and layout plan), as gateways ask.
+  const session = options.session ?? crypto.randomUUID();
   const cfg = await loadConfig(env);
   const settings = cfg.purposes[purpose];
-  const chain: Array<{ id: string; provider: Provider; model: string; keys: Array<{ id: string; get: () => Promise<string> }> }> = [];
+  const chain: Array<{ id: string; provider: Provider; model: string; protocol: Protocol; baseUrl: string; keys: Array<{ id: string; get: () => Promise<string> }> }> = [];
   if (cfg.providers.length) {
     const all = describeTargets(cfg.providers).filter(t => t.callable);
     const wanted = settings.targets.length ? settings.targets.map(id => all.find(t => t.id === id)).filter((t): t is TargetSummary => !!t) : all;
     for (const t of wanted.length ? wanted : all) {
       const provider = cfg.providers.find(p => p.id === t.providerId)!;
-      chain.push({ id: t.id, provider, model: t.modelId, keys: provider.keys.filter(k => k.enabled).map(k => ({ id: k.id, get: () => decryptKey(env, provider.id, k.enc) })) });
+      const model = provider.models.find(m => m.id === t.modelId)!;
+      chain.push({ id: t.id, provider, model: t.modelId, ...endpointOf(provider, model), keys: provider.keys.filter(k => k.enabled).map(k => ({ id: k.id, get: () => decryptKey(env, provider.id, k.enc) })) });
     }
   } else {
     const fallback = envProvider(env);
-    if (fallback) chain.push({ id: `env/${fallback.provider.models[0].id}`, provider: fallback.provider, model: fallback.provider.models[0].id, keys: [{ id: 'env', get: async () => fallback.key }] });
+    if (fallback) chain.push({ id: `env/${fallback.provider.models[0].id}`, provider: fallback.provider, model: fallback.provider.models[0].id, protocol: fallback.provider.protocol, baseUrl: fallback.provider.baseUrl, keys: [{ id: 'env', get: async () => fallback.key }] });
   }
   if (!chain.length) throw new ApiError(501, 'LLM_NOT_CONFIGURED', '还没有可用的模型（管理员可在「模型配置」里添加），已使用规则排版');
   const attempts: Attempt[] = [];
@@ -323,7 +374,10 @@ export async function runModel(env: Env, purpose: Purpose, system: string, promp
     for (const key of target.keys) {
       const started = Date.now();
       try {
-        const text = await callTarget({ protocol: target.provider.protocol, baseUrl: target.provider.baseUrl, model: target.model, apiKey: await key.get(), headers: target.provider.headers ?? {} }, { system, prompt, maxTokens: settings.maxTokens, timeoutMs: settings.timeoutMs });
+        const text = await callTarget({
+          protocol: target.protocol, baseUrl: target.baseUrl, model: target.model, apiKey: await key.get(), headers: target.provider.headers ?? {},
+          userAgent: target.provider.userAgent, session: target.provider.sessionHeader ? { header: target.provider.sessionHeader, id: session } : undefined,
+        }, { system, prompt, maxTokens: settings.maxTokens, timeoutMs: settings.timeoutMs });
         attempts.push({ target: target.id, key: key.id, ok: true, ms: Date.now() - started });
         return { text, target: target.id, attempts };
       } catch (error) {

@@ -58,7 +58,7 @@ export async function adminRoutes(request: Request, env: Env): Promise<Response 
   }
 
   if (path === '/api/admin/llm/test' && request.method === 'POST') {
-    const body = (await request.json()) as { provider?: { id?: string; protocol?: Protocol; baseUrl?: string; headers?: Record<string, string> }; model?: string; keyId?: string; apiKey?: string };
+    const body = (await request.json()) as { provider?: { id?: string; protocol?: Protocol; baseUrl?: string; headers?: Record<string, string>; sessionHeader?: string; userAgent?: string }; model?: string; keyId?: string; apiKey?: string };
     const p = body.provider ?? {};
     if (!p.id || !p.protocol || !PROTOCOLS.includes(p.protocol) || !p.baseUrl || !body.model) throw new ApiError(400, 'INVALID_BODY', '缺少提供商、协议、Base URL 或模型');
     let base: URL;
@@ -73,7 +73,8 @@ export async function adminRoutes(request: Request, env: Env): Promise<Response 
     }
     const started = Date.now();
     try {
-      const text = await callTarget({ protocol: p.protocol, baseUrl: p.baseUrl, model: body.model, apiKey, headers: p.headers ?? {} }, { system: 'You are a connectivity check.', prompt: '只回复两个字：可用', maxTokens: 512, timeoutMs: 30_000 });
+      const session = p.sessionHeader && /^[a-z0-9-]{1,64}$/i.test(p.sessionHeader) ? { header: p.sessionHeader, id: crypto.randomUUID() } : undefined;
+      const text = await callTarget({ protocol: p.protocol, baseUrl: p.baseUrl, model: body.model, apiKey, headers: p.headers ?? {}, userAgent: p.userAgent?.slice(0, 200), session }, { system: 'You are a connectivity check.', prompt: '只回复两个字：可用', maxTokens: 512, timeoutMs: 30_000 });
       return reply({ ok: true, ms: Date.now() - started, sample: text.trim().slice(0, 80) });
     } catch (error) {
       return reply({ ok: false, ms: Date.now() - started, error: (error as Error).message.slice(0, 300) });
