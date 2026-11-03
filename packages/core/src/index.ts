@@ -112,6 +112,10 @@ export {
   executePlan,
   reviewPlan,
   reviewPrompt,
+  stripAgentMarks,
+  MARK,
+  UNIT_MARK,
+  KEY_MARK,
   type PlanIssue,
   type Piece,
   type PieceKind,
@@ -124,6 +128,7 @@ export {
   type FillOptions,
   type FillReport,
 } from './templatefill.ts';
-export { rulesBrief, planSystem, annotateSystem, agentInstructions } from './prompts.ts';
+export { rulesBrief, planSystem, annotateSystem, agentInstructions, layoutAgentSystem } from './prompts.ts';
+export { applyPolish, inspectElement, layoutFindings, numberElements, parseAgentReply, type AgentAction, type AgentReply, type LayoutFinding, type PolishContext, type PolishResult } from './layoutagent.ts';
 export { parseDocx, type DocxParts, type DocxFacts } from './docxfacts.ts';
 export { applyOps, validateOps, type DocOp, type OpResult } from './docops.ts';

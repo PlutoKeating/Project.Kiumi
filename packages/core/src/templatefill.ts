@@ -598,7 +598,21 @@ export interface FillOptions {
   /** A plan from a model or Agent; without one (or when it is unusable) `autoPlan` is used. */
   plan?: PlanEntry[] | null;
   planSource?: PlanSource;
+  /**
+   * Keep the content marks in the output (`data-kiumi` piece ids on the
+   * elements that hold manuscript content, `data-kiumi-u` on unit instances),
+   * for the layout review loop. Off by default: published HTML carries none.
+   */
+  mark?: boolean;
 }
+
+/** Piece ids on content elements: T, S, Y, L (model label), h0…, p0…, c0…, f0… (space separated). */
+export const MARK = 'data-kiumi';
+/** Unit instance and kind: "u3 heading". */
+export const UNIT_MARK = 'data-kiumi-u';
+/** Element numbers the layout reviewer refers to. */
+export const KEY_MARK = 'data-k';
+export const stripAgentMarks = (html: string) => html.replace(/\s(?:data-kiumi(?:-u)?|data-k)="[^"]*"/g, '');
 
 export interface FillReport {
   title: boolean;
@@ -660,9 +674,9 @@ function boxed(el: HNode, unit: HNode): boolean {
   return false;
 }
 
-function setBlock(zone: Zone, unit: HNode, html: string, rules: TypesetRules) {
+function setBlock(zone: Zone, unit: HNode, html: string, rules: TypesetRules, ids = '') {
   const pad = boxed(zone.el, unit) ? 0 : rules.sidePadding;
-  const content = `<section style="padding:0 ${pad}px;text-align:left;">${html}</section>`;
+  const content = `<section${ids ? ` ${MARK}="${ids}"` : ''} style="padding:0 ${pad}px;text-align:left;">${html}</section>`;
   dropInheritedFont(zone.el, unit);
   const paragraph = /^(p|h[1-6]|li)$/i.test(zone.el.tagName);
   if (zone.el === unit) {
@@ -919,7 +933,8 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
       if (list.length) textAssign.set(zi, list);
     }
     const images = (entry.img ?? []).map(id => byId.get(id)).filter((x): x is Piece => !!x && x.kind === 'image' && !placed.has(x.id)).slice(0, info.photos);
-    const urls = images.map(x => resolve(x.ref!)).filter((u): u is string => !!u);
+    const resolved = images.map(x => ({ id: x.id, url: resolve(x.ref!) })).filter((x): x is { id: string; url: string } => !!x.url);
+    const urls = resolved.map(x => x.url), imageIds = resolved.map(x => x.id);
     const realText = [...textAssign.values()].some(v => Array.isArray(v));
     const label = info.kind === 'heading' && [...textAssign.entries()].some(([zi, v]) => typeof v === 'string' && info.zones[zi] > NUM_ZONE);
     if (!realText && !urls.length && !label) continue;
@@ -953,7 +968,7 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
       if (typeof value === 'string') {
         const text = value.slice(0, Math.max(zone.len + 4, 4));
         setLine(zone, zone.len <= NUM_ZONE ? text.slice(0, 4) : text);
-        if (zone.len > NUM_ZONE) { report.generated.push(text); conformLine(zone, node, info.kind === 'heading' ? 'heading' : 'line', rules); }
+        if (zone.len > NUM_ZONE) { report.generated.push(text); conformLine(zone, node, info.kind === 'heading' ? 'heading' : 'line', rules); zone.el.setAttribute(MARK, 'L'); }
         continue;
       }
       for (const x of value) placed.set(x.id, node);
@@ -964,7 +979,7 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
         const head = headlineZones(zones).filter(i => !subtitleZones.has(i));
         if (!head.includes(zi)) head.unshift(zi);
         const n = setTitle(formatArticleTitle(manuscript.title, rules), head.map(i => zones[i]));
-        for (const i of head.slice(0, n)) { used.add(i); if (!zones[i].bold) addCss(zones[i].el, 'font-weight:bold;'); }
+        for (const i of head.slice(0, n)) { used.add(i); if (!zones[i].bold) addCss(zones[i].el, 'font-weight:bold;'); zones[i].el.setAttribute(MARK, 'T'); }
         report.title = true;
         continue;
       }
@@ -974,7 +989,8 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
         // The subtitle belongs to the title block (大标题按照模板): it keeps the slot's design.
         if (value[0].kind === 'subtitle') dropInheritedFont(zone.el, node);
         else conformLine(zone, node, value[0].kind === 'heading' ? 'heading' : 'line', rules);
-      } else setBlock(zone, node, value.map(x => x.html).join(''), rules);
+        zone.el.setAttribute(MARK, value[0].id);
+      } else setBlock(zone, node, value.map(x => x.html).join(''), rules, value.map(x => x.id).join(' '));
       if (value.some(x => x.kind === 'subtitle')) report.subtitle = true;
       report.paragraphs += value.filter(x => x.kind === 'para').length;
     }
@@ -987,12 +1003,17 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
     if (info.photos) {
       const n = fillPhotos(node, urls, rules);
       for (const u of urls.slice(0, n)) ours.add(u);
+      for (const img of node.querySelectorAll('img')) {
+        const at = urls.indexOf(img.getAttribute('src') ?? '');
+        if (at >= 0) img.setAttribute(MARK, imageIds[at]);
+      }
       report.images += n;
       for (const x of images) placed.set(x.id, node);
     }
     unflipContent(node);
     unfreezeHeights(node, node);
     for (const d of node.querySelectorAll('*')) if (/height\s*:\s*[\d.]+px/i.test(d.getAttribute('style') ?? '') && visibleText(d)) unfreezeHeights(d, node);
+    node.setAttribute(UNIT_MARK, `u${entry.u} ${info.kind}`);
     instances.push({ node, info, hasImage: urls.length > 0, hasText });
   }
 
@@ -1041,14 +1062,14 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
     if (piece.kind === 'title') {
       // 最前面的大标题: a template without a title slot still opens with the title, bold and large.
       if (!report.title && manuscript.title) {
-        headLines.push(`<section style="padding:0 ${rules.sidePadding}px;"><p style="margin:0;text-align:center;font-size:${rules.headingSize + 8}px;font-weight:bold;line-height:1.6;letter-spacing:${rules.letterSpacing}px;color:${accent};">${escapeHtml(formatArticleTitle(manuscript.title, rules))}</p></section>`);
+        headLines.push(`<section style="padding:0 ${rules.sidePadding}px;"><p ${MARK}="T" style="margin:0;text-align:center;font-size:${rules.headingSize + 8}px;font-weight:bold;line-height:1.6;letter-spacing:${rules.letterSpacing}px;color:${accent};">${escapeHtml(formatArticleTitle(manuscript.title, rules))}</p></section>`);
         report.title = true;
       }
       continue;
     }
     if (piece.kind === 'subtitle') {
       // No slot: an outlined pill in the template's colour, the way shop title blocks set it.
-      headLines.push(`<section style="padding:0 ${rules.sidePadding}px;text-align:center;"><section style="display:inline-block;max-width:100%;box-sizing:border-box;border:1px solid ${accent};border-radius:999px;padding:0 18px;"><p style="margin:0;font-size:${rules.bodySize + 1}px;font-weight:bold;line-height:${rules.lineHeight};letter-spacing:${rules.letterSpacing}px;color:${accent};">${escapeHtml(undash(piece.text))}</p></section></section>`);
+      headLines.push(`<section style="padding:0 ${rules.sidePadding}px;text-align:center;"><section style="display:inline-block;max-width:100%;box-sizing:border-box;border:1px solid ${accent};border-radius:999px;padding:0 18px;"><p ${MARK}="S" style="margin:0;font-size:${rules.bodySize + 1}px;font-weight:bold;line-height:${rules.lineHeight};letter-spacing:${rules.letterSpacing}px;color:${accent};">${escapeHtml(undash(piece.text))}</p></section></section>`);
       report.subtitle = true;
       continue;
     }
@@ -1056,11 +1077,11 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
     if (piece.kind === 'image') {
       const src = resolve(piece.ref!);
       if (!src) { report.warnings.push('有图片无法解析，已跳过。'); continue; }
-      markup = `<p style="margin:0;text-align:center;"><img src="${escapeHtml(src)}" style="${imageCss(rules)}"></p>`;
+      markup = `<p style="margin:0;text-align:center;"><img ${MARK}="${piece.id}" src="${escapeHtml(src)}" style="${imageCss(rules)}"></p>`;
       ours.add(src);
       report.images++;
     } else {
-      markup = `<section style="padding:0 ${rules.sidePadding}px;">${piece.html}</section>`;
+      markup = `<section ${MARK}="${piece.id}" style="padding:0 ${rules.sidePadding}px;">${piece.html}</section>`;
       if (piece.kind === 'para') report.paragraphs++;
     }
     report.spilled++;
@@ -1117,7 +1138,7 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
   const seen = norm(plain(out));
   const missing = pieces.filter(x => x.kind !== 'title' && (x.kind === 'image' ? !out.includes(escapeHtml(resolve(x.ref!) ?? '\u0000')) : !seen.includes(norm(x.kind === 'subtitle' ? undash(x.text) : x.text).slice(0, 12))));
   if (missing.length) {
-    const tail = missing.map(x => x.kind === 'image' ? (resolve(x.ref!) ? `<p style="margin:0;text-align:center;"><img src="${escapeHtml(resolve(x.ref!)!)}" style="${imageCss(rules)}"></p>` : '') : `<section style="padding:0 ${rules.sidePadding}px;">${x.html}</section>`).join('');
+    const tail = missing.map(x => x.kind === 'image' ? (resolve(x.ref!) ? `<p style="margin:0;text-align:center;"><img ${MARK}="${x.id}" src="${escapeHtml(resolve(x.ref!)!)}" style="${imageCss(rules)}"></p>` : '') : `<section ${MARK}="${x.id}" style="padding:0 ${rules.sidePadding}px;">${x.html}</section>`).join('');
     wrapper.insertAdjacentHTML('beforeend', tail);
     report.spilled += missing.length;
     out = root.toString();
@@ -1126,7 +1147,7 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
   if (!schema.summary.title && manuscript.title) report.warnings.push('模板没有标题位，已在开头按模板主色排出大标题，请检查版面。');
   if (report.spilled) report.warnings.push(`有 ${report.spilled} 处内容模板放不下，已按排版规范排在相邻位置，请检查版面。`);
   if (report.generated.length) report.warnings.push(`以下小标题由 AI 根据正文拟写，请核对：${report.generated.join('、')}`);
-  return { html: out, report };
+  return { html: options.mark ? out : stripAgentMarks(out), report };
 }
 
 /** Plan quality: share of manuscript pieces the plan itself placed. */
