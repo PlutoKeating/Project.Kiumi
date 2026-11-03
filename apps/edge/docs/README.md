@@ -26,7 +26,7 @@ Word 导入不增加 Worker 转换接口。扩展的 Worker/D1 回归验证导�
 - `docs.ts`：`commitOps` 在当前修订号上乐观写入（最多重试 4 次）并通知；`documentFrom` 把 `rev` 带进 `meta`。
 - `hub.ts`：`DocHub` Durable Object，每篇文稿一个，WebSocket Hibernation，不保存状态。`/api/documents/:id/live` 先校验会话与团队成员，再转发到 DO。
 - `manuscript.ts`：预签名导入（令牌绑定用户/团队/文稿，15 分钟，HMAC 密钥派生自 `KIUMI_DATA_KEY` 并按用途隔离）、重新排版、lint、预览链接、团队排版规范、模型路由（`/api/manuscript/annotate` 结构复核、`/api/manuscript/plan` 排版方案，只供网页；MCP 流程用 Agent 提交的 `plan` 或规则方案，不调用服务端模型）。
-- `llm.ts`：模型配置文档（D1 `settings` 的 `llm-config`，乐观锁，Key AES-GCM 加密、AAD 为提供商编号）、四种协议适配器、按用途的调用链与回退 `runModel`；每次调用重新读取配置，面板保存即生效。没有面板配置时回落旧的 `LLM_*` 变量。
+- `llm.ts`：模型配置文档（D1 `settings` 的 `llm-config`，乐观锁，Key AES-GCM 加密、AAD 为提供商编号）、四种协议适配器（按模型覆盖的协议与地址 `endpointOf`，统一附加 User-Agent 与可选的会话请求头）、按用途的调用链与回退 `runModel`（同一次导入的调用共用浏览器传来的 session）；每次调用重新读取配置，面板保存即生效。没有面板配置时回落旧的 `LLM_*` 变量。
 - `catalog.ts`：models.dev 格式模型目录，来源取面板设置或 `MODEL_CATALOG_URL`，Cache API 缓存 24 小时；`slimCatalog` 按 AI SDK 包名推断协议。
 - `admin.ts`：`/api/admin/*`，只允许 `KIUMI_ADMIN_SUBS` 中的网页登录用户；`test/admin.test.ts` 覆盖权限、目录、加密、乐观锁、回退、热更新与旧变量兼容。大文件流式转给数据服务，Worker 不在内存里解压。
 - 迁移 `0002_manuscripts.sql` 新增 `documents.rev`、`teams.typeset_rules`、`manuscripts`。已有 `INSERT INTO teams` 改为显式列名，避免新增列破坏位置参数写入。

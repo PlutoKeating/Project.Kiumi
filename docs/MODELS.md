@@ -10,7 +10,7 @@
 
 | 分区 | 内容 |
 |---|---|
-| 提供商 | 「添加提供商」从模型目录搜索（↑↓ Enter 选择），自动预填名称、协议、Base URL 与文档链接；也可手动添加。每家：名称、协议、Base URL（「↺ 目录值」恢复）、多把 Key（只写入，显示末 4 位，可停用、备注）、模型（从目录勾选，显示上下文/输出上限/价格/推理/图像输入/更新日期/弃用；也可手填 id）、逐个「测试」连通性、附加请求头、启用开关 |
+| 提供商 | 每家可设会话请求头与 User-Agent；模型行可覆盖协议与地址。「添加提供商」从模型目录搜索（↑↓ Enter 选择），自动预填名称、协议、Base URL 与文档链接；也可手动添加。每家：名称、协议、Base URL（「↺ 目录值」恢复）、多把 Key（只写入，显示末 4 位，可停用、备注）、模型（从目录勾选，显示上下文/输出上限/价格/推理/图像输入/更新日期/弃用；也可手填 id）、逐个「测试」连通性、附加请求头、启用开关 |
 | 调用顺序与用途 | 全局调用顺序：按住卡片左侧抓手拖动（经过的卡片弹性让位，松手后卡片滑入新位置），也可聚焦抓手按 ↑↓ 或点右侧箭头；标出提供商停用/模型停用/没有 Key；「结构识别」「风格编排」两个用途各自可指定模型顺序（不指定按全局顺序）、输出上限、单次超时 |
 | 模型目录 | 目录地址（models.dev 数据格式）；留空用部署变量 `MODEL_CATALOG_URL`；「立即刷新」 |
 
@@ -23,6 +23,9 @@
 - 协议：`openai-chat`（`/chat/completions`，新模型要求 `max_completion_tokens` 时自动改用）、`openai-responses`（`/responses`）、`anthropic-messages`（`/messages`）、`google-generative-ai`（`/models/{id}:generateContent`）。路径由协议决定，地址前缀即 Base URL。
 - Key 用 `KIUMI_DATA_KEY` 派生的 AES-GCM 密钥加密，提供商编号作附加数据（Key 不能挪到别的提供商；因此保存后编号不可改）。轮换 `KIUMI_DATA_KEY` 前要重新录入 Key。
 - 面板里还没有任何提供商时，沿用旧的部署变量 `LLM_API_URL / LLM_API_KEY / LLM_MODEL`（可选 `LLM_PROTOCOL`，默认 `openai-chat`；`LLM_API_URL` 写到 `/v1` 或完整的 `/chat/completions` 都可以）。面板保存过提供商后以面板为准。
+- 逐模型的协议与地址：同一家网关可能把不同模型放在不同接口上（OpenCode Go 的 `minimax-m3` 走 Anthropic Messages 的 `…/inference/go/anthropic/v1`，`minimax-m3.1-flash` 走 OpenAI Chat 的 `…/openai/v1`）。模型目录的模型级 `provider.npm` / `provider.api` 给出这一点，从目录勾选模型时自动带上，面板模型行也可改（协议选「跟随提供商协议」即不覆盖）。与提供商相同的值不单独保存。
+- 会话请求头与 User-Agent：提供商可设「会话请求头」，一次导入里的所有模型调用（结构识别与风格编排）都带同一个随机 id（网页生成并随请求传给 Worker；缺失时每次调用自动生成一个）；所有请求都带 User-Agent，默认 `kiumi-typesetter/1.0`，可按提供商修改。两者都不能通过「附加请求头」设置。
+- 网关预设：从目录添加 `opencode-go` / `opencode` 时自动把会话请求头设为 `x-opencode-session` 并提示其要求（官方文档要求每个会话带稳定的 `x-opencode-session` 并用可识别的 User-Agent，用于路由与提示缓存；流量受监控）；已保存但缺少时面板提示一键补上。
 - MCP 流程不调用这里的模型（Agent 用自己的模型提交 `plan`，见 [MCP.md](MCP.md)）。
 
 ## 模型目录
