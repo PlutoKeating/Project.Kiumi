@@ -58,7 +58,7 @@ export function ImportPanel() {
         setMessage('AI 正在按风格编排版面…');
         const result = await typesetPreview(source, styleTemplate.id, rules, patches, { session });
         current.current = result.preview; setStyled(result); setPreview({ ...result.preview });
-        setMessage(result.report.plan === 'model' ? '' : '未连接到排版模型，已按规则排版。');
+        setMessage(result.planStatus === 'model' ? '' : result.planStatus === 'rejected' ? '模型的排版方案未通过规范复核，已按规则排版。' : '未连接到排版模型，已按规则排版。');
       } else { current.current = source; setStyled(null); setPreview({ ...source }); setMessage(''); }
     } catch (error) { current.current = source; setStyled(null); setPreview({ ...source }); setMessage(`风格排版失败，已保留原文结构：${(error as Error).message}`); }
   };

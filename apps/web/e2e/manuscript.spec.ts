@@ -73,6 +73,44 @@ test('ZIP with Word and camera originals: placeholders are matched, ordered and 
   expect(r.html).not.toContain('​');
 });
 
+test('a model plan that fails review goes back with its problems, and the rule plan is used when it keeps failing', async ({ page }) => {
+  await harness(page);
+  const prompts: string[] = [];
+  let answer: unknown = { entries: [{ u: 2, t: { 0: ['p0'] } }] }; // drops most of the manuscript
+  await page.route('**/api/manuscript/plan', async route => { prompts.push(route.request().postDataJSON().prompt); await route.fulfill({ json: { ok: true, data: answer } }); });
+  const run = () => page.evaluate(async template => {
+    (await import('/src/api.ts')).setWorkspace('u', 't');
+    const core = await import('/@id/@kiumi/core');
+    const ty = await import('/src/lib/typeset-import.ts');
+    const T = (i: number, t: string) => ({ i, kind: 'text', text: t, html: `<p>${t}</p>` });
+    const facts = [T(0, '直播助力非遗传承'), T(1, '第一段正文内容，足够长以免被识别为标题，并以句号结尾。'), { i: 2, kind: 'image', text: '', html: '', images: ['a'] }, T(3, '第二段正文内容，同样足够长，并以句号结尾。')];
+    const m = core.assembleManuscript(facts as never, core.classifyFacts(facts as never));
+    return ty.requestPlan(template, m, core.DEFAULT_RULES);
+  }, TEMPLATE);
+
+  const failed = await run();
+  expect(failed.status).toBe('rejected');
+  expect(failed.plan).toBeNull();
+  expect(prompts.length).toBe(3); // first answer + two review rounds
+  expect(prompts[0]).not.toContain('程序复核');
+  expect(prompts[1]).toContain('程序复核发现以下问题，必须全部改正');
+  expect(prompts[1]).toContain('没有排进方案');
+  expect(prompts[1].startsWith(prompts[0])).toBe(true);
+
+  // A corrected answer in the review round is accepted.
+  prompts.length = 0;
+  let calls = 0;
+  await page.unroute('**/api/manuscript/plan');
+  await page.route('**/api/manuscript/plan', async route => {
+    prompts.push(route.request().postDataJSON().prompt);
+    const good = { entries: [{ u: 0, t: { 0: ['T'] } }, { u: 2, t: { 0: ['p0'] } }, { u: 3, img: ['f0'] }, { u: 4, t: { 0: ['p1'] } }] };
+    await route.fulfill({ json: { ok: true, data: calls++ ? good : answer } });
+  });
+  const fixed = await run();
+  expect(fixed.status).toBe('model');
+  expect(prompts.length).toBe(2);
+});
+
 test('local submission ZIP sample is recognized end to end', async ({ page }) => {
   const sample = process.env.KIUMI_ZIP_SAMPLE;
   test.skip(!sample, 'Set KIUMI_ZIP_SAMPLE (and optionally KIUMI_STYLE_RECORD) to try a real submission ZIP.');

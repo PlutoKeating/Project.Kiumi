@@ -1,4 +1,4 @@
-import { analyzeTemplate, assembleManuscript, classifyFacts, fillTemplate, manuscriptPieces, parsePlan, planPrompt, sanitizeHtml, applyAnnotations, annotationRequest, outlineOf, type Classified, type FillReport, type Manuscript, type PlanEntry, type SourceFact, type TypesetRules } from '@kiumi/core';
+import { analyzeTemplate, assembleManuscript, classifyFacts, fillTemplate, formatArticleTitle, manuscriptPieces, parsePlan, planPrompt, reviewPlan, reviewPrompt, sanitizeHtml, applyAnnotations, annotationRequest, outlineOf, type Classified, type FillReport, type Manuscript, type PlanEntry, type SourceFact, type TypesetRules } from '@kiumi/core';
 import * as api from '../api.ts';
 import type { ImportPreview } from './word-import/index.ts';
 
@@ -52,15 +52,38 @@ export interface StyledResult {
   preview: ImportPreview;
   report: FillReport;
   manuscript: Manuscript;
+  /** model: a reviewed model plan was used; unavailable: no model answered; rejected: the model's plans failed review. */
+  planStatus: PlanStatus;
 }
 
-/** Ask the server model how to lay the manuscript out in the template. Null when unavailable. */
-export async function requestPlan(templateHtml: string, manuscript: Manuscript, rules: TypesetRules, session?: string): Promise<PlanEntry[] | null> {
-  const prompt = planPrompt(analyzeTemplate(templateHtml), manuscriptPieces(manuscript, rules));
-  try {
-    const result = await api.request<{ entries: unknown }>('/api/manuscript/plan', { method: 'POST', body: JSON.stringify({ prompt, session }) });
-    return parsePlan(result.entries);
-  } catch { return null; }
+/** Review rounds a model plan gets after the first answer before falling back to the rule plan. */
+export const PLAN_REVIEW_ROUNDS = 2;
+
+/**
+ * Ask the server model how to lay the manuscript out in the template. Every
+ * answer goes through the mandatory review (`reviewPlan`); a plan with errors
+ * is sent back with its problems for another round. No plan when no model
+ * answers or no round produces a clean plan, so the rule plan is used instead.
+ */
+export type PlanStatus = 'model' | 'unavailable' | 'rejected';
+
+export async function requestPlan(templateHtml: string, manuscript: Manuscript, rules: TypesetRules, session?: string): Promise<{ plan: PlanEntry[] | null; status: PlanStatus }> {
+  const schema = analyzeTemplate(templateHtml);
+  const pieces = manuscriptPieces(manuscript, rules);
+  const base = planPrompt(schema, pieces);
+  let prompt = base;
+  for (let round = 0; round <= PLAN_REVIEW_ROUNDS; round++) {
+    let plan: PlanEntry[] | null;
+    try {
+      const result = await api.request<{ entries: unknown }>('/api/manuscript/plan', { method: 'POST', body: JSON.stringify({ prompt, session }) });
+      plan = parsePlan(result.entries);
+    } catch { return { plan: null, status: round ? 'rejected' : 'unavailable' }; }
+    if (!plan) return { plan: null, status: round ? 'rejected' : 'unavailable' };
+    const errors = reviewPlan(schema, pieces, plan).filter(x => x.level === 'error');
+    if (!errors.length) return { plan, status: 'model' };
+    prompt = reviewPrompt(base, plan, errors);
+  }
+  return { plan: null, status: 'rejected' };
 }
 
 /** Pour the recognized manuscript into a chosen style template, planned by the model when it answers in time. */
@@ -72,14 +95,15 @@ export async function typesetPreview(preview: ImportPreview, atomTplId: string, 
   const { manuscript } = recognize(preview, patches);
   const replacements = preview.replacements ?? {};
   const template = sanitizeHtml(record.html);
-  const plan = await Promise.race([requestPlan(template, manuscript, rules, options.session), new Promise<null>(resolve => setTimeout(() => resolve(null), options.planTimeoutMs ?? 60_000))]);
-  const { html, report } = fillTemplate(template, manuscript, { rules, plan, planSource: 'model', resolveImage: ref => replacements[ref] ?? ref });
+  const asked = await Promise.race([requestPlan(template, manuscript, rules, options.session), new Promise<{ plan: null; status: PlanStatus }>(resolve => setTimeout(() => resolve({ plan: null, status: 'unavailable' }), options.planTimeoutMs ?? 60_000))]);
+  const { html, report } = fillTemplate(template, manuscript, { rules, plan: asked.plan, planSource: 'model', resolveImage: ref => replacements[ref] ?? ref });
+  if (asked.status === 'rejected') report.warnings.unshift(`模型的排版方案经 ${PLAN_REVIEW_ROUNDS + 1} 轮复核仍不合格，已改用规则排版。`);
   const styled: ImportPreview = {
     ...preview,
-    title: manuscript.title || preview.title,
+    title: formatArticleTitle(manuscript.title || preview.title || '', rules),
     preserveLayout: true,
     items: [{ label: '风格排版稿件', block: { kind: 'library', id: `blk-${Date.now().toString(36)}`, tplId: record.atomTplId, matrix: [], html } }],
     issues: [...preview.issues, ...report.warnings.map(message => ({ location: report.plan === 'model' ? 'AI 排版' : '风格排版', message }))],
   };
-  return { preview: styled, report, manuscript };
+  return { preview: styled, report, manuscript, planStatus: report.plan === 'model' ? 'model' : asked.status === 'model' ? 'rejected' : asked.status };
 }
