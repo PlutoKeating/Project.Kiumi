@@ -102,3 +102,49 @@ test('unused label boxes are removed and flipped cards are set upright', () => {
   assert.ok(!html.includes('background:#eef'), 'label without a heading disappears with its box');
   assert.ok(!/rotateY\(180deg\)/.test(html), 'no mirrored copy or photo');
 });
+
+test('a smaller line in the title unit takes the subtitle; a long title breaks at its comma', () => {
+  // ph(6) is a 14-character headline, ph(2) a 6-character pill, as in shop templates.
+  const title = unit(`<div style="font-size:200%"><p><span style="color:rgb(149, 73, 49)">${ph(6)}</span></p></div><div style="border:1px solid"><p>${ph(2)}</p></div>`);
+  // Photo and copy in separate wrappers of one framed card.
+  const card = unit(`<div style="border:1px solid;padding:15px"><div><section><img src="/assets/x/y/mat/i/fvId/abc_sz-773899.jpg" style="width:100%"></section></div><div><section><p>${ph(120)}</p></section></div></div>`);
+  const tpl = `<section>${[title, text(120), card, text(120)].join('')}</section>`;
+  assert.deepEqual(analyzeTemplate(tpl).units.map(u => u.kind), ['title', 'text', 'mixed', 'text']);
+  const f = [
+    T(0, '直播助力非遗传承，文创赋能乡村振兴'),
+    T(1, '——走进广州从化罗洞工匠小镇'),
+    T(2, '第一段正文内容，足够长以免被识别为标题，并以句号结尾。'),
+    I(3, 'a'),
+    T(4, '第二段正文内容，同样足够长，并以句号结尾。'),
+  ];
+  const m = assembleManuscript(f, classifyFacts(f));
+  assert.equal(m.subtitle, '——走进广州从化罗洞工匠小镇');
+  const { html, report } = fillTemplate(tpl, m, { resolveImage: r => `/uploads/${r}.jpg` });
+  assert.match(html, /直播助力非遗传承<br>文创赋能乡村振兴/);
+  assert.match(html, />走进广州从化罗洞工匠小镇</);
+  assert.ok(!html.includes('——走进'), 'the pill drops the dash and the subtitle is not repeated');
+  assert.equal(report.spilled, 0);
+  assert.equal(report.subtitle, true);
+  const between = html.slice(html.indexOf('/uploads/a.jpg'), html.indexOf('第二段正文'));
+  assert.match(between, /<br>/, 'blank line between the photo and its copy inside the card');
+});
+
+test('a subtitle without a slot is a display line in the template accent, not body text', () => {
+  const title = unit(`<div style="font-size:200%"><p><span style="color:rgb(149, 73, 49)">${ph(14)}</span></p></div>`);
+  const tpl = `<section>${[title, text(120), photo, text(120)].join('')}</section>`;
+  const f = [
+    T(0, '直播助力非遗传承'),
+    T(1, '——走进广州从化罗洞工匠小镇'),
+    T(2, '第一段正文内容，足够长以免被识别为标题，并以句号结尾。'),
+    I(3, 'a'),
+    T(4, '第二段正文内容，同样足够长，并以句号结尾。'),
+  ];
+  const { html, report } = fillTemplate(tpl, assembleManuscript(f, classifyFacts(f)), { resolveImage: r => `/uploads/${r}.jpg` });
+  assert.match(html, /<p style="[^"]*font-size:16px;font-weight:bold;[^"]*color:rgb\(149, 73, 49\);">——走进广州从化罗洞工匠小镇<\/p>/);
+  assert.equal(html.split('走进广州从化罗洞工匠小镇').length, 2, 'set once');
+  assert.ok(html.indexOf('走进广州') < html.indexOf('第一段正文'));
+  assert.equal(report.spilled, 0);
+  const around = (a: string, b: string) => html.slice(html.indexOf(a), html.indexOf(b));
+  assert.match(around('第一段正文', '/uploads/a.jpg'), /<br>/);
+  assert.match(around('/uploads/a.jpg', '第二段正文'), /<br>/);
+});

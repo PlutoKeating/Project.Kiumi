@@ -328,6 +328,24 @@ const mainZone = (info: UnitInfo, min = NUM_ZONE + 1): number => {
   return best;
 };
 
+/**
+ * Zones of a title unit that carry the headline: about as large as the biggest
+ * line. A clearly smaller line beside them (a tag or pill) is a subtitle slot,
+ * not the second half of the title.
+ */
+function headlineZones(zones: Array<{ len: number; size: number }>): number[] {
+  const top = Math.max(0, ...zones.filter(z => z.len > NUM_ZONE).map(z => z.size));
+  return zones.map((z, i) => (z.len > NUM_ZONE && z.size >= top * 0.75 ? i : -1)).filter(i => i >= 0);
+}
+
+const titleSubZone = (info: UnitInfo): number => {
+  const head = headlineZones(info.zoneInfo);
+  return info.zoneInfo.findIndex((z, i) => z.len > NUM_ZONE && !head.includes(i));
+};
+
+/** A subtitle set in a template's tag or pill drops its leading dash. */
+const undash = (text: string) => text.replace(/^[\s—–\-－~～]+/, '').trim() || text;
+
 /** Deterministic plan: walk the manuscript and take the next unit that fits each piece. */
 export function autoPlan(schema: TemplateSchema, pieces: Piece[]): PlanEntry[] {
   const entries: PlanEntry[] = [];
@@ -347,7 +365,13 @@ export function autoPlan(schema: TemplateSchema, pieces: Piece[]): PlanEntry[] {
   };
 
   const byId = new Map(pieces.map(x => [x.id, x]));
-  if (title && byId.has('T')) entries.push({ u: title.index, t: { [String(Math.max(0, mainZone(title, 1)))]: ['T'] } });
+  if (title && byId.has('T')) {
+    const entry: PlanEntry = { u: title.index, t: { [String(Math.max(0, mainZone(title, 1)))]: ['T'] } };
+    // No subtitle unit of its own: the smaller line under the headline takes it.
+    const sub = titleSubZone(title);
+    if (!subtitle && byId.has('S') && sub >= 0) entry.t![String(sub)] = ['S'];
+    entries.push(entry);
+  }
   if (subtitle && byId.has('S')) entries.push({ u: subtitle.index, t: { [String(Math.max(0, mainZone(subtitle, 1)))]: ['S'] } });
 
   // Reading-order segments.
@@ -425,6 +449,7 @@ export function planPrompt(schema: TemplateSchema, pieces: Piece[], clip = 30): 
     '3. 图片编号只能放进有图片位的单元，数量不超过图片位；图文卡片的文字区放紧挨图片的正文。',
     '4. 小标题条（heading）若稿件没有对应小标题，可以按下面正文拟写一个不超过该区字数、不超过 12 字的短标题，直接写文字；不要编造事实。2-3 字的编号区可写 01、02…。',
     '5. 尽量让稿件结构与模板节奏一致：图文交替、每个小标题条后跟正文或图片。',
+    '6. title 单元里字号明显较小的文字区（标签、胶囊）放副标题 S，不要拿来放主标题的后半句；模板没有副标题位时不要列出 S，排版器会把它醒目地排在标题下方。',
     '只输出 JSON：{"entries":[{"u":单元号,"t":{"区号":["编号",…] 或 "拟写文字"},"img":["f0",…]}]}',
     '模板：',
     ...unitLines,
@@ -586,14 +611,41 @@ function fillPhotos(unit: HNode, urls: string[], rules: TypesetRules): number {
   return used;
 }
 
-function titleLines(title: string, zones: Zone[]): string[] {
-  const big = zones.filter(z => z.len > NUM_ZONE);
-  if (big.length >= 2 && title.includes(' ')) {
-    const mid = title.length / 2;
-    const cut = [...title].map((c, i) => (c === ' ' ? i : -1)).filter(i => i >= 0).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid))[0];
-    return [title.slice(0, cut).trim(), title.slice(cut + 1).trim()];
+/** Split a title at the space nearest its middle (commas became spaces under the house rules). */
+function halves(title: string): [string, string] | null {
+  if (!title.includes(' ')) return null;
+  const mid = title.length / 2;
+  const cut = [...title].map((c, i) => (c === ' ' ? i : -1)).filter(i => i >= 0).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid))[0];
+  return [title.slice(0, cut).trim(), title.slice(cut + 1).trim()];
+}
+
+/**
+ * Write the title over the headline zones: one half each, or two lines in one
+ * zone when it outgrows it. Returns how many zones it used.
+ */
+function setTitle(title: string, zones: Zone[]): number {
+  const split = halves(title);
+  if (zones.length >= 2 && split) {
+    setLine(zones[0], split[0]);
+    setLine(zones[1], split[1]);
+    return 2;
   }
-  return [title];
+  const zone = zones[0];
+  if (!zone) return 0;
+  setLine(zone, title);
+  if (split && [...title].length > zone.len + 2) zone.texts[0].rawText = `${escapeHtml(split[0])}<br>${escapeHtml(split[1])}`;
+  return 1;
+}
+
+/** The template's own accent: the colour of its title text. */
+function accentOf(node: HNode | undefined, fallback: string): string {
+  if (!node) return fallback;
+  for (const el of node.querySelectorAll('*')) {
+    if (!visibleText(el)) continue;
+    const c = styleOf(el, 'color');
+    if (c && !/^(#000(000)?|black|rgb\(\s*0\s*,\s*0\s*,\s*0\s*\))$/i.test(c)) return c;
+  }
+  return fallback;
 }
 
 const norm = (s: string) => s.replace(ZWS, '').replace(/&[a-z]+;/g, '');
@@ -609,6 +661,8 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
   const report: FillReport = { title: false, subtitle: false, paragraphs: 0, images: 0, removedUnits: 0, clonedUnits: 0, spilled: 0, generated: [], plan: options.planSource ?? 'auto', warnings: [] };
 
   const placed = new Map<string, HNode>();
+  /** Manuscript pictures in the output (by src), as opposed to template ornaments. */
+  const ours = new Set<string>();
   const usedOriginal = new Set<number>();
   type Instance = { node: HNode; info: UnitInfo; hasImage: boolean; hasText: boolean };
   const instances: Instance[] = [];
@@ -687,14 +741,17 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
       for (const x of value) placed.set(x.id, node);
       hasText = true;
       if (value.some(x => x.kind === 'title') && (info.kind === 'title' || zone.len <= 60)) {
-        const lines = titleLines(formatArticleTitle(manuscript.title, rules), zones);
-        const big = zones.map((z, i) => ({ z, i })).filter(({ z }) => z.len > NUM_ZONE);
-        big.forEach(({ z, i }, k) => { if (k < lines.length) { setLine(z, lines[k]); used.add(i); } });
+        // Only lines as large as the headline; a smaller tag beside it is left for the subtitle.
+        const subtitleZones = new Set([...textAssign.entries()].filter(([, v]) => Array.isArray(v) && v.some(x => x.kind === 'subtitle')).map(([i]) => i));
+        const head = headlineZones(zones).filter(i => !subtitleZones.has(i));
+        if (!head.includes(zi)) head.unshift(zi);
+        const n = setTitle(formatArticleTitle(manuscript.title, rules), head.map(i => zones[i]));
+        for (const i of head.slice(0, n)) used.add(i);
         report.title = true;
         continue;
       }
       const short = value.length === 1 && value[0].kind !== 'para' && zone.len < BODY_ZONE;
-      if (short) setLine(zone, value[0].text);
+      if (short) setLine(zone, value[0].kind === 'subtitle' ? undash(value[0].text) : value[0].text);
       else setBlock(zone, node, value.map(x => x.html).join(''), rules);
       if (value.some(x => x.kind === 'subtitle')) report.subtitle = true;
       report.paragraphs += value.filter(x => x.kind === 'para').length;
@@ -706,7 +763,9 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
     if (info.kind === 'heading') numberBadges(node);
 
     if (info.photos) {
-      report.images += fillPhotos(node, urls, rules);
+      const n = fillPhotos(node, urls, rules);
+      for (const u of urls.slice(0, n)) ours.add(u);
+      report.images += n;
       for (const x of images) placed.set(x.id, node);
     }
     unflipContent(node);
@@ -755,15 +814,20 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
       const src = resolve(piece.ref!);
       if (!src) { report.warnings.push('有图片无法解析，已跳过。'); continue; }
       markup = `<p style="margin:0;text-align:center;"><img src="${escapeHtml(src)}" style="${imageCss(rules)}"></p>`;
+      ours.add(src);
       report.images++;
+    } else if (piece.kind === 'subtitle') {
+      // No slot for it: still a display line under the title, in the template's accent.
+      const accent = accentOf(instances.find(x => x.info.kind === 'title')?.node, rules.textColor);
+      markup = `<section style="padding:0 ${rules.sidePadding}px;"><p style="margin:0;text-align:center;font-size:${rules.headingSize}px;font-weight:bold;line-height:1.75;letter-spacing:${rules.letterSpacing}px;color:${accent};">${escapeHtml(piece.text)}</p></section>${rules.blankAroundImages || rules.blankAtEdges ? blankLineHtml(rules) : ''}`;
+      report.subtitle = true;
     } else {
       markup = `<section style="padding:0 ${rules.sidePadding}px;">${piece.html}</section>`;
       if (piece.kind === 'para') report.paragraphs++;
-      if (piece.kind === 'subtitle') report.subtitle = true;
     }
-    report.spilled++;
     // A subtitle without a slot opens the body rather than squeezing under the title art.
     if (piece.kind === 'subtitle') previous = null;
+    else report.spilled++;
     const anchor = previous ?? firstBody ?? null;
     const last = groups.at(-1);
     if (last && last.anchor === anchor && last.before === !previous) { last.html.push(markup); last.hasImage ||= piece.kind === 'image'; }
@@ -779,14 +843,29 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
   }
 
   // Blank lines around pictures where the template itself has no spacer between.
+  // Units nest differently in every template (a photo and its text can sit in
+  // separate wrappers inside one card), so this works on reading order in the
+  // final tree: whatever directly precedes or follows a picture block.
   if (rules.blankAroundImages) {
-    instances.forEach((x, i) => {
-      const prev = instances[i - 1];
-      if (!prev || !x.node.parentNode) return;
-      const siblings = elements(x.node.parentNode as HNode);
-      if (siblings[siblings.indexOf(x.node) - 1] !== prev.node) return;
-      if ((prev.hasImage && (x.hasImage || x.hasText)) || (prev.hasText && x.hasImage)) x.node.insertAdjacentHTML('beforebegin', blank);
-    });
+    const isOurs = (img: HNode) => ours.has(img.getAttribute('src') ?? '');
+    const content = (el: HNode) => !!visibleText(el) || (el.tagName?.toLowerCase() === 'img' ? isOurs(el) : el.querySelectorAll('img').some(isOurs));
+    const neighbour = (node: HNode, dir: -1 | 1): HNode | null => {
+      for (let n: HNode = node; n !== wrapper && n.parentNode; n = n.parentNode as HNode) {
+        const sibs = elements(n.parentNode as HNode);
+        const s = sibs[sibs.indexOf(n) + dir];
+        if (s) return s;
+      }
+      return null;
+    };
+    for (const img of root.querySelectorAll('img').filter(isOurs)) {
+      // The picture block: the largest ancestor that holds no text (a photo row stays one block).
+      let block: HNode = img;
+      while (block.parentNode && block.parentNode !== wrapper && !visibleText(block.parentNode as HNode)) block = block.parentNode as HNode;
+      const before = neighbour(block, -1);
+      if (before && content(before)) before.insertAdjacentHTML('afterend', blank);
+      const after = neighbour(block, 1);
+      if (after && content(after)) after.insertAdjacentHTML('beforebegin', blank);
+    }
   }
   if (rules.blankAtEdges && instances.length) {
     const first = instances.find(x => x.info.kind !== 'title' && x.info.kind !== 'subtitle');
@@ -796,7 +875,7 @@ export function executePlan(html: string, manuscript: Manuscript, plan: PlanEntr
   // Last line of defence: every paragraph and picture must be in the output.
   let out = root.toString();
   const seen = norm(plain(out));
-  const missing = pieces.filter(x => x.kind !== 'title' && (x.kind === 'image' ? !out.includes(escapeHtml(resolve(x.ref!) ?? '\u0000')) : !seen.includes(norm(x.text).slice(0, 12))));
+  const missing = pieces.filter(x => x.kind !== 'title' && (x.kind === 'image' ? !out.includes(escapeHtml(resolve(x.ref!) ?? '\u0000')) : !seen.includes(norm(x.kind === 'subtitle' ? undash(x.text) : x.text).slice(0, 12))));
   if (missing.length) {
     const tail = missing.map(x => x.kind === 'image' ? (resolve(x.ref!) ? `<p style="margin:0;text-align:center;"><img src="${escapeHtml(resolve(x.ref!)!)}" style="${imageCss(rules)}"></p>` : '') : `<section style="padding:0 ${rules.sidePadding}px;">${x.html}</section>`).join('');
     wrapper.insertAdjacentHTML('beforeend', tail);
